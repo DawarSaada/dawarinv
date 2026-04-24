@@ -158,18 +158,22 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       }
   }, [currentUser, inventory, language, addToast]);
 
-  const isUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  const isUUID = (id: string) => {
+    if (!id) return false;
+    const trimmed = id.trim();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+  };
 
   const handleDeleteItem = useCallback(async (locationId: string, itemId: string) => {
      if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId && locationId !== 'all') return;
      if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
 
-     const itemIds = itemId.split(',');
+     const itemIds = itemId.split(',').map(id => id.trim()).filter(Boolean);
      
-     // Store original state for rollback
-     let originalInventory: Record<string, InventoryItem[]> = {};
+     // Store original state for rollback (shallow copy is enough because we replace arrays)
+     let originalInventory: Record<string, InventoryItem[]> | null = null;
      setInventory(prev => {
-         originalInventory = JSON.parse(JSON.stringify(prev)); // Deep copy
+         originalInventory = prev;
          const next = { ...prev };
          if (locationId === 'all') {
              Object.keys(next).forEach(loc => {
@@ -182,7 +186,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
      });
 
      try {
-         const validUUIDs = itemIds.filter(id => isUUID(id));
+         const validUUIDs = Array.from(new Set(itemIds.filter(id => isUUID(id))));
          if (validUUIDs.length > 0) {
              const { error } = await supabase.from('inventory_items').delete().in('id', validUUIDs);
              if (error) throw error;
@@ -190,9 +194,9 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
          addToast('success', language === 'ar' ? 'تم حذف العنصر بنجاح' : 'Item deleted successfully');
      } catch (error: any) {
          console.error("Error deleting item:", error);
-         addToast('error', language === 'ar' ? 'فشل حذف العنصر من قاعدة البيانات' : `Failed to delete from database: ${error.message || 'Unknown error'}`);
+         addToast('error', language === 'ar' ? `فشل الحذف: ${error.message || 'خطأ غير معروف'}` : `Deletion failed: ${error.message || 'Unknown error'}`);
          // Rollback local state
-         setInventory(originalInventory);
+         if (originalInventory) setInventory(originalInventory);
      }
   }, [currentUser, language, addToast]);
 
@@ -200,23 +204,25 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId && locationId !== 'all') return;
       if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
 
+      const cleanedIds = itemIds.map(id => id.trim()).filter(Boolean);
+
       // Store original state for rollback
-      let originalInventory: Record<string, InventoryItem[]> = {};
+      let originalInventory: Record<string, InventoryItem[]> | null = null;
       setInventory(prev => {
-          originalInventory = JSON.parse(JSON.stringify(prev));
+          originalInventory = prev;
           const next = { ...prev };
           if (locationId === 'all') {
               Object.keys(next).forEach(loc => {
-                  next[loc] = next[loc].filter(i => !itemIds.includes(i.id));
+                  next[loc] = next[loc].filter(i => !cleanedIds.includes(i.id));
               });
           } else {
-              next[locationId] = (next[locationId] || []).filter(i => !itemIds.includes(i.id));
+              next[locationId] = (next[locationId] || []).filter(i => !cleanedIds.includes(i.id));
           }
           return next;
       });
 
       try {
-          const validUUIDs = itemIds.filter(id => isUUID(id));
+          const validUUIDs = Array.from(new Set(cleanedIds.filter(id => isUUID(id))));
           if (validUUIDs.length > 0) {
               const { error } = await supabase.from('inventory_items').delete().in('id', validUUIDs);
               if (error) throw error;
@@ -224,9 +230,9 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           addToast('success', language === 'ar' ? 'تم حذف العناصر المختارة' : 'Selected items deleted successfully');
       } catch (error: any) {
           console.error("Error in bulk delete:", error);
-          addToast('error', language === 'ar' ? 'فشل حذف العناصر من قاعدة البيانات' : `Failed to delete from database: ${error.message || 'Unknown error'}`);
+          addToast('error', language === 'ar' ? `فشل الحذف الجماعي: ${error.message || 'خطأ غير معروف'}` : `Bulk deletion failed: ${error.message || 'Unknown error'}`);
           // Rollback local state
-          setInventory(originalInventory);
+          if (originalInventory) setInventory(originalInventory);
       }
   }, [currentUser, language, addToast]);
 
