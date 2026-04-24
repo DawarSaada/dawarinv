@@ -67,35 +67,49 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           [locationId]: [...(prev[locationId] || []), newItem]
       }));
 
-      const { data, error } = await supabase.from('inventory_items').insert([{
-          location_id: locationId,
-          name_en: item.nameEn,
-          name_ar: item.nameAr,
-          description: item.description,
-          category: item.category,
-          quantity: item.quantity,
-          unit: item.unit,
-          min_threshold: item.minThreshold,
-          expiration_date: item.expirationDate || null,
-          barcode: item.barcode || null
-      }]).select();
+      try {
+          const { data, error } = await supabase.from('inventory_items').insert([{
+              location_id: locationId,
+              name_en: item.nameEn,
+              name_ar: item.nameAr,
+              description: item.description,
+              category: item.category,
+              quantity: item.quantity,
+              unit: item.unit,
+              min_threshold: item.minThreshold,
+              expiration_date: item.expirationDate || null,
+              barcode: item.barcode || null
+          }]).select();
 
-      if (!error && data && data[0]) {
-          const realItem: InventoryItem = {
-              id: data[0].id,
-              locationId: data[0].location_id,
-              nameEn: data[0].name_en,
-              nameAr: data[0].name_ar,
-              description: data[0].description,
-              category: data[0].category,
-              quantity: data[0].quantity,
-              unit: data[0].unit,
-              minThreshold: data[0].min_threshold,
-              lastUpdated: data[0].last_updated
-          };
+          if (error) throw error;
+
+          if (data && data[0]) {
+              const realItem: InventoryItem = {
+                  id: data[0].id,
+                  locationId: data[0].location_id,
+                  nameEn: data[0].name_en,
+                  nameAr: data[0].name_ar,
+                  description: data[0].description,
+                  category: data[0].category,
+                  quantity: data[0].quantity,
+                  unit: data[0].unit,
+                  minThreshold: data[0].min_threshold,
+                  lastUpdated: data[0].last_updated,
+                  expirationDate: data[0].expiration_date,
+                  barcode: data[0].barcode
+              };
+              setInventory(prev => ({
+                  ...prev,
+                  [locationId]: prev[locationId].map(i => i.id === tempId ? realItem : i)
+              }));
+          }
+      } catch (error: any) {
+          console.error("Error adding item:", error);
+          addToast('error', language === 'ar' ? 'فشل إضافة العنصر' : `Failed to add item: ${error.message || 'Unknown error'}`);
+          // Rollback local state
           setInventory(prev => ({
               ...prev,
-              [locationId]: prev[locationId].map(i => i.id === tempId ? realItem : i)
+              [locationId]: prev[locationId].filter(i => i.id !== tempId)
           }));
       }
   }, [currentUser, inventory, language, addToast]);
@@ -123,39 +137,96 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           [locationId]: (prev[locationId] || []).map(i => i.id === updatedItem.id ? updatedItem : i)
       }));
 
-      await supabase.from('inventory_items').update({
-          name_en: updatedItem.nameEn,
-          name_ar: updatedItem.nameAr,
-          description: updatedItem.description,
-          category: updatedItem.category,
-          quantity: updatedItem.quantity,
-          unit: updatedItem.unit,
-          min_threshold: updatedItem.minThreshold,
-          expiration_date: updatedItem.expirationDate || null,
-          barcode: updatedItem.barcode || null
-      }).eq('id', updatedItem.id).then(({error}) => { if (error) throw error; });
+      try {
+          const { error } = await supabase.from('inventory_items').update({
+              name_en: updatedItem.nameEn,
+              name_ar: updatedItem.nameAr,
+              description: updatedItem.description,
+              category: updatedItem.category,
+              quantity: updatedItem.quantity,
+              unit: updatedItem.unit,
+              min_threshold: updatedItem.minThreshold,
+              expiration_date: updatedItem.expirationDate || null,
+              barcode: updatedItem.barcode || null
+          }).eq('id', updatedItem.id);
+
+          if (error) throw error;
+      } catch (error: any) {
+          console.error("Error editing item:", error);
+          addToast('error', language === 'ar' ? 'فشل تعديل العنصر' : `Failed to update item: ${error.message || 'Unknown error'}`);
+          // Note: Rollback would be complex here, maybe re-fetch or keep the optimistic update and let the next fetch fix it
+      }
   }, [currentUser, inventory, language, addToast]);
 
+  const isUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
   const handleDeleteItem = useCallback(async (locationId: string, itemId: string) => {
-     if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId) return;
-     if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal') return;
+     if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId && locationId !== 'all') return;
+     if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
 
-     setInventory(prev => ({
-         ...prev,
-         [locationId]: (prev[locationId] || []).filter(i => i.id !== itemId)
-     }));
+     const itemIds = itemId.split(',');
 
-     await supabase.from('inventory_items').delete().eq('id', itemId).then(({error}) => { if (error) throw error; });
-  }, [currentUser]);
+     try {
+         if (locationId === 'all') {
+             // If deleting from global view, we need to find which location the items actually belong to
+             setInventory(prev => {
+                 const next = { ...prev };
+                 Object.keys(next).forEach(loc => {
+                     next[loc] = next[loc].filter(i => !itemIds.includes(i.id));
+                 });
+                 return next;
+             });
+         } else {
+             setInventory(prev => ({
+                 ...prev,
+                 [locationId]: (prev[locationId] || []).filter(i => !itemIds.includes(i.id))
+             }));
+         }
+
+         // Only attempt database delete for valid UUIDs
+         const validUUIDs = itemIds.filter(id => isUUID(id));
+         if (validUUIDs.length > 0) {
+             const { error } = await supabase.from('inventory_items').delete().in('id', validUUIDs);
+             if (error) throw error;
+         }
+         addToast('success', language === 'ar' ? 'تم حذف العنصر بنجاح' : 'Item deleted successfully');
+     } catch (error: any) {
+         console.error("Error deleting item:", error);
+         addToast('error', language === 'ar' ? 'فشل حذف العنصر' : `Failed to delete item: ${error.message || 'Unknown error'}`);
+     }
+  }, [currentUser, language, addToast]);
 
   const handleBulkDeleteItems = useCallback(async (locationId: string, itemIds: string[]) => {
-      setInventory(prev => ({
-          ...prev,
-          [locationId]: (prev[locationId] || []).filter(i => !itemIds.includes(i.id))
-      }));
+      if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId && locationId !== 'all') return;
+      if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
 
-      await supabase.from('inventory_items').delete().in('id', itemIds).then(({error}) => { if (error) throw error; });
-  }, []);
+      try {
+          if (locationId === 'all') {
+              setInventory(prev => {
+                  const next = { ...prev };
+                  Object.keys(next).forEach(loc => {
+                      next[loc] = next[loc].filter(i => !itemIds.includes(i.id));
+                  });
+                  return next;
+              });
+          } else {
+              setInventory(prev => ({
+                  ...prev,
+                  [locationId]: (prev[locationId] || []).filter(i => !itemIds.includes(i.id))
+              }));
+          }
+
+          const validUUIDs = itemIds.filter(id => isUUID(id));
+          if (validUUIDs.length > 0) {
+              const { error } = await supabase.from('inventory_items').delete().in('id', validUUIDs);
+              if (error) throw error;
+          }
+          addToast('success', language === 'ar' ? 'تم حذف العناصر المختارة' : 'Selected items deleted successfully');
+      } catch (error: any) {
+          console.error("Error in bulk delete:", error);
+          addToast('error', language === 'ar' ? 'فشل حذف العناصر' : `Failed to delete items: ${error.message || 'Unknown error'}`);
+      }
+  }, [currentUser, language, addToast]);
 
   const handleBulkEditItems = useCallback(async (locationId: string, itemIds: string[], updates: Partial<InventoryItem>) => {
       setInventory(prev => ({

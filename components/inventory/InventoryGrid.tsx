@@ -82,7 +82,7 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
             return (
               <div 
                 key={item.id} 
-                onClick={() => !isGlobalView && toggleItemSelection(item.id)}
+                onClick={() => toggleItemSelection(item.id)}
                 className={`bg-white dark:bg-gray-800 rounded-xl p-3 border hover:border-brand-300 dark:hover:border-brand-700 shadow-sm hover:shadow-md transition-all relative flex flex-col items-center text-center cursor-pointer ${isSelected ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 dark:border-gray-700'} ${expired ? 'border-red-500' : expiringSoon ? 'border-yellow-500' : ''}`}
               >
                   {isSelected && (
@@ -131,10 +131,9 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
             return (
                 <div 
                   key={item.id} 
-                  onClick={() => !isGlobalView && toggleItemSelection(item.id)}
+                  onClick={() => toggleItemSelection(item.id)}
                   className={`bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 border hover:border-brand-300 dark:hover:border-brand-700 shadow-sm flex items-center gap-4 cursor-pointer ${isSelected ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 dark:border-gray-700'} ${expired ? 'border-red-500' : expiringSoon ? 'border-yellow-500' : ''}`}
                 >
-                    {!isGlobalView && (
                       <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-brand-600 border-brand-600' : 'border-gray-300 dark:border-gray-600'}`}>
                         {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
                       </div>
@@ -199,14 +198,12 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
         return (
           <div 
             key={item.id} 
-            onClick={() => !isGlobalView && toggleItemSelection(item.id)}
+            onClick={() => toggleItemSelection(item.id)}
             className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border hover:border-brand-300 dark:hover:border-brand-700 shadow-sm hover:shadow-md transition-all group relative cursor-pointer ${isSelected ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 dark:border-gray-700'} ${expired ? 'border-red-500' : expiringSoon ? 'border-yellow-500' : ''}`}
           >
-            {!isGlobalView && (
               <div className={`absolute top-4 left-4 z-10 w-6 h-6 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'bg-brand-600 border-brand-600 scale-110' : 'bg-white/80 dark:bg-gray-800/80 border-gray-300 dark:border-gray-600 opacity-0 group-hover:opacity-100'}`}>
                 {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
               </div>
-            )}
             
             {isLowStock && (
               <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-10">

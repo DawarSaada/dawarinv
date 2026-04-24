@@ -297,17 +297,19 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
   const handleBulkDelete = () => {
     if (window.confirm(t.confirmDelete)) {
-      onBulkDeleteItems(locationId, Array.from(selectedItemIds));
+      const allIds = Array.from(selectedItemIds).flatMap(id => id.split(','));
+      onBulkDeleteItems(locationId, allIds);
       setSelectedItemIds(new Set());
     }
   };
 
   const handleBulkTransfer = () => {
-    const selectedItemsData = Array.from(selectedItemIds).map(id => {
-      return {
-        itemId: id,
+    const selectedItemsData = Array.from(selectedItemIds).flatMap(id => {
+      const ids = id.split(',');
+      return ids.map(individualId => ({
+        itemId: individualId,
         quantity: 0
-      };
+      }));
     });
     
     setPdfTransferData({
@@ -322,7 +324,8 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   };
 
   const handleBulkEditSave = (updates: Partial<InventoryItem>) => {
-    onBulkEditItems(locationId, Array.from(selectedItemIds), updates);
+    const allIds = Array.from(selectedItemIds).flatMap(id => id.split(','));
+    onBulkEditItems(locationId, allIds, updates);
     setSelectedItemIds(new Set());
   };
 

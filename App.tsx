@@ -405,7 +405,7 @@ const App: React.FC = () => {
     if (selectedLocation !== 'all') return rawItems;
 
     // Consolidate global view: group by nameEn + nameAr + category + unit
-    const grouped: Record<string, InventoryItem & { locationNames: string[] }> = {};
+    const grouped: Record<string, InventoryItem & { locationNames: string[], allIds: string[] }> = {};
     
     rawItems.forEach(item => {
       // Use a composite key for grouping
@@ -415,7 +415,8 @@ const App: React.FC = () => {
           grouped[key] = {
               ...item,
               quantity: Number(item.quantity),
-              locationNames: locName ? [locName] : []
+              locationNames: locName ? [locName] : [],
+              allIds: [item.id]
           };
       } else {
           grouped[key].quantity += Number(item.quantity);
@@ -423,11 +424,13 @@ const App: React.FC = () => {
           if (locName && !grouped[key].locationNames.includes(locName)) {
               grouped[key].locationNames.push(locName);
           }
+          grouped[key].allIds.push(item.id);
       }
     });
 
     return Object.values(grouped).map(item => ({
         ...item,
+        id: item.allIds.join(','), // Use joined IDs as the temporary ID for selection
         locationId: item.locationNames.join(', ') // Display joined location names in the locationId field for global view
     }));
   }, [inventory, selectedLocation, availableLocations]);
