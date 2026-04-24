@@ -165,25 +165,23 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
      if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
 
      const itemIds = itemId.split(',');
-
-     try {
+     
+     // Store original state for rollback
+     let originalInventory: Record<string, InventoryItem[]> = {};
+     setInventory(prev => {
+         originalInventory = JSON.parse(JSON.stringify(prev)); // Deep copy
+         const next = { ...prev };
          if (locationId === 'all') {
-             // If deleting from global view, we need to find which location the items actually belong to
-             setInventory(prev => {
-                 const next = { ...prev };
-                 Object.keys(next).forEach(loc => {
-                     next[loc] = next[loc].filter(i => !itemIds.includes(i.id));
-                 });
-                 return next;
+             Object.keys(next).forEach(loc => {
+                 next[loc] = next[loc].filter(i => !itemIds.includes(i.id));
              });
          } else {
-             setInventory(prev => ({
-                 ...prev,
-                 [locationId]: (prev[locationId] || []).filter(i => !itemIds.includes(i.id))
-             }));
+             next[locationId] = (next[locationId] || []).filter(i => !itemIds.includes(i.id));
          }
+         return next;
+     });
 
-         // Only attempt database delete for valid UUIDs
+     try {
          const validUUIDs = itemIds.filter(id => isUUID(id));
          if (validUUIDs.length > 0) {
              const { error } = await supabase.from('inventory_items').delete().in('id', validUUIDs);
@@ -192,7 +190,9 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
          addToast('success', language === 'ar' ? 'تم حذف العنصر بنجاح' : 'Item deleted successfully');
      } catch (error: any) {
          console.error("Error deleting item:", error);
-         addToast('error', language === 'ar' ? 'فشل حذف العنصر' : `Failed to delete item: ${error.message || 'Unknown error'}`);
+         addToast('error', language === 'ar' ? 'فشل حذف العنصر من قاعدة البيانات' : `Failed to delete from database: ${error.message || 'Unknown error'}`);
+         // Rollback local state
+         setInventory(originalInventory);
      }
   }, [currentUser, language, addToast]);
 
@@ -200,22 +200,22 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId && locationId !== 'all') return;
       if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
 
-      try {
+      // Store original state for rollback
+      let originalInventory: Record<string, InventoryItem[]> = {};
+      setInventory(prev => {
+          originalInventory = JSON.parse(JSON.stringify(prev));
+          const next = { ...prev };
           if (locationId === 'all') {
-              setInventory(prev => {
-                  const next = { ...prev };
-                  Object.keys(next).forEach(loc => {
-                      next[loc] = next[loc].filter(i => !itemIds.includes(i.id));
-                  });
-                  return next;
+              Object.keys(next).forEach(loc => {
+                  next[loc] = next[loc].filter(i => !itemIds.includes(i.id));
               });
           } else {
-              setInventory(prev => ({
-                  ...prev,
-                  [locationId]: (prev[locationId] || []).filter(i => !itemIds.includes(i.id))
-              }));
+              next[locationId] = (next[locationId] || []).filter(i => !itemIds.includes(i.id));
           }
+          return next;
+      });
 
+      try {
           const validUUIDs = itemIds.filter(id => isUUID(id));
           if (validUUIDs.length > 0) {
               const { error } = await supabase.from('inventory_items').delete().in('id', validUUIDs);
@@ -224,7 +224,9 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           addToast('success', language === 'ar' ? 'تم حذف العناصر المختارة' : 'Selected items deleted successfully');
       } catch (error: any) {
           console.error("Error in bulk delete:", error);
-          addToast('error', language === 'ar' ? 'فشل حذف العناصر' : `Failed to delete items: ${error.message || 'Unknown error'}`);
+          addToast('error', language === 'ar' ? 'فشل حذف العناصر من قاعدة البيانات' : `Failed to delete from database: ${error.message || 'Unknown error'}`);
+          // Rollback local state
+          setInventory(originalInventory);
       }
   }, [currentUser, language, addToast]);
 

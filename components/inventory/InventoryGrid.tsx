@@ -137,7 +137,6 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
                       <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-brand-600 border-brand-600' : 'border-gray-300 dark:border-gray-600'}`}>
                         {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
                       </div>
-                    )}
                     <div className={`p-3 rounded-lg hidden sm:block ${isLowStock ? 'bg-red-50 dark:bg-red-900/20 text-red-600' : 'bg-brand-50 dark:bg-brand-900/20 text-brand-600'}`}>
                         <Package className="w-6 h-6" />
                     </div>
