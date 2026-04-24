@@ -224,8 +224,13 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       try {
           const validUUIDs = Array.from(new Set(cleanedIds.filter(id => isUUID(id))));
           if (validUUIDs.length > 0) {
-              const { error } = await supabase.from('inventory_items').delete().in('id', validUUIDs);
-              if (error) throw error;
+              // Chunk deletions to avoid URL length limits (approx 50 UUIDs per chunk is safe)
+              const chunkSize = 50;
+              for (let i = 0; i < validUUIDs.length; i += chunkSize) {
+                  const chunk = validUUIDs.slice(i, i + chunkSize);
+                  const { error } = await supabase.from('inventory_items').delete().in('id', chunk);
+                  if (error) throw error;
+              }
           }
           addToast('success', language === 'ar' ? 'تم حذف العناصر المختارة' : 'Selected items deleted successfully');
       } catch (error: any) {
@@ -237,9 +242,11 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
   }, [currentUser, language, addToast]);
 
   const handleBulkEditItems = useCallback(async (locationId: string, itemIds: string[], updates: Partial<InventoryItem>) => {
+      const cleanedIds = itemIds.map(id => id.trim()).filter(Boolean);
+      
       setInventory(prev => ({
           ...prev,
-          [locationId]: (prev[locationId] || []).map(i => itemIds.includes(i.id) ? { ...i, ...updates } : i)
+          [locationId]: (prev[locationId] || []).map(i => cleanedIds.includes(i.id) ? { ...i, ...updates } : i)
       }));
 
       const dbUpdates: any = {};
@@ -247,8 +254,23 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       if (updates.unit) dbUpdates.unit = updates.unit;
       if (updates.minThreshold !== undefined) dbUpdates.min_threshold = updates.minThreshold;
 
-      await supabase.from('inventory_items').update(dbUpdates).in('id', itemIds).then(({error}) => { if (error) throw error; });
-  }, []);
+      if (Object.keys(dbUpdates).length === 0) return;
+
+      try {
+          const validUUIDs = Array.from(new Set(cleanedIds.filter(id => isUUID(id))));
+          if (validUUIDs.length > 0) {
+              const chunkSize = 50;
+              for (let i = 0; i < validUUIDs.length; i += chunkSize) {
+                  const chunk = validUUIDs.slice(i, i + chunkSize);
+                  const { error } = await supabase.from('inventory_items').update(dbUpdates).in('id', chunk);
+                  if (error) throw error;
+              }
+          }
+      } catch (error: any) {
+          console.error("Error in bulk edit:", error);
+          addToast('error', language === 'ar' ? `فشل التعديل الجماعي: ${error.message || 'خطأ غير معروف'}` : `Bulk update failed: ${error.message || 'Unknown error'}`);
+      }
+  }, [addToast, language]);
 
   const handleTransfer = useCallback(async (items: { itemId: string, quantity: number }[], toLocation: LocationId, sourceOverride?: LocationId) => {
     if (!currentUser) return;
