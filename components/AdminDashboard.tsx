@@ -74,13 +74,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         addToast('success', language === 'ar' ? 'تم حفظ الإعدادات' : 'Settings saved');
     };
 
-    const handleManualCleanUp = async () => {
+    const [cleanupConfirm, setCleanupConfirm] = useState(false);
+
+    const handleManualCleanUp = () => {
         if (onCleanUpTransactions) {
-            if (window.confirm(language === 'ar' ? 'هل أنت متأكد من حذف السجلات القديمة؟' : 'Are you sure you want to delete old records?')) {
-                await onCleanUpTransactions(retentionMonths);
-                addToast('success', language === 'ar' ? 'تم التنظيف بنجاح' : 'Cleanup completed successfully');
-            }
+            setCleanupConfirm(true);
         }
+    };
+
+    const executeCleanUp = async () => {
+        if (onCleanUpTransactions) {
+            await onCleanUpTransactions(retentionMonths);
+            addToast('success', language === 'ar' ? 'تم التنظيف بنجاح' : 'Cleanup completed successfully');
+        }
+        setCleanupConfirm(false);
     };
 
     // User Management State
@@ -390,6 +397,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onConfirm={executeDeletion}
                 title={t.confirmDeleteTitle}
                 message={`${confirmDelete.type === 'user' ? t.confirmDeleteUser : t.confirmDeleteItem}: "${confirmDelete.name}"?`}
+                language={language}
+                danger={true}
+            />
+
+            <ConfirmationModal
+                isOpen={cleanupConfirm}
+                onClose={() => setCleanupConfirm(false)}
+                onConfirm={executeCleanUp}
+                title={language === 'ar' ? 'تنظيف السجلات' : 'Clean Up Records'}
+                message={language === 'ar' ? `سيتم حذف جميع السجلات الأقدم من ${retentionMonths} شهر. لا يمكن التراجع عن هذا الإجراء.` : `All records older than ${retentionMonths} month(s) will be permanently deleted. This cannot be undone.`}
                 language={language}
                 danger={true}
             />

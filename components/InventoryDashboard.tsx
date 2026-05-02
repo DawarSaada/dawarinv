@@ -107,6 +107,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{isOpen: boolean; itemId: string; itemName: string}>({isOpen: false, itemId: '', itemName: ''});
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   // Dropdown states
   const [activeDropdown, setActiveDropdown] = useState<'view' | 'sort' | 'filter' | null>(null);
@@ -296,11 +297,14 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   };
 
   const handleBulkDelete = () => {
-    if (window.confirm(t.confirmDelete)) {
-      const allIds = Array.from(selectedItemIds).flatMap(id => id.split(','));
-      onBulkDeleteItems(locationId, allIds);
-      setSelectedItemIds(new Set());
-    }
+    setBulkDeleteConfirm(true);
+  };
+
+  const executeBulkDelete = () => {
+    const allIds = Array.from(selectedItemIds).flatMap(id => id.split(','));
+    onBulkDeleteItems(locationId, allIds);
+    setSelectedItemIds(new Set());
+    setBulkDeleteConfirm(false);
   };
 
   const handleBulkTransfer = () => {
@@ -552,6 +556,16 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         onConfirm={() => { onDeleteItem(locationId, deleteConfirm.itemId); setDeleteConfirm({isOpen: false, itemId: '', itemName: ''}); }}
         title={t.confirmDeleteTitle}
         message={`${t.confirmDeleteItem}: "${deleteConfirm.itemName}"?`}
+        language={language}
+        danger={true}
+      />
+
+      <ConfirmationModal
+        isOpen={bulkDeleteConfirm}
+        onClose={() => setBulkDeleteConfirm(false)}
+        onConfirm={executeBulkDelete}
+        title={t.confirmDeleteTitle}
+        message={language === 'ar' ? `هل أنت متأكد من حذف ${selectedItemIds.size} عنصر، لا يمكن التراجع عن هذا الإجراء.` : `Are you sure you want to delete ${selectedItemIds.size} item(s)? This action cannot be undone.`}
         language={language}
         danger={true}
       />

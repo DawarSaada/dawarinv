@@ -77,6 +77,7 @@ const App: React.FC = () => {
     setInventory,
     transactions,
     setTransactions,
+    isMutating,
     handleCleanUpTransactions,
     handleAddItem,
     handleEditItem,
@@ -220,8 +221,11 @@ const App: React.FC = () => {
       // Debounce fetchData to avoid multiple rapid calls from real-time updates
       let debounceTimer: any;
       const debouncedFetch = () => {
+        // Skip re-fetch if a local mutation is in progress to prevent
+        // overwriting optimistic UI updates with stale DB data
+        if (isMutating.current) return;
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => fetchData(true), 500);
+        debounceTimer = setTimeout(() => fetchData(true), 800);
       };
 
       // Set up real-time subscriptions
@@ -250,6 +254,7 @@ const App: React.FC = () => {
         supabase.removeChannel(txSubscription);
         supabase.removeChannel(invSubscription);
       };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 

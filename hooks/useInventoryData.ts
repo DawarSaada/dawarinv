@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { InventoryItem, Transaction, TransactionType, TransactionStatus, LocationId, User, LocationData, Language } from '../types';
 import { supabase } from '../services/supabase';
 import { generateId } from '../constants';
@@ -13,22 +13,27 @@ interface UseInventoryDataProps {
 export const useInventoryData = ({ currentUser, selectedLocation, language, addToast }: UseInventoryDataProps) => {
   const [inventory, setInventory] = useState<Record<string, InventoryItem[]>>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Mutation lock: prevents real-time subscription from overwriting optimistic updates
+  const isMutating = useRef(false);
 
   const handleCleanUpTransactions = useCallback(async (months: number) => {
       if (months === 0) return; // 0 means never
       const cutoffDate = new Date();
       cutoffDate.setMonth(cutoffDate.getMonth() - months);
       const cutoffString = cutoffDate.toISOString();
-
-      const { error } = await supabase
-          .from('transactions')
-          .delete()
-          .lt('date', cutoffString);
-
-      if (error) {
-          console.error("Error cleaning up transactions:", error);
-      } else {
-          setTransactions(prev => prev.filter(t => new Date(t.date) >= cutoffDate));
+      isMutating.current = true;
+      try {
+          const { error } = await supabase
+              .from('transactions')
+              .delete()
+              .lt('date', cutoffString);
+          if (error) {
+              console.error("Error cleaning up transactions:", error);
+          } else {
+              setTransactions(prev => prev.filter(t => new Date(t.date) >= cutoffDate));
+          }
+      } finally {
+          isMutating.current = false;
       }
   }, []);
 
@@ -67,6 +72,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           [locationId]: [...(prev[locationId] || []), newItem]
       }));
 
+      isMutating.current = true;
       try {
           const { data, error } = await supabase.from('inventory_items').insert([{
               location_id: locationId,
@@ -111,6 +117,8 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
               ...prev,
               [locationId]: prev[locationId].filter(i => i.id !== tempId)
           }));
+      } finally {
+          isMutating.current = false;
       }
   }, [currentUser, inventory, language, addToast]);
 
@@ -137,6 +145,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           [locationId]: (prev[locationId] || []).map(i => i.id === updatedItem.id ? updatedItem : i)
       }));
 
+      isMutating.current = true;
       try {
           const { error } = await supabase.from('inventory_items').update({
               name_en: updatedItem.nameEn,
@@ -154,7 +163,8 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       } catch (error: any) {
           console.error("Error editing item:", error);
           addToast('error', language === 'ar' ? 'فشل تعديل العنصر' : `Failed to update item: ${error.message || 'Unknown error'}`);
-          // Note: Rollback would be complex here, maybe re-fetch or keep the optimistic update and let the next fetch fix it
+      } finally {
+          isMutating.current = false;
       }
   }, [currentUser, inventory, language, addToast]);
 
@@ -185,6 +195,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
          return next;
      });
 
+     isMutating.current = true;
      try {
          const validUUIDs = Array.from(new Set(itemIds.filter(id => isUUID(id))));
          if (validUUIDs.length > 0) {
@@ -197,6 +208,8 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
          addToast('error', language === 'ar' ? `فشل الحذف: ${error.message || 'خطأ غير معروف'}` : `Deletion failed: ${error.message || 'Unknown error'}`);
          // Rollback local state
          if (originalInventory) setInventory(originalInventory);
+     } finally {
+         isMutating.current = false;
      }
   }, [currentUser, language, addToast]);
 
@@ -221,6 +234,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           return next;
       });
 
+      isMutating.current = true;
       try {
           const validUUIDs = Array.from(new Set(cleanedIds.filter(id => isUUID(id))));
           if (validUUIDs.length > 0) {
@@ -238,16 +252,28 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           addToast('error', language === 'ar' ? `فشل الحذف الجماعي: ${error.message || 'خطأ غير معروف'}` : `Bulk deletion failed: ${error.message || 'Unknown error'}`);
           // Rollback local state
           if (originalInventory) setInventory(originalInventory);
+      } finally {
+          isMutating.current = false;
       }
   }, [currentUser, language, addToast]);
 
   const handleBulkEditItems = useCallback(async (locationId: string, itemIds: string[], updates: Partial<InventoryItem>) => {
       const cleanedIds = itemIds.map(id => id.trim()).filter(Boolean);
       
-      setInventory(prev => ({
-          ...prev,
-          [locationId]: (prev[locationId] || []).map(i => cleanedIds.includes(i.id) ? { ...i, ...updates } : i)
-      }));
+      // Apply optimistic update across the correct location(s)
+      setInventory(prev => {
+          if (locationId === 'all') {
+              const next = { ...prev };
+              Object.keys(next).forEach(loc => {
+                  next[loc] = next[loc].map(i => cleanedIds.includes(i.id) ? { ...i, ...updates } : i);
+              });
+              return next;
+          }
+          return {
+              ...prev,
+              [locationId]: (prev[locationId] || []).map(i => cleanedIds.includes(i.id) ? { ...i, ...updates } : i)
+          };
+      });
 
       const dbUpdates: any = {};
       if (updates.category) dbUpdates.category = updates.category;
@@ -256,6 +282,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
 
       if (Object.keys(dbUpdates).length === 0) return;
 
+      isMutating.current = true;
       try {
           const validUUIDs = Array.from(new Set(cleanedIds.filter(id => isUUID(id))));
           if (validUUIDs.length > 0) {
@@ -269,6 +296,8 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       } catch (error: any) {
           console.error("Error in bulk edit:", error);
           addToast('error', language === 'ar' ? `فشل التعديل الجماعي: ${error.message || 'خطأ غير معروف'}` : `Bulk update failed: ${error.message || 'Unknown error'}`);
+      } finally {
+          isMutating.current = false;
       }
   }, [addToast, language]);
 
@@ -324,13 +353,15 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
     setTransactions(prev => [...newTransactions, ...prev]);
 
     if (newTransactions.length > 0) {
+        isMutating.current = true;
         try {
             if (isManagerOfSource) {
+                // Use updatedSourceInventory (which already has subtracted quantities)
                 for (const item of items) {
-                    const sourceItem = (inventory[fromLocation] || []).find(i => i.id === item.itemId);
+                    const sourceItem = updatedSourceInventory.find(i => i.id === item.itemId);
                     if (sourceItem) {
                         await supabase.from('inventory_items').update({
-                            quantity: sourceItem.quantity - item.quantity
+                            quantity: sourceItem.quantity
                         }).eq('id', item.itemId).then(({error}) => { if (error) throw error; });
                     }
                 }
@@ -374,12 +405,15 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
         } catch (err) {
             console.error("Transfer failed", err);
             addToast('error', language === 'ar' ? 'فشل النقل. يرجى التحقق من اتصالك.' : 'Transfer failed. Please check your connection.');
+        } finally {
+            isMutating.current = false;
         }
     }
   }, [currentUser, selectedLocation, inventory, language, addToast]);
 
   const handleConfirmSourceTransfer = useCallback(async (transaction: Transaction) => {
       if (!currentUser) return;
+      isMutating.current = true;
       try {
           const sourceItem = (inventory[transaction.fromLocation!] || []).find(i => i.nameEn === transaction.itemNameEn || i.nameAr === transaction.itemNameAr);
           if (sourceItem) {
@@ -400,11 +434,14 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           await supabase.from('transactions').update({ status: 'pending_target' }).eq('id', transaction.id).then(({error}) => { if (error) throw error; });
       } catch (error) {
           console.error("Error in handleConfirmSourceTransfer:", error);
+      } finally {
+          isMutating.current = false;
       }
   }, [currentUser, inventory]);
 
   const handleReceiveTransfer = useCallback(async (transaction: Transaction) => {
       if (!currentUser) return;
+      isMutating.current = true;
       try {
           const targetLocation = transaction.toLocation!;
           const existingItems = inventory[targetLocation] || [];
@@ -456,11 +493,14 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       } catch (error) {
           console.error("Error in handleReceiveTransfer:", error);
           addToast('error', language === 'ar' ? 'حدث خطأ أثناء استلام المخزون' : 'An error occurred while receiving inventory');
+      } finally {
+          isMutating.current = false;
       }
   }, [currentUser, inventory, language, addToast]);
 
   const handleRejectTransfer = useCallback(async (transaction: Transaction, reason: string) => {
       if (!currentUser) return;
+      isMutating.current = true;
       try {
           const sourceLocation = transaction.fromLocation!;
           const wasDeducted = transaction.status === 'pending_target';
@@ -516,6 +556,8 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       } catch (error) {
           console.error("Error in handleRejectTransfer:", error);
           addToast('error', language === 'ar' ? 'حدث خطأ أثناء رفض النقل' : 'An error occurred while rejecting transfer');
+      } finally {
+          isMutating.current = false;
       }
   }, [currentUser, inventory, language, addToast]);
 
@@ -525,6 +567,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       const item = (inventory[location] || []).find(i => i.id === itemId);
       
       if (item) {
+          isMutating.current = true;
           try {
               const newQty = type === 'usage' ? item.quantity - quantity : item.quantity + quantity;
               
@@ -570,12 +613,15 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
           } catch (error) {
               console.error("Error in handleDailyLog:", error);
               addToast('error', language === 'ar' ? 'حدث خطأ أثناء تسجيل العملية' : 'An error occurred while recording log');
+          } finally {
+              isMutating.current = false;
           }
       }
   }, [currentUser, selectedLocation, inventory, language, addToast]);
 
   const handleBulkLog = useCallback(async (logs: { type: TransactionType, itemId: string, quantity: number, notes: string }[]) => {
       if (!currentUser || !selectedLocation || selectedLocation === 'all') return;
+      isMutating.current = true;
       try {
           const newTransactions: Transaction[] = [];
           const updatedLocationInventory = [...(inventory[selectedLocation] || [])];
@@ -644,6 +690,8 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
       } catch (error) {
           console.error("Error in handleBulkLog:", error);
           addToast('error', language === 'ar' ? 'حدث خطأ أثناء حفظ السجلات' : 'An error occurred while saving logs');
+      } finally {
+          isMutating.current = false;
       }
   }, [currentUser, selectedLocation, inventory, language, addToast]);
 
@@ -652,6 +700,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
     setInventory,
     transactions,
     setTransactions,
+    isMutating,
     handleCleanUpTransactions,
     handleAddItem,
     handleEditItem,

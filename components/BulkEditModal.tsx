@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Language, InventoryItem } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
@@ -27,6 +27,18 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
     const [applyCategory, setApplyCategory] = useState(false);
     const [applyUnit, setApplyUnit] = useState(false);
     const [applyThreshold, setApplyThreshold] = useState(false);
+
+    // Reset all fields when the modal is closed
+    useEffect(() => {
+        if (!isOpen) {
+            setCategory('');
+            setUnit('');
+            setMinThreshold('');
+            setApplyCategory(false);
+            setApplyUnit(false);
+            setApplyThreshold(false);
+        }
+    }, [isOpen]);
 
     const handleSave = () => {
         const updates: Partial<InventoryItem> = {};
