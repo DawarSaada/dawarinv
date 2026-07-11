@@ -17,6 +17,7 @@ import PerformAuditModal from './admin/PerformAuditModal';
 import ReviewAuditModal from './admin/ReviewAuditModal';
 import { extractTextFromPDF, parseTransferDocument } from '../services/pdfService';
 import { exportTransferPDF, exportInventoryExcel } from '../services/exportService';
+import { useAuditLock } from '../hooks/useAuditLock';
 import { 
   XCircle, 
   Package
@@ -197,10 +198,16 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
   const canRecordUsage = userRole === 'admin' || 
                          (userRole === 'branch_manager' && (userBranchCode === locationId || accessibleBranches.includes(locationId))) ||
-                         (userRole === 'warehouse_manager' && locationId === 'warehouse') ||
+                         (userRole === 'warehouse_manager' && (locationId === 'warehouse' || locationId === 'warehouse')) ||
                          (userRole === 'mammal_employee' && locationId === 'mammal');
 
   const isReadOnly = userRole === 'branch_manager' && readOnlyBranches.includes(locationId);
+
+  const { isInventoryLocked, lockedByAuditTitle } = useAuditLock(userRole);
+
+  const effectiveCanEditItem = canEditItem && !isInventoryLocked;
+  const effectiveCanBulkEdit = canBulkEdit && !isInventoryLocked;
+  const effectiveCanRecordUsage = canRecordUsage && !isInventoryLocked;
 
   const categories = useMemo(() => {
     const cats = new Set(inventory.map(item => item.category));
@@ -472,38 +479,58 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
           {activeTab === 'inventory' ? (
             <>
+              {isInventoryLocked && (
+                <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-3 animate-fade-in">
+                  <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-lg text-red-600 dark:text-red-400">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-red-900 dark:text-red-400">
+                      {language === 'ar' ? 'المخزون مقفل' : 'Inventory Locked'}
+                    </h3>
+                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                      {language === 'ar' 
+                        ? `لا يمكن إجراء تعديلات. يوجد جرد نشط: ${lockedByAuditTitle}`
+                        : `Modifications are disabled. An active audit is in progress: ${lockedByAuditTitle}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Action & Filter Bar */}
               <InventoryToolbar 
-            t={t}
-            search={search}
-            setSearch={setSearch}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            categories={categories}
-            stockStatusFilter={stockStatusFilter}
-            setStockStatusFilter={setStockStatusFilter}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            isGlobalView={isGlobalView}
-            selectedItemIds={selectedItemIds}
-            toggleSelectAll={toggleSelectAll}
-            filteredItemsCount={filteredItems.length}
-            onExportExcel={() => exportInventoryExcel(filteredItems, locationId, language)}
-            onSmartUpload={() => fileInputRef.current?.click()}
-            onOpenTransfer={() => setIsTransferModalOpen(true)}
-            onAddItem={() => { setItemToEdit(null); setIsAddItemModalOpen(true); }}
-            canEditItem={canEditItem}
-            isProcessingPdf={isProcessingPdf}
-            activeDropdown={activeDropdown}
-            setActiveDropdown={setActiveDropdown}
-            lowStockCount={lowStockItems.length}
-            language={language}
-            onScanClick={() => setShowScanner(true)}
-          />
+                t={t}
+                search={search}
+                setSearch={setSearch}
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+                categories={categories}
+                stockStatusFilter={stockStatusFilter}
+                setStockStatusFilter={setStockStatusFilter}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                isGlobalView={isGlobalView}
+                selectedItemIds={selectedItemIds}
+                toggleSelectAll={toggleSelectAll}
+                filteredItemsCount={filteredItems.length}
+                onExportExcel={() => exportInventoryExcel(filteredItems, locationId, language)}
+                onSmartUpload={() => !isInventoryLocked && fileInputRef.current?.click()}
+                onOpenTransfer={() => !isInventoryLocked && setIsTransferModalOpen(true)}
+                onAddItem={() => { setItemToEdit(null); setIsAddItemModalOpen(true); }}
+                canEditItem={effectiveCanEditItem}
+                isProcessingPdf={isProcessingPdf}
+                activeDropdown={activeDropdown}
+                setActiveDropdown={setActiveDropdown}
+                lowStockCount={inventory.filter(i => i.quantity <= i.minThreshold).length}
+                language={language}
+                onScanClick={() => !isInventoryLocked && setShowScanner(true)}
+              />
 
           {/* Inventory Container */}
           <InventoryGrid 
@@ -546,7 +573,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                       totalItems={filteredItems.length}
                       onPageChange={setCurrentPage}
                       onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                      canEditItem={canEditItem}
+                      canEditItem={effectiveCanEditItem}
                       language={language}
                   />
               </div>
@@ -559,7 +586,21 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
               userRole={userRole as any}
               language={language}
               onOpenScheduleModal={() => setIsScheduleAuditModalOpen(true)}
-              onOpenPerformModal={(audit) => { setSelectedAudit(audit); setIsPerformAuditModalOpen(true); }}
+              onOpenPerformModal={(audit) => { 
+                const hasPendingTransfers = [...incomingTransfers, ...outgoingApprovals].some(
+                  t => t.toLocation === audit.locationId || t.fromLocation === audit.locationId
+                );
+                
+                if (hasPendingTransfers) {
+                  alert(language === 'ar' 
+                    ? 'لا يمكن بدء الجرد. الرجاء معالجة (استلام، رفض، أو تأكيد) جميع طلبات النقل المعلقة الخاصة بهذا الموقع أولاً.' 
+                    : 'Cannot start audit. Please resolve (receive, reject, or confirm) all pending transfers for this location first.');
+                  return;
+                }
+                
+                setSelectedAudit(audit); 
+                setIsPerformAuditModalOpen(true); 
+              }}
               onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
             />
           )}
@@ -571,7 +612,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           <BulkActionsBar 
             t={t}
             selectedCount={selectedItemIds.size}
-            canBulkEdit={canBulkEdit}
+            canBulkEdit={effectiveCanBulkEdit}
             onBulkEdit={handleBulkEdit}
             onBulkDelete={handleBulkDelete}
             onBulkTransfer={handleBulkTransfer}
@@ -706,17 +747,17 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         language={language}
         availableLocations={availableLocations}
         settings={transferSettings}
-        onAcceptGroup={isReadOnly ? undefined : ((groupId, items, sigUrl) => {
+        onAcceptGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId, items, sigUrl) => {
           if (onReceiveTransferGroup) {
             onReceiveTransferGroup(groupId, items, sigUrl);
           }
         })}
-        onRejectGroup={isReadOnly ? undefined : ((groupId, reason) => {
+        onRejectGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId, reason) => {
           if (onRejectTransferGroup) {
             onRejectTransferGroup(groupId, reason);
           }
         })}
-        onConfirmGroup={isReadOnly ? undefined : ((groupId) => {
+        onConfirmGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId) => {
           if (onConfirmTransferGroup) {
             onConfirmTransferGroup(groupId);
           }
