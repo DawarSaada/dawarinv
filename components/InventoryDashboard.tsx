@@ -472,11 +472,6 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
           {activeTab === 'inventory' ? (
             <>
-              
-              <div className="text-[10px] text-gray-300 dark:text-gray-700 text-center -mt-4 mb-4">
-                Debug: locationId={locationId}, inventoryLength={inventory?.length || 0}, rawInventoryKeys={typeof window !== 'undefined' && (window as any).__DEBUG_INV_KEYS}
-              </div>
-
               {/* Action & Filter Bar */}
               <InventoryToolbar 
             t={t}
