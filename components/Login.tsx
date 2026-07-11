@@ -7,9 +7,10 @@ interface LoginProps {
   onLogin: (user: User, rememberMe: boolean) => void;
   language: Language;
   users: User[];
+  isLoading?: boolean;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, language, users }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, language, users, isLoading = false }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -90,10 +91,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, language, users }) => {
 
             <button
               type="submit"
-              className="w-full bg-brand-600 hover:bg-brand-700 dark:bg-brand-600 dark:hover:bg-brand-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 group"
+              disabled={isLoading}
+              className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t.login}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
+              {isLoading ? (language === 'ar' ? 'جاري التحميل...' : 'Loading...') : t.login}
+              {!isLoading && <ArrowRight className="w-5 h-5 rtl:rotate-180" />}
             </button>
           </form>
           

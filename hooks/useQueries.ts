@@ -223,7 +223,6 @@ export const useUsersQuery = () => {
         };
       }) as User[];
     },
-    placeholderData: INITIAL_USERS,
   });
 };
 

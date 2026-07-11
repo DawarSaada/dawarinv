@@ -21,7 +21,7 @@ const App: React.FC = () => {
   useRealtimeSubscriptions();
 
   const { data: locations = [] } = useLocationsQuery();
-  const { data: fetchedUsers = [] } = useUsersQuery();
+  const { data: fetchedUsers = [], isLoading: isLoadingUsers } = useUsersQuery();
   const { data: catalog = [] } = useCatalogQuery();
   const { data: suppliers = [] } = useSuppliersQuery();
   const { data: purchaseOrders = [] } = usePurchaseOrdersQuery();
