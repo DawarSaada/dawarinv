@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { InventoryItem, LocationId, Language, Transaction, LocationData } from '../types';
+import { InventoryItem, LocationId, Language, Transaction, LocationData, CatalogItem, AppNotification, TransferSettings, Audit } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
 import SmartAssistant from './SmartAssistant';
@@ -11,6 +11,10 @@ import ItemHistoryModal from './ItemHistoryModal';
 import ConfirmationModal from './ConfirmationModal';
 import ReceiveModal from './ReceiveModal';
 import { Pagination } from './Pagination';
+import AuditManagement from './admin/AuditManagement';
+import ScheduleAuditModal from './admin/ScheduleAuditModal';
+import PerformAuditModal from './admin/PerformAuditModal';
+import ReviewAuditModal from './admin/ReviewAuditModal';
 import { extractTextFromPDF, parseTransferDocument } from '../services/pdfService';
 import { exportTransferPDF, exportInventoryExcel } from '../services/exportService';
 import { 
@@ -22,6 +26,9 @@ import InventoryNotifications from './inventory/InventoryNotifications';
 import InventoryToolbar from './inventory/InventoryToolbar';
 import InventoryGrid from './inventory/InventoryGrid';
 import BulkActionsBar from './inventory/BulkActionsBar';
+import ScannerModal from './ScannerModal';
+import PrintLabels from './inventory/PrintLabels';
+import TransferDetailModal from './TransferDetailModal';
 
 interface InventoryDashboardProps {
   locationId: LocationId;
@@ -40,6 +47,8 @@ interface InventoryDashboardProps {
   onRecordReceive?: (itemId: string, quantity: number, notes: string) => void;
   userRole: string;
   userBranchCode?: string;
+  accessibleBranches?: string[];
+  readOnlyBranches?: string[];
   incomingTransfers: Transaction[];
   outgoingTransfers: Transaction[];
   outgoingApprovals: Transaction[];
@@ -48,6 +57,19 @@ interface InventoryDashboardProps {
   onConfirmOutbound: (transaction: Transaction) => void;
   availableLocations: LocationData[];
   getUserName: (name: string) => string;
+  catalog: CatalogItem[];
+  alerts?: AppNotification[];
+  transferSettings?: TransferSettings;
+  onReceiveTransferGroup?: (groupId: string, items: any[], signatureUrl?: string) => void;
+  onRejectTransferGroup?: (groupId: string, reason: string) => void;
+  onConfirmTransferGroup?: (groupId: string) => void;
+  onMarkNotificationAsRead?: (id: string) => void;
+  onMarkAllNotificationsAsRead?: () => void;
+  audits?: Audit[];
+  onScheduleAudit?: (params: any) => void;
+  onSaveAuditCounts?: (items: any[]) => void;
+  onSubmitAudit?: (id: string) => void;
+  onApplyAudit?: (auditId: string, performedBy: string) => void;
 }
 
 const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ 
@@ -66,6 +88,8 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onRecordUsage,
   userRole,
   userBranchCode,
+  accessibleBranches = [],
+  readOnlyBranches = [],
   incomingTransfers,
   outgoingTransfers,
   outgoingApprovals,
@@ -74,9 +98,23 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onConfirmOutbound,
   availableLocations,
   getUserName,
-  onRecordReceive
+  onRecordReceive,
+  catalog,
+  alerts = [],
+  transferSettings = { enableSignatureCapture: false, enablePhotoEvidence: false, enableAutoReject: false, autoRejectDays: 7 },
+  onReceiveTransferGroup,
+  onRejectTransferGroup,
+  onConfirmTransferGroup,
+  onMarkNotificationAsRead,
+  onMarkAllNotificationsAsRead,
+  audits = [],
+  onScheduleAudit,
+  onSaveAuditCounts,
+  onSubmitAudit,
+  onApplyAudit
 }) => {
   const { addToast } = useToast();
+  const [activeTab, setActiveTab] = useState<'inventory' | 'audits'>('inventory');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'inStock' | 'lowStock'>('all');
@@ -97,6 +135,9 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
   const [usageItem, setUsageItem] = useState<InventoryItem | null>(null);
+  
+  const [showScanner, setShowScanner] = useState(false);
+  const [showPrintLabels, setShowPrintLabels] = useState(false);
 
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
   const [receiveItem, setReceiveItem] = useState<InventoryItem | null>(null);
@@ -114,6 +155,15 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
   // Grouped Notifications State
   const [selectedTransferGroup, setSelectedTransferGroup] = useState<string | null>(null);
+  const [transferDetailGroupId, setTransferDetailGroupId] = useState<string | null>(null);
+  const [transferDetailType, setTransferDetailType] = useState<'incoming' | 'outgoing' | 'approval'>('incoming');
+
+  // Audit Modals State
+  const [isScheduleAuditModalOpen, setIsScheduleAuditModalOpen] = useState(false);
+  const [isPerformAuditModalOpen, setIsPerformAuditModalOpen] = useState(false);
+  const [isReviewAuditModalOpen, setIsReviewAuditModalOpen] = useState(false);
+  const [selectedAudit, setSelectedAudit] = useState<Audit | null>(null);
+
   const [rejectionTarget, setRejectionTarget] = useState<Transaction[] | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
@@ -140,15 +190,17 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const location = locationData || (isGlobalView ? { id: 'all', name: t.globalInventory, icon: 'globe' } : { id: locationId, name: locationId });
 
   const canEditItem = userRole === 'admin' || 
-                      (userRole === 'branch_manager' && userBranchCode === locationId) ||
+                      (userRole === 'branch_manager' && (userBranchCode === locationId || accessibleBranches.includes(locationId))) ||
                       (userRole === 'warehouse_manager' && (locationId === 'warehouse' || locationId === 'mammal'));
 
   const canBulkEdit = userRole === 'admin' || (userRole === 'warehouse_manager' && (locationId === 'warehouse' || locationId === 'mammal'));
 
   const canRecordUsage = userRole === 'admin' || 
-                         (userRole === 'branch_manager' && userBranchCode === locationId) ||
+                         (userRole === 'branch_manager' && (userBranchCode === locationId || accessibleBranches.includes(locationId))) ||
                          (userRole === 'warehouse_manager' && locationId === 'warehouse') ||
                          (userRole === 'mammal_employee' && locationId === 'mammal');
+
+  const isReadOnly = userRole === 'branch_manager' && readOnlyBranches.includes(locationId);
 
   const categories = useMemo(() => {
     const cats = new Set(inventory.map(item => item.category));
@@ -158,19 +210,19 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const filteredItems = useMemo(() => {
     const filtered = inventory.filter(item => {
       const searchLower = search.toLowerCase();
-      const itemName = language === 'ar' ? item.nameAr : item.nameEn;
-      const matchesSearch = 
-        itemName.toLowerCase().includes(searchLower) || 
-        item.category.toLowerCase().includes(searchLower) ||
-        (item.description && item.description.toLowerCase().includes(searchLower)) ||
-        (item.locationId && item.locationId.toLowerCase().includes(searchLower)) ||
-        (item.barcode && item.barcode.toLowerCase().includes(searchLower));
+      
+      // Search by name or barcode
+      if (search) {
+        const itemName = language === 'ar' ? item.nameAr : item.nameEn;
+        const matchesSearch = itemName.toLowerCase().includes(searchLower) || (item.barcode && item.barcode.toLowerCase().includes(searchLower));
+        if (!matchesSearch) return false;
+      }
       
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       const isLowStock = item.quantity <= item.minThreshold;
       const matchesStockStatus = stockStatusFilter === 'all' || (stockStatusFilter === 'lowStock' && isLowStock) || (stockStatusFilter === 'inStock' && !isLowStock);
 
-      return matchesSearch && matchesCategory && matchesStockStatus;
+      return matchesCategory && matchesStockStatus;
     });
 
     return filtered.sort((a, b) => {
@@ -213,7 +265,8 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const groupedIncoming = useMemo(() => {
       const groups: Record<string, Transaction[]> = {};
       incomingTransfers.forEach(tx => {
-          const gid = tx.transferGroupId || `UNGROUPED-${tx.date}`;
+          const fallbackGid = `${tx.fromLocation}-${tx.toLocation}-${new Date(tx.date).toISOString().substring(0, 16)}`;
+          const gid = tx.transferGroupId || fallbackGid;
           if (!groups[gid]) groups[gid] = [];
           groups[gid].push(tx);
       });
@@ -223,7 +276,8 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const groupedOutgoing = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
     outgoingTransfers.forEach(tx => {
-        const gid = tx.transferGroupId || `UNGROUPED-${tx.date}`;
+        const fallbackGid = `${tx.fromLocation}-${tx.toLocation}-${new Date(tx.date).toISOString().substring(0, 16)}`;
+        const gid = tx.transferGroupId || fallbackGid;
         if (!groups[gid]) groups[gid] = [];
         groups[gid].push(tx);
     });
@@ -233,7 +287,8 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const groupedApprovals = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
     outgoingApprovals.forEach(tx => {
-        const gid = tx.transferGroupId || `UNGROUPED-${tx.date}`;
+        const fallbackGid = `${tx.fromLocation}-${tx.toLocation}-${new Date(tx.date).toISOString().substring(0, 16)}`;
+        const gid = tx.transferGroupId || fallbackGid;
         if (!groups[gid]) groups[gid] = [];
         groups[gid].push(tx);
     });
@@ -242,11 +297,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
   const handleReject = () => {
       if (rejectionTarget && rejectionReason.trim()) {
-          if (Array.isArray(rejectionTarget)) {
-              rejectionTarget.forEach(tx => onRejectTransfer(tx, rejectionReason));
-          } else {
-              onRejectTransfer(rejectionTarget, rejectionReason);
-          }
+          rejectionTarget.forEach(tx => onRejectTransfer(tx, rejectionReason));
           setRejectionTarget(null);
           setRejectionReason('');
       }
@@ -358,6 +409,11 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
     }
   };
 
+  const handleScan = (decodedText: string) => {
+    setSearch(decodedText);
+    setShowScanner(false);
+  };
+
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors pb-24 ${language === 'ar' ? 'font-arabic' : ''}`}>
       <div className={`flex-1 flex flex-col transition-all duration-300 ${isAssistantOpen ? 'lg:mr-96 lg:rtl:mr-0 lg:rtl:ml-96' : ''}`}>
@@ -370,6 +426,10 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           isAssistantOpen={isAssistantOpen}
           setIsAssistantOpen={setIsAssistantOpen}
           onLogout={onLogout}
+          alerts={alerts}
+          language={language}
+          onMarkAsRead={onMarkNotificationAsRead}
+          onMarkAllAsRead={onMarkAllNotificationsAsRead}
         />
 
         <main className="p-4 sm:p-6 max-w-7xl mx-auto w-full">
@@ -384,10 +444,36 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
             handleBulkAccept={handleBulkAccept}
             setRejectionTarget={setRejectionTarget}
             onConfirmOutbound={onConfirmOutbound}
+            alerts={alerts}
+            language={language}
+            availableLocations={availableLocations}
+            onOpenTransferDetail={(groupId, type) => {
+              setTransferDetailGroupId(groupId);
+              setTransferDetailType(type);
+            }}
           />
 
-          {/* Action & Filter Bar */}
-          <InventoryToolbar 
+          {!isGlobalView && (
+            <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+              <button 
+                onClick={() => setActiveTab('inventory')}
+                className={`px-4 py-2 font-bold text-sm transition-colors border-b-2 ${activeTab === 'inventory' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+              >
+                {language === 'ar' ? 'المخزون' : 'Inventory'}
+              </button>
+              <button 
+                onClick={() => setActiveTab('audits')}
+                className={`px-4 py-2 font-bold text-sm transition-colors border-b-2 ${activeTab === 'audits' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+              >
+                {language === 'ar' ? 'الجرد الدوري' : 'Audits'}
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'inventory' ? (
+            <>
+              {/* Action & Filter Bar */}
+              <InventoryToolbar 
             t={t}
             search={search}
             setSearch={setSearch}
@@ -416,6 +502,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
             setActiveDropdown={setActiveDropdown}
             lowStockCount={lowStockItems.length}
             language={language}
+            onScanClick={() => setShowScanner(true)}
           />
 
           {/* Inventory Container */}
@@ -459,9 +546,22 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                       totalItems={filteredItems.length}
                       onPageChange={setCurrentPage}
                       onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+                      canEditItem={canEditItem}
                       language={language}
                   />
               </div>
+          )}
+            </>
+          ) : (
+            <AuditManagement 
+              audits={audits.filter(a => a.locationId === locationId || isGlobalView)}
+              locations={availableLocations}
+              userRole={userRole as any}
+              language={language}
+              onOpenScheduleModal={() => setIsScheduleAuditModalOpen(true)}
+              onOpenPerformModal={(audit) => { setSelectedAudit(audit); setIsPerformAuditModalOpen(true); }}
+              onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
+            />
           )}
 
         </main>
@@ -475,6 +575,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
             onBulkEdit={handleBulkEdit}
             onBulkDelete={handleBulkDelete}
             onBulkTransfer={handleBulkTransfer}
+            onBulkPrint={() => setShowPrintLabels(true)}
             onClearSelection={() => setSelectedItemIds(new Set())}
           />
 
@@ -510,6 +611,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         language={language}
         initialData={itemToEdit}
         existingItems={inventory}
+        catalog={catalog}
       />
 
       <BulkEditModal 
@@ -590,7 +692,40 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
          </div>
       )}
 
-      {/* View Items Modal for Transfer Group */}
+      {/* Transfer Detail Modal — NEW */}
+      <TransferDetailModal
+        isOpen={!!transferDetailGroupId}
+        onClose={() => setTransferDetailGroupId(null)}
+        transferGroupId={transferDetailGroupId || ''}
+        transactions={(() => {
+          if (!transferDetailGroupId) return [];
+          const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === transferDetailGroupId);
+          return group?.[1] || [];
+        })()}
+        transferType={transferDetailType}
+        language={language}
+        availableLocations={availableLocations}
+        settings={transferSettings}
+        onAcceptGroup={isReadOnly ? undefined : ((groupId, items, sigUrl) => {
+          if (onReceiveTransferGroup) {
+            onReceiveTransferGroup(groupId, items, sigUrl);
+          }
+        })}
+        onRejectGroup={isReadOnly ? undefined : ((groupId, reason) => {
+          if (onRejectTransferGroup) {
+            onRejectTransferGroup(groupId, reason);
+          }
+        })}
+        onConfirmGroup={isReadOnly ? undefined : ((groupId) => {
+          if (onConfirmTransferGroup) {
+            onConfirmTransferGroup(groupId);
+          }
+        })}
+        onDownload={handleDownloadTransfer}
+        getUserName={getUserName}
+      />
+
+      {/* Legacy View Items Modal — kept for backwards compat */}
       {selectedTransferGroup && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
@@ -611,55 +746,75 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                           ));
                       })()}
                   </div>
-                  <div className="mt-6 flex gap-3">
-                      {groupedIncoming.some(g => g[0] === selectedTransferGroup) && (
-                          <>
-                              <button 
-                                onClick={() => {
-                                    const group = groupedIncoming.find(g => g[0] === selectedTransferGroup);
-                                    if (group) setRejectionTarget(group[1]);
-                                    setSelectedTransferGroup(null);
-                                }} 
-                                className="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors"
-                              >
-                                {t.reject}
-                              </button>
-                              <button 
-                                onClick={() => {
-                                    handleBulkAccept(selectedTransferGroup);
-                                    setSelectedTransferGroup(null);
-                                }} 
-                                className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors"
-                              >
-                                {t.accept}
-                              </button>
-                          </>
-                      )}
-                      {groupedApprovals.some(g => g[0] === selectedTransferGroup) && (
-                          <button 
-                            onClick={() => {
-                                const group = groupedApprovals.find(g => g[0] === selectedTransferGroup);
-                                if (group) group[1].forEach(tx => onConfirmOutbound(tx));
-                                setSelectedTransferGroup(null);
-                            }} 
-                            className="flex-1 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-colors"
-                          >
-                            {t.confirmOutbound}
-                          </button>
-                      )}
-                      {!groupedIncoming.some(g => g[0] === selectedTransferGroup) && !groupedApprovals.some(g => g[0] === selectedTransferGroup) && (
-                          <button 
-                            onClick={() => setSelectedTransferGroup(null)} 
-                            className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-                          >
-                            {t.cancel}
-                          </button>
-                      )}
+                  <div className="mt-6">
+                      <button 
+                        onClick={() => setSelectedTransferGroup(null)} 
+                        className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                      >
+                        {t.cancel}
+                      </button>
                   </div>
               </div>
           </div>
       )}
 
+      {showScanner && (
+        <ScannerModal 
+          isOpen={showScanner}
+          onClose={() => setShowScanner(false)}
+          language={language}
+          t={t}
+          onScan={(decodedText) => {
+            setShowScanner(false);
+            // Try to find the item
+            const item = inventory.find(i => i.id === decodedText || i.barcode === decodedText);
+            if (item) {
+              addToast('success', language === 'ar' ? `تم العثور على: ${item.nameAr}` : `Found: ${item.nameEn}`);
+              setSearch(item.nameEn); // Auto search for it
+            } else {
+              addToast('error', language === 'ar' ? 'لم يتم العثور على العنصر' : 'Item not found');
+              setSearch(decodedText);
+            }
+          }}
+        />
+      )}
+
+      {showPrintLabels && (
+        <PrintLabels 
+          items={inventory.filter(i => selectedItemIds.has(i.id))}
+          onClose={() => setShowPrintLabels(false)}
+          language={language}
+          t={t}
+        />
+      )}
+
+      <ScheduleAuditModal 
+        isOpen={isScheduleAuditModalOpen}
+        onClose={() => setIsScheduleAuditModalOpen(false)}
+        language={language}
+        locations={isGlobalView ? availableLocations : [location!]}
+        inventory={isGlobalView ? {} : { [locationId]: inventory }}
+        onSchedule={(params) => onScheduleAudit?.(params)}
+        userName={getUserName(userRole)} 
+      />
+
+      <PerformAuditModal 
+        isOpen={isPerformAuditModalOpen}
+        onClose={() => { setIsPerformAuditModalOpen(false); setSelectedAudit(null); }}
+        language={language}
+        audit={selectedAudit}
+        onSaveCounts={(items) => onSaveAuditCounts?.(items)}
+        onSubmitAudit={(id) => onSubmitAudit?.(id)}
+      />
+
+      <ReviewAuditModal 
+        isOpen={isReviewAuditModalOpen}
+        onClose={() => { setIsReviewAuditModalOpen(false); setSelectedAudit(null); }}
+        language={language}
+        audit={selectedAudit}
+        userRole={userRole as any}
+        onApplyAudit={(id) => onApplyAudit?.(id, getUserName(userRole))}
+      />
     </div>
   );
 };

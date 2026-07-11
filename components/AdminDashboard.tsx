@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { User, Transaction, Language, UserRole, InventoryItem, LocationData, LocationId } from '../types';
+import { User, Transaction, Language, UserRole, InventoryItem, LocationData, LocationId, CatalogItem, TransferSettings, AppNotification } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
 import ConfirmationModal from './ConfirmationModal';
@@ -15,11 +15,24 @@ import AdminTransactionsLog from './admin/AdminTransactionsLog';
 import AdminReports from './admin/AdminReports';
 import AdminSettings from './admin/AdminSettings';
 import UserModal from './admin/UserModal';
+import ProductCatalogManagement from './admin/ProductCatalogManagement';
+import AnalyticsDashboard from './admin/AnalyticsDashboard';
+import SupplierManagement from './admin/SupplierManagement';
+import PurchaseOrderManagement from './admin/PurchaseOrderManagement';
+import PurchaseOrderModal from './admin/PurchaseOrderModal';
+import ReceivePOModal from './admin/ReceivePOModal';
+import AuditManagement from './admin/AuditManagement';
+import ScheduleAuditModal from './admin/ScheduleAuditModal';
+import PerformAuditModal from './admin/PerformAuditModal';
+import ReviewAuditModal from './admin/ReviewAuditModal';
+import { Supplier, PurchaseOrder, PurchaseOrderItem, Audit } from '../types';
 
 interface AdminDashboardProps {
+    currentUserRole: UserRole;
     users: User[];
     transactions: Transaction[];
     inventory: Record<string, InventoryItem[]>;
+    catalog: CatalogItem[];
     onCreateUser: (user: Omit<User, 'id'>) => void;
     onEditUser: (user: User) => void;
     onDeleteUser: (id: string) => void;
@@ -30,12 +43,32 @@ interface AdminDashboardProps {
     onManageLocation: (locationId: LocationId) => void;
     onCleanUpTransactions?: (months: number) => Promise<void>;
     getUserName: (name: string) => string;
+    transferSettings?: TransferSettings;
+    onTransferSettingsChange?: (settings: TransferSettings) => void;
+    alerts?: AppNotification[];
+    onMarkNotificationAsRead?: (id: string) => void;
+    onMarkAllNotificationsAsRead?: () => void;
+    suppliers: Supplier[];
+    purchaseOrders: PurchaseOrder[];
+    onAddSupplier: (s: Omit<Supplier, 'id' | 'createdAt'>) => void;
+    onEditSupplier: (s: Supplier) => void;
+    onDeleteSupplier: (id: string) => void;
+    onCreatePO: (po: any, items: any[]) => void;
+    onUpdatePOStatus: (id: string, status: string) => void;
+    onReceivePO: (poId: string, items: any[], performedBy: string) => void;
+    audits: Audit[];
+    onScheduleAudit: (params: any) => void;
+    onSaveAuditCounts: (items: any[]) => void;
+    onSubmitAudit: (auditId: string) => void;
+    onApplyAudit: (auditId: string, performedBy: string) => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
+    currentUserRole,
     users, 
     transactions, 
     inventory,
+    catalog,
     onCreateUser, 
     onEditUser,
     onDeleteUser, 
@@ -45,13 +78,42 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     availableLocations,
     onManageLocation,
     onCleanUpTransactions,
-    getUserName
+    getUserName,
+    transferSettings = { enableSignatureCapture: false, enablePhotoEvidence: false, enableAutoReject: false, autoRejectDays: 7 },
+    onTransferSettingsChange,
+    alerts = [],
+    onMarkNotificationAsRead,
+    onMarkAllNotificationsAsRead,
+    suppliers = [],
+    purchaseOrders = [],
+    onAddSupplier,
+    onEditSupplier,
+    onDeleteSupplier,
+    onCreatePO,
+    onUpdatePOStatus,
+    onReceivePO,
+    audits = [],
+    onScheduleAudit,
+    onSaveAuditCounts,
+    onSubmitAudit,
+    onApplyAudit
 }) => {
     const { addToast } = useToast();
-    const [activeTab, setActiveTab] = useState<'users' | 'transactions' | 'inventory' | 'reports' | 'settings'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'transactions' | 'inventory' | 'reports' | 'settings' | 'catalog' | 'analytics' | 'suppliers' | 'purchase_orders' | 'audits'>(currentUserRole === 'admin' ? 'users' : 'inventory');
     const [selectedInventoryLocation, setSelectedInventoryLocation] = useState<string>('warehouse');
     const [showUserModal, setShowUserModal] = useState(false);
     
+    // Purchase Order Modals State
+    const [isPOModalOpen, setIsPOModalOpen] = useState(false);
+    const [isReceivePOModalOpen, setIsReceivePOModalOpen] = useState(false);
+    const [selectedPO, setSelectedPO] = useState<PurchaseOrder | undefined>(undefined);
+    
+    // Audit Modals State
+    const [isScheduleAuditModalOpen, setIsScheduleAuditModalOpen] = useState(false);
+    const [isPerformAuditModalOpen, setIsPerformAuditModalOpen] = useState(false);
+    const [isReviewAuditModalOpen, setIsReviewAuditModalOpen] = useState(false);
+    const [selectedAudit, setSelectedAudit] = useState<Audit | null>(null);
+
     // Reports State
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
     const [reportLocation, setReportLocation] = useState('all');
@@ -121,6 +183,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const t = TRANSLATIONS[language];
     const currentInventory = inventory[selectedInventoryLocation] || [];
 
+    // Filter available locations and transactions for non-admins
+    const dashboardLocations = useMemo(() => {
+        if (currentUserRole === 'admin') return availableLocations;
+        return availableLocations.filter(loc => loc.id === 'warehouse' || loc.id === 'mammal');
+    }, [availableLocations, currentUserRole]);
+
+    const dashboardTransactions = useMemo(() => {
+        if (currentUserRole === 'admin') return transactions;
+        return transactions.filter(tx => tx.fromLocation === 'warehouse' || tx.toLocation === 'warehouse' || tx.fromLocation === 'mammal' || tx.toLocation === 'mammal');
+    }, [transactions, currentUserRole]);
+
     const openCreateModal = () => {
         setEditingUserId(null);
         setUserForm({ 
@@ -132,7 +205,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             branchCode: '', 
             branchName: '', 
             branchNameAr: '', 
-            accessibleBranches: [] 
+            accessibleBranches: [],
+            readOnlyBranches: []
         });
         setLocationType('central');
         setShowUserModal(true);
@@ -149,7 +223,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             branchCode: user.branchCode || '', 
             branchName: user.branchName || '',
             branchNameAr: user.branchNameAr || '',
-            accessibleBranches: user.accessibleBranches || []
+            accessibleBranches: user.accessibleBranches || [],
+            readOnlyBranches: user.readOnlyBranches || []
         });
         setLocationType(user.role === 'branch_manager' ? 'branch' : 'central');
         setShowUserModal(true);
@@ -237,7 +312,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }).reverse();
 
         return last7Days.map(date => {
-            const dayTx = transactions.filter(tx => tx.date.startsWith(date));
+            const dayTx = dashboardTransactions.filter(tx => tx.date.startsWith(date));
             return {
                 date: date.substring(5), // MM-DD
                 Received: dayTx.filter(tx => tx.type === 'receive' || (tx.type === 'transfer' && tx.toLocation === reportLocation)).length,
@@ -259,7 +334,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }, [availableLocations, inventory, language, t]);
 
     const usageByItem = useMemo(() => {
-        return transactions
+        return dashboardTransactions
             .filter(tx => tx.type === 'usage')
             .reduce((acc, tx) => {
                 const name = language === 'ar' ? tx.itemNameAr : tx.itemNameEn;
@@ -278,13 +353,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
     return (
-        <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors pb-24 ${language === 'ar' ? 'font-arabic' : ''}`}>
+        <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row transition-colors pb-24 lg:pb-0 ${language === 'ar' ? 'font-arabic' : ''}`}>
             <AdminSidebar 
+                currentUserRole={currentUserRole}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 onLogout={onLogout}
                 language={language}
                 t={t}
+                alerts={alerts}
+                onMarkNotificationAsRead={onMarkNotificationAsRead}
+                onMarkAllNotificationsAsRead={onMarkAllNotificationsAsRead}
             />
 
             <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
@@ -316,8 +395,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {activeTab === 'reports' && (
                     <AdminReports 
-                        transactions={transactions}
-                        availableLocations={availableLocations}
+                        transactions={dashboardTransactions}
+                        availableLocations={dashboardLocations}
                         reportDate={reportDate}
                         setReportDate={setReportDate}
                         reportLocation={reportLocation}
@@ -327,19 +406,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         t={t}
                         language={language}
                         onExportPDF={() => {
-                            const filtered = transactions.filter(tx => {
+                            const filtered = dashboardTransactions.filter(tx => {
                                 const txDate = new Date(tx.date).toISOString().split('T')[0];
                                 return txDate === reportDate && (reportLocation === 'all' || tx.fromLocation === reportLocation || tx.toLocation === reportLocation);
                             });
-                            const locName = reportLocation === 'all' ? t.allStatuses : (availableLocations.find(l => l.id === reportLocation)?.name || reportLocation);
+                            const locName = reportLocation === 'all' ? t.allStatuses : (dashboardLocations.find(l => l.id === reportLocation)?.name || reportLocation);
                             exportDailyReportPDF(filtered, reportLocation, locName, language, undefined, reportDate);
                         }}
                         onExportExcel={() => {
-                            const filtered = transactions.filter(tx => {
+                            const filtered = dashboardTransactions.filter(tx => {
                                 const txDate = new Date(tx.date).toISOString().split('T')[0];
                                 return txDate === reportDate && (reportLocation === 'all' || tx.fromLocation === reportLocation || tx.toLocation === reportLocation);
                             });
-                            const locName = reportLocation === 'all' ? t.allStatuses : (availableLocations.find(l => l.id === reportLocation)?.name || reportLocation);
+                            const locName = reportLocation === 'all' ? t.allStatuses : (dashboardLocations.find(l => l.id === reportLocation)?.name || reportLocation);
                             exportDailyReportExcel(filtered, reportLocation, locName, language, reportDate);
                         }}
                         txByDayData={transactionsOverTime}
@@ -349,9 +428,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
                 )}
 
+                {activeTab === 'analytics' && (
+                    <AnalyticsDashboard 
+                        transactions={dashboardTransactions}
+                        inventory={inventory}
+                        availableLocations={dashboardLocations}
+                        language={language}
+                        t={t}
+                    />
+                )}
+
                 {activeTab === 'transactions' && (
                     <AdminTransactionsLog 
-                        transactions={transactions}
+                        transactions={dashboardTransactions}
                         t={t}
                         language={language}
                         search={transactionSearch}
@@ -373,6 +462,53 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onSaveSettings={handleSaveSettings}
                         onManualCleanUp={handleManualCleanUp}
                         language={language}
+                        transferSettings={transferSettings}
+                        onTransferSettingsChange={onTransferSettingsChange}
+                    />
+                )}
+
+                {activeTab === 'catalog' && (
+                    <ProductCatalogManagement 
+                        catalog={catalog}
+                        language={language}
+                    />
+                )}
+
+                {activeTab === 'suppliers' && (
+                    <SupplierManagement 
+                        suppliers={suppliers}
+                        onAdd={onAddSupplier}
+                        onEdit={onEditSupplier}
+                        onDelete={onDeleteSupplier}
+                        language={language}
+                    />
+                )}
+
+                {activeTab === 'purchase_orders' && (
+                    <PurchaseOrderManagement 
+                        purchaseOrders={purchaseOrders}
+                        suppliers={suppliers}
+                        catalog={catalog}
+                        onCreatePO={onCreatePO}
+                        onUpdateStatus={onUpdatePOStatus}
+                        onReceivePO={onReceivePO}
+                        userName={getUserName(currentUserRole)} // Or actual username
+                        language={language}
+                        onOpenCreateModal={() => { setSelectedPO(undefined); setIsPOModalOpen(true); }}
+                        onOpenViewModal={(po) => { setSelectedPO(po); setIsPOModalOpen(true); }}
+                        onOpenReceiveModal={(po) => { setSelectedPO(po); setIsReceivePOModalOpen(true); }}
+                    />
+                )}
+
+                {activeTab === 'audits' && (
+                    <AuditManagement 
+                        audits={audits}
+                        locations={availableLocations}
+                        userRole={currentUserRole}
+                        language={language}
+                        onOpenScheduleModal={() => setIsScheduleAuditModalOpen(true)}
+                        onOpenPerformModal={(audit) => { setSelectedAudit(audit); setIsPerformAuditModalOpen(true); }}
+                        onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
                     />
                 )}
             </main>
@@ -399,6 +535,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 message={`${confirmDelete.type === 'user' ? t.confirmDeleteUser : t.confirmDeleteItem}: "${confirmDelete.name}"?`}
                 language={language}
                 danger={true}
+            />
+
+            <PurchaseOrderModal 
+                isOpen={isPOModalOpen}
+                onClose={() => setIsPOModalOpen(false)}
+                language={language}
+                suppliers={suppliers}
+                catalog={catalog}
+                purchaseOrder={selectedPO}
+                onSave={onCreatePO}
+                onUpdateStatus={onUpdatePOStatus}
+                userName={getUserName(currentUserRole)}
+            />
+
+            <ReceivePOModal 
+                isOpen={isReceivePOModalOpen}
+                onClose={() => setIsReceivePOModalOpen(false)}
+                language={language}
+                purchaseOrder={selectedPO || null}
+                onReceive={onReceivePO}
+                userName={getUserName(currentUserRole)}
+            />
+
+            <ScheduleAuditModal 
+                isOpen={isScheduleAuditModalOpen}
+                onClose={() => setIsScheduleAuditModalOpen(false)}
+                language={language}
+                locations={availableLocations}
+                inventory={inventory}
+                onSchedule={onScheduleAudit}
+                userName={getUserName(currentUserRole)}
+            />
+
+            <PerformAuditModal 
+                isOpen={isPerformAuditModalOpen}
+                onClose={() => { setIsPerformAuditModalOpen(false); setSelectedAudit(null); }}
+                language={language}
+                audit={selectedAudit}
+                onSaveCounts={onSaveAuditCounts}
+                onSubmitAudit={onSubmitAudit}
+            />
+
+            <ReviewAuditModal 
+                isOpen={isReviewAuditModalOpen}
+                onClose={() => { setIsReviewAuditModalOpen(false); setSelectedAudit(null); }}
+                language={language}
+                audit={selectedAudit}
+                userRole={currentUserRole}
+                onApplyAudit={(id) => onApplyAudit(id, getUserName(currentUserRole))}
             />
 
             <ConfirmationModal

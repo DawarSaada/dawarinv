@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { InventoryItem, Language } from '../types';
+import { InventoryItem, Language, CatalogItem } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Package, Plus, X, Save, AlignLeft, AlertCircle } from 'lucide-react';
+import { Package, Plus, X, Save, AlignLeft, AlertCircle, Camera } from 'lucide-react';
+import BarcodeScanner from './BarcodeScanner';
 
 interface AddItemModalProps {
     isOpen: boolean;
@@ -10,9 +11,10 @@ interface AddItemModalProps {
     language: Language;
     initialData?: InventoryItem | null;
     existingItems: InventoryItem[];
+    catalog: CatalogItem[];
 }
 
-const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, language, initialData, existingItems }) => {
+const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, language, initialData, existingItems, catalog }) => {
     const t = TRANSLATIONS[language];
     
     const [newItem, setNewItem] = useState({
@@ -24,10 +26,12 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
         unit: '',
         minThreshold: '',
         expirationDate: '',
-        barcode: ''
+        barcode: '',
+        catalogId: ''
     });
 
     const [error, setError] = useState('');
+    const [showScanner, setShowScanner] = useState(false);
 
     // Populate form if editing
     useEffect(() => {
@@ -41,15 +45,23 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                 unit: initialData.unit,
                 minThreshold: initialData.minThreshold.toString(),
                 expirationDate: initialData.expirationDate || '',
-                barcode: initialData.barcode || ''
+                barcode: initialData.barcode || '',
+                catalogId: '' // We don't strictly link them back yet, but could try to find a match
             });
+            
+            // Try to find matching catalog item by nameEn
+            const match = catalog?.find(c => c.nameEn === initialData.nameEn);
+            if (match) {
+                setNewItem(prev => ({...prev, catalogId: match.id}));
+            }
+            
             setError('');
         } else if (isOpen && !initialData) {
             // Reset if opening in Add mode
-            setNewItem({ nameEn: '', nameAr: '', description: '', category: '', quantity: '', unit: '', minThreshold: '', expirationDate: '', barcode: '' });
+            setNewItem({ nameEn: '', nameAr: '', description: '', category: '', quantity: '', unit: '', minThreshold: '', expirationDate: '', barcode: '', catalogId: '' });
             setError('');
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData, catalog]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -139,35 +151,79 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.itemNameEn}</label>
-                        <input
-                            required
-                            type="text"
-                            value={newItem.nameEn}
-                            onChange={e => {
-                                setNewItem({...newItem, nameEn: e.target.value});
-                                setError('');
-                            }}
-                            placeholder={t.itemNameEnPlaceholder}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                        />
-                    </div>
+                    {!isEditMode && catalog && catalog.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium text-brand-600 dark:text-brand-400 mb-1 flex items-center gap-1">
+                                <Package className="w-4 h-4" />
+                                {language === 'ar' ? 'اختر من دليل المنتجات (إلزامي)' : 'Select from Catalog (Required)'}
+                            </label>
+                            <select
+                                required
+                                value={newItem.catalogId}
+                                onChange={e => {
+                                    const selected = catalog.find(c => c.id === e.target.value);
+                                    if (selected) {
+                                        setNewItem({
+                                            ...newItem,
+                                            catalogId: selected.id,
+                                            nameEn: selected.nameEn,
+                                            nameAr: selected.nameAr,
+                                            description: selected.description || '',
+                                            category: selected.category,
+                                            unit: selected.unit,
+                                            minThreshold: selected.minThreshold.toString(),
+                                            barcode: selected.barcode || ''
+                                        });
+                                        setError('');
+                                    } else {
+                                        setNewItem({...newItem, catalogId: ''});
+                                    }
+                                }}
+                                className="w-full px-4 py-2 border border-brand-200 dark:border-brand-900/30 rounded-lg bg-brand-50/50 dark:bg-brand-900/10 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                            >
+                                <option value="">{language === 'ar' ? '-- اختر منتج --' : '-- Select Product --'}</option>
+                                {catalog.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                        {language === 'ar' ? c.nameAr : c.nameEn} ({c.category})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.itemNameAr}</label>
-                        <input
-                            required
-                            type="text"
-                            value={newItem.nameAr}
-                            onChange={e => {
-                                setNewItem({...newItem, nameAr: e.target.value});
-                                setError('');
-                            }}
-                            placeholder={t.itemNameArPlaceholder}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-arabic"
-                            dir="rtl"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.itemNameEn}</label>
+                            <input
+                                required
+                                readOnly={!!newItem.catalogId}
+                                type="text"
+                                value={newItem.nameEn}
+                                onChange={e => {
+                                    setNewItem({...newItem, nameEn: e.target.value});
+                                    setError('');
+                                }}
+                                placeholder={t.itemNameEnPlaceholder}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.itemNameAr}</label>
+                            <input
+                                required
+                                readOnly={!!newItem.catalogId}
+                                type="text"
+                                value={newItem.nameAr}
+                                onChange={e => {
+                                    setNewItem({...newItem, nameAr: e.target.value});
+                                    setError('');
+                                }}
+                                placeholder={t.itemNameArPlaceholder}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-arabic ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                dir="rtl"
+                            />
+                        </div>
                     </div>
 
                     <div>
@@ -176,13 +232,14 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                             {t.description}
                         </label>
                         <textarea
+                            readOnly={!!newItem.catalogId}
                             value={newItem.description}
                             onChange={e => {
                                 setNewItem({...newItem, description: e.target.value});
                                 setError('');
                             }}
                             placeholder={t.descriptionPlaceholder}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none resize-none h-20 text-sm"
+                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none resize-none h-20 text-sm ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
                         />
                     </div>
 
@@ -190,6 +247,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.category}</label>
                         <input
                             required
+                            readOnly={!!newItem.catalogId}
                             type="text"
                             list="category-suggestions"
                             value={newItem.category}
@@ -197,7 +255,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                 setNewItem({...newItem, category: e.target.value});
                                 setError('');
                             }}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                            placeholder={t.categoryPlaceholder}
+                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
                         />
                         <datalist id="category-suggestions">
                             {Array.from(new Set(existingItems.map(i => i.category))).sort().map(cat => (
@@ -226,6 +285,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.unit}</label>
                             <input
                                 required
+                                readOnly={!!newItem.catalogId}
                                 type="text"
                                 value={newItem.unit}
                                 onChange={e => {
@@ -233,7 +293,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setError('');
                                 }}
                                 placeholder={t.unitPlaceholder}
-                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
@@ -270,16 +330,25 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.barcodeOptional}</label>
-                        <input
-                            type="text"
-                            value={newItem.barcode}
-                            onChange={e => {
-                                setNewItem({...newItem, barcode: e.target.value});
-                                setError('');
-                            }}
-                            placeholder={t.scanOrEnterBarcode}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                        />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={newItem.barcode}
+                                onChange={e => {
+                                    setNewItem({...newItem, barcode: e.target.value});
+                                    setError('');
+                                }}
+                                placeholder={t.scanOrEnterBarcode}
+                                className="w-full px-4 pr-12 rtl:pr-4 rtl:pl-12 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowScanner(true)}
+                                className="absolute right-2 rtl:left-2 rtl:right-auto top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-md transition-colors"
+                            >
+                                <Camera className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     {error && (
@@ -307,6 +376,17 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                     </div>
                 </form>
             </div>
+            
+            {showScanner && (
+                <BarcodeScanner 
+                    onScan={(decodedText) => {
+                        setNewItem({...newItem, barcode: decodedText});
+                        setShowScanner(false);
+                    }}
+                    onClose={() => setShowScanner(false)}
+                    language={language}
+                />
+            )}
         </div>
     );
 };

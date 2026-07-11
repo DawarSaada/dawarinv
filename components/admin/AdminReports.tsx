@@ -102,8 +102,9 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                       onChange={(e) => setReportLocation(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                   >
+                      <option value="all">{t.allStatuses}</option>
                       {availableLocations.map(loc => (
-                          <option key={loc.id} value={loc.id === 'warehouse' ? 'المركز الرئيسي' : loc.id === 'mammal' ? 'قسم الثدييات' : loc.name}>
+                          <option key={loc.id} value={loc.id}>
                               {loc.id === 'warehouse' ? t.warehouse : loc.id === 'mammal' ? t.mammal : (language === 'ar' ? (loc.nameAr || loc.name) : loc.name)}
                           </option>
                       ))}

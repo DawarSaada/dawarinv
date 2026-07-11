@@ -11,7 +11,8 @@ import {
   Grid3X3, 
   ChevronDown, 
   ArrowRightLeft,
-  Loader2
+  Loader2,
+  Camera
 } from 'lucide-react';
 import { Language } from '../../types';
 
@@ -44,6 +45,7 @@ interface InventoryToolbarProps {
   setActiveDropdown: (val: 'view' | 'sort' | 'filter' | null) => void;
   lowStockCount: number;
   language: Language;
+  onScanClick: () => void;
 }
 
 const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
@@ -74,11 +76,12 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
   activeDropdown,
   setActiveDropdown,
   lowStockCount,
-  language
+  language,
+  onScanClick
 }) => {
   return (
     <>
-      <div className="flex flex-col lg:flex-row justify-between gap-4 mb-6 relative z-40">
+      <div className="flex flex-col lg:flex-row flex-wrap justify-between items-start lg:items-center gap-4 mb-6 relative z-40">
         {/* Search & Filter */}
         <div className="flex flex-1 gap-2 flex-wrap sm:flex-nowrap">
           <div className="relative flex-1 min-w-[200px] w-full max-w-md">
@@ -90,9 +93,14 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
               className="w-full pl-10 pr-10 rtl:pr-10 rtl:pl-10 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-gray-900 dark:text-white transition-all text-sm"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 rtl:right-3 rtl:left-auto top-3.5" />
-            <div className="absolute right-3 rtl:left-3 rtl:right-auto top-3 text-gray-400 hover:text-brand-500 cursor-pointer" title="Scan Barcode">
+            <button 
+                type="button"
+                onClick={onScanClick}
+                className="absolute right-3 rtl:left-3 rtl:right-auto top-3 text-gray-400 hover:text-brand-500 cursor-pointer" 
+                title="Scan Barcode"
+            >
                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>
-            </div>
+            </button>
           </div>
 
           <div className="flex items-center gap-2 pb-1 sm:pb-0">
@@ -198,6 +206,10 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
              <button onClick={onSmartUpload} disabled={isProcessingPdf} className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-200 dark:shadow-none disabled:opacity-50 text-sm">
                 {isProcessingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                 <span className="hidden sm:inline">{t.smartUpload}</span>
+             </button>
+             <button onClick={onScanClick} className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors shadow-lg shadow-purple-200 dark:shadow-none text-sm">
+                <Camera className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.scanBarcode || 'Scan'}</span>
              </button>
              <button onClick={onOpenTransfer} className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm text-sm">
                 <ArrowRightLeft className="w-4 h-4" />

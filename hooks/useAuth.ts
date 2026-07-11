@@ -3,8 +3,7 @@ import { User, LocationData } from '../types';
 import { supabase } from '../services/supabase';
 import { generateId } from '../constants';
 
-export const useAuth = (requestNotificationPermission: () => void) => {
-  const [users, setUsers] = useState<User[]>([]);
+export const useAuth = (requestNotificationPermission: () => void, fetchedUsers: User[]) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
       const saved = localStorage.getItem('dawar_user');
       const expiry = localStorage.getItem('dawar_session_expiry');
@@ -15,6 +14,17 @@ export const useAuth = (requestNotificationPermission: () => void) => {
       localStorage.removeItem('dawar_session_expiry');
       return null;
   });
+
+  // Sync currentUser with fetchedUsers in case Admin updates permissions remotely
+  React.useEffect(() => {
+    if (currentUser && fetchedUsers.length > 0) {
+      const freshUser = fetchedUsers.find(u => u.id === currentUser.id);
+      if (freshUser && JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
+        setCurrentUser(freshUser);
+        localStorage.setItem('dawar_user', JSON.stringify(freshUser));
+      }
+    }
+  }, [fetchedUsers, currentUser]);
 
   const handleLogin = useCallback((user: User, rememberMe: boolean, setSelectedLocation: (loc: string | null) => void) => {
     setCurrentUser(user);
@@ -48,27 +58,7 @@ export const useAuth = (requestNotificationPermission: () => void) => {
     localStorage.removeItem('dawar_session_expiry');
   }, []);
 
-  const handleCreateUser = useCallback(async (newUser: Omit<User, 'id'>, setLocations: Dispatch<SetStateAction<LocationData[]>>) => {
-    const tempId = generateId();
-    // Optimistic Update
-    const user: User = { ...newUser, id: tempId };
-    setUsers(prev => [...prev, user]);
-
-    if (newUser.role === 'branch_manager' && newUser.branchCode) {
-        const newLoc: LocationData = {
-            id: newUser.branchCode,
-            name: newUser.branchName || newUser.branchCode,
-            nameAr: newUser.branchNameAr || newUser.branchName || newUser.branchCode,
-            description: 'Branch Inventory',
-            icon: 'store',
-            type: 'branch'
-        };
-        setLocations(prev => {
-            if (prev.some(l => l.id === newLoc.id)) return prev;
-            return [...prev, newLoc];
-        });
-    }
-
+  const handleCreateUser = useCallback(async (newUser: Omit<User, 'id'>) => {
     // Async Backend Call
     const { data, error } = await supabase.from('app_users').insert([{
         username: newUser.username,
@@ -79,47 +69,18 @@ export const useAuth = (requestNotificationPermission: () => void) => {
         branch_code: newUser.branchCode,
         branch_name: newUser.branchName,
         branch_name_ar: newUser.branchNameAr,
-        accessible_branches: newUser.accessibleBranches || []
+        accessible_branches: [
+           ...(newUser.accessibleBranches || []),
+           ...(newUser.readOnlyBranches || []).map(b => `${b}:read`)
+        ]
     }]).select();
-    
-    if (!error && data && data[0]) {
-        const realUser: User = {
-            id: data[0].id,
-            username: data[0].username,
-            password: data[0].password,
-            name: data[0].name,
-            nameAr: data[0].name_ar,
-            role: data[0].role,
-            branchCode: data[0].branch_code,
-            branchName: data[0].branch_name,
-            branchNameAr: data[0].branch_name_ar,
-            accessibleBranches: data[0].accessible_branches
-        };
-        setUsers(prev => prev.map(u => u.id === tempId ? realUser : u));
+    if (error) {
+        console.error("Error creating user:", error);
+        throw error;
     }
   }, []);
 
-  const handleEditUser = useCallback(async (updatedUser: User, setLocations: Dispatch<SetStateAction<LocationData[]>>) => {
-      // Optimistic Update
-      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-
-      if (updatedUser.role === 'branch_manager' && updatedUser.branchCode) {
-          const newLoc: LocationData = {
-              id: updatedUser.branchCode,
-              name: updatedUser.branchName || updatedUser.branchCode,
-              nameAr: updatedUser.branchNameAr || updatedUser.branchName || updatedUser.branchCode,
-              description: 'Branch Inventory',
-              icon: 'store',
-              type: 'branch'
-          };
-          setLocations(prev => {
-              const exists = prev.some(l => l.id === newLoc.id);
-              if (exists) {
-                  return prev.map(l => l.id === newLoc.id ? { ...l, name: newLoc.name, nameAr: newLoc.nameAr } : l);
-              }
-              return [...prev, newLoc];
-          });
-      }
+  const handleEditUser = useCallback(async (updatedUser: User) => {
 
       const updates: any = {
         username: updatedUser.username,
@@ -129,7 +90,10 @@ export const useAuth = (requestNotificationPermission: () => void) => {
         branch_code: updatedUser.branchCode,
         branch_name: updatedUser.branchName,
         branch_name_ar: updatedUser.branchNameAr,
-        accessible_branches: updatedUser.accessibleBranches || []
+        accessible_branches: [
+           ...(updatedUser.accessibleBranches || []),
+           ...(updatedUser.readOnlyBranches || []).map(b => `${b}:read`)
+        ]
       };
 
       if (updatedUser.password && updatedUser.password.trim() !== '') {
@@ -139,15 +103,14 @@ export const useAuth = (requestNotificationPermission: () => void) => {
       await supabase.from('app_users').update(updates).eq('id', updatedUser.id).then(({error}) => { if (error) throw error; });
   }, []);
 
-  const handleDeleteUser = useCallback(async (id: string) => {
-    // Optimistic Update
-    setUsers(prev => prev.filter(u => u.id !== id));
-    await supabase.from('app_users').delete().eq('id', id).then(({error}) => { if (error) throw error; });
+  const handleDeleteUser = useCallback(async (userId: string) => {
+      const { error } = await supabase.from('app_users').delete().eq('id', userId);
+      if (error) throw error;
   }, []);
 
   return {
-    users,
-    setUsers,
+    users: fetchedUsers,
+    setUsers: () => {}, // No-op
     currentUser,
     setCurrentUser,
     handleLogin,

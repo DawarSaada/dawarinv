@@ -3,7 +3,8 @@ import {
   Pencil, 
   Trash2, 
   ArrowRightLeft, 
-  XCircle 
+  XCircle,
+  Printer 
 } from 'lucide-react';
 
 interface BulkActionsBarProps {
@@ -13,6 +14,7 @@ interface BulkActionsBarProps {
   onBulkEdit: () => void;
   onBulkDelete: () => void;
   onBulkTransfer: () => void;
+  onBulkPrint: () => void;
   onClearSelection: () => void;
 }
 
@@ -23,6 +25,7 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onBulkEdit,
   onBulkDelete,
   onBulkTransfer,
+  onBulkPrint,
   onClearSelection
 }) => {
   if (selectedCount === 0) return null;
@@ -57,6 +60,14 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               </button>
             </>
           )}
+
+          <button 
+            onClick={onBulkPrint}
+            className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 rounded-xl transition-colors text-sm font-bold"
+          >
+            <Printer className="w-4 h-4 text-emerald-400" />
+            {t.printLabels || 'Print Labels'}
+          </button>
 
           <button 
             onClick={onBulkTransfer}

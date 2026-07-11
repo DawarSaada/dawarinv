@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { InventoryItem, Language, Transaction, TransactionType } from '../types';
+import { InventoryItem, Language, Transaction, TransactionType, AppNotification } from '../types';
 import { TRANSLATIONS } from '../constants';
+import NotificationCenter from './NotificationCenter';
 import { exportDailyReportPDF } from '../services/exportService';
 import { 
     LogOut, 
@@ -15,8 +16,10 @@ import {
     X, 
     Save, 
     RotateCcw, 
-    Edit2 
+    Edit2,
+    Camera
 } from 'lucide-react';
+import BarcodeScanner from './BarcodeScanner';
 
 interface MammalEmployeeDashboardProps {
     items: InventoryItem[];
@@ -26,6 +29,9 @@ interface MammalEmployeeDashboardProps {
     onBulkLogTransaction: (logs: { type: TransactionType, itemId: string, quantity: number, notes: string }[]) => void;
     userName: string;
     transactions: Transaction[];
+    alerts?: AppNotification[];
+    onMarkNotificationAsRead?: (id: string) => void;
+    onMarkAllNotificationsAsRead?: () => void;
 }
 
 type LogEntry = {
@@ -41,11 +47,15 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
     onLogTransaction,
     onBulkLogTransaction,
     userName,
-    transactions
+    transactions,
+    alerts = [],
+    onMarkNotificationAsRead,
+    onMarkAllNotificationsAsRead
 }) => {
     const t = TRANSLATIONS[language];
     const [search, setSearch] = useState('');
     const [showReportModal, setShowReportModal] = useState(false);
+    const [showScanner, setShowScanner] = useState(false);
     
     // Bulk Entry State
     const [logEntries, setLogEntries] = useState<Record<string, LogEntry>>({});
@@ -55,8 +65,15 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
 
     const filteredItems = items.filter(i => {
         const name = language === 'ar' ? i.nameAr : i.nameEn;
-        return name.toLowerCase().includes(search.toLowerCase());
+        const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || 
+                              (i.barcode && i.barcode.toLowerCase().includes(search.toLowerCase()));
+        return matchesSearch;
     });
+
+    const handleScan = (decodedText: string) => {
+        setSearch(decodedText);
+        setShowScanner(false);
+    };
 
     const handleInputChange = (id: string, field: keyof LogEntry, value: string) => {
         setLogEntries(prev => ({
@@ -167,7 +184,14 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-3">
+                        <NotificationCenter 
+                            notifications={alerts}
+                            language={language}
+                            t={t}
+                            onMarkAsRead={onMarkNotificationAsRead || (() => {})}
+                            onMarkAllAsRead={onMarkAllNotificationsAsRead || (() => {})}
+                        />
                         <button 
                             onClick={() => setShowReportModal(true)}
                             className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors"
@@ -187,15 +211,24 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
 
             <main className="p-4 sm:p-6 max-w-5xl mx-auto">
                 {/* Search */}
-                <div className="mb-6 relative">
-                    <input
-                        type="text"
-                        placeholder={t.searchPlaceholder}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 rtl:pr-10 rtl:pl-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
-                    />
-                    <Search className="w-5 h-5 text-gray-400 absolute left-3 rtl:right-3 rtl:left-auto top-3.5" />
+                <div className="mb-6 flex gap-2">
+                    <div className="relative flex-1">
+                        <input
+                            type="text"
+                            placeholder={t.searchPlaceholder}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 rtl:pr-10 rtl:pl-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
+                        />
+                        <Search className="w-5 h-5 text-gray-400 absolute left-3 rtl:right-3 rtl:left-auto top-3.5" />
+                    </div>
+                    <button
+                        onClick={() => setShowScanner(true)}
+                        className="bg-brand-600 hover:bg-brand-700 text-white p-3 rounded-xl transition-colors flex items-center justify-center"
+                        title="Scan Barcode"
+                    >
+                        <Camera className="w-5 h-5" />
+                    </button>
                 </div>
 
                 {/* Messages */}
@@ -356,6 +389,14 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showScanner && (
+                <BarcodeScanner 
+                    onScan={handleScan}
+                    onClose={() => setShowScanner(false)}
+                    language={language}
+                />
             )}
         </div>
     );

@@ -97,28 +97,44 @@ const UserModal: React.FC<UserModalProps> = ({
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.accessibleLocations}</label>
-                                <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-900">
-                                    {availableLocations.map(loc => (
-                                        <label key={loc.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-1 rounded transition-colors">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={userForm.accessibleBranches.includes(loc.id)}
-                                                onChange={(e) => {
-                                                    const checked = e.target.checked;
-                                                    setUserForm((prev: any) => ({
-                                                        ...prev,
-                                                        accessibleBranches: checked 
-                                                            ? [...prev.accessibleBranches, loc.id]
-                                                            : prev.accessibleBranches.filter((id: string) => id !== loc.id)
-                                                    }));
-                                                }}
-                                                className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900/50">
+                                    {availableLocations.map(loc => {
+                                        const isFull = userForm.accessibleBranches.includes(loc.id);
+                                        const isRead = userForm.readOnlyBranches?.includes(loc.id);
+                                        const value = isFull ? 'full' : isRead ? 'read' : 'none';
+                                        
+                                        return (
+                                        <div key={loc.id} className="flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition-colors border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                                 {loc.id === 'warehouse' ? t.warehouse : loc.id === 'mammal' ? t.mammal : (language === 'ar' ? (loc.nameAr || loc.name) : loc.name)}
                                             </span>
-                                        </label>
-                                    ))}
+                                            <select
+                                                value={value}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setUserForm((prev: any) => {
+                                                        const accessibleBranches = prev.accessibleBranches.filter((id: string) => id !== loc.id);
+                                                        const readOnlyBranches = (prev.readOnlyBranches || []).filter((id: string) => id !== loc.id);
+                                                        
+                                                        if (val === 'full') accessibleBranches.push(loc.id);
+                                                        if (val === 'read') readOnlyBranches.push(loc.id);
+                                                        
+                                                        return {
+                                                            ...prev,
+                                                            accessibleBranches,
+                                                            readOnlyBranches
+                                                        };
+                                                    });
+                                                }}
+                                                className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-brand-500"
+                                            >
+                                                <option value="none">{language === 'ar' ? 'بلا صلاحية' : 'No Access'}</option>
+                                                <option value="read">{language === 'ar' ? 'قراءة فقط' : 'Read Only'}</option>
+                                                <option value="full">{language === 'ar' ? 'صلاحية كاملة' : 'Full Access'}</option>
+                                            </select>
+                                        </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

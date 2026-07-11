@@ -4,6 +4,8 @@ import {
   Sparkles, 
   LogOut 
 } from 'lucide-react';
+import { AppNotification, Language } from '../../types';
+import NotificationCenter from '../NotificationCenter';
 
 interface InventoryHeaderProps {
   onBack: () => void;
@@ -13,6 +15,8 @@ interface InventoryHeaderProps {
   isAssistantOpen: boolean;
   setIsAssistantOpen: (val: boolean) => void;
   onLogout: () => void;
+  alerts?: AppNotification[];
+  language?: Language;
 }
 
 const InventoryHeader: React.FC<InventoryHeaderProps> = ({
@@ -22,8 +26,18 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
   t,
   isAssistantOpen,
   setIsAssistantOpen,
-  onLogout
+  onLogout,
+  alerts = [],
+  language = 'en'
 }) => {
+  const handleMarkAsRead = (id: string) => {
+    // In a real app with Supabase, we would do a mutation.
+    // For now, let's keep it visually working (the actual mutation will be handled if passed in)
+  };
+
+  const handleMarkAllAsRead = () => {
+    // Mutation
+  };
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 transition-colors">
       <div className="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
@@ -49,7 +63,16 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
             <span className="hidden sm:inline">{t.askAI}</span>
           </button>
           <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
-           <button onClick={onLogout} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 rounded-lg transition-colors">
+          
+          <NotificationCenter 
+            notifications={alerts}
+            language={language}
+            t={t}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+          />
+
+          <button onClick={onLogout} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 rounded-lg transition-colors ml-1 rtl:ml-0 rtl:mr-1">
             <LogOut className="w-5 h-5 rtl:rotate-180" />
           </button>
         </div>
