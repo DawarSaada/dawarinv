@@ -253,6 +253,9 @@ export const useInventoryQuery = () => {
           newInventory[i.location_id].push(item);
         });
       }
+      if (typeof window !== 'undefined') {
+        (window as any).__DEBUG_INV_KEYS = Object.keys(newInventory).join(',');
+      }
       return Object.keys(newInventory).length > 0 ? newInventory : INITIAL_INVENTORY;
     },
     placeholderData: INITIAL_INVENTORY,
