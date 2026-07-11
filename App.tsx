@@ -239,6 +239,8 @@ const App: React.FC = () => {
 
 
   const displayInventory = useMemo(() => {
+    if (!inventory) return [];
+    
     const rawItems = selectedLocation === 'all'
       ? Object.entries(inventory).flatMap(([locId, items]) => (items as InventoryItem[]).map(i => ({ ...i, locationId: locId })))
       : inventory[selectedLocation || ''] || [];

@@ -11,7 +11,8 @@ interface UseInventoryDataProps {
 }
 
 export const useInventoryData = ({ currentUser, selectedLocation, language, addToast }: UseInventoryDataProps) => {
-  const { data: inventory } = useInventoryQuery();
+  const { data: inventoryData } = useInventoryQuery();
+  const inventory = inventoryData || {};
   const { data: transactions } = useTransactionsQuery();
 
   const {

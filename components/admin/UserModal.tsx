@@ -99,8 +99,8 @@ const UserModal: React.FC<UserModalProps> = ({
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.accessibleLocations}</label>
                                 <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900/50">
                                     {availableLocations.map(loc => {
-                                        const isFull = userForm.accessibleBranches.includes(loc.id);
-                                        const isRead = userForm.readOnlyBranches?.includes(loc.id);
+                                        const isFull = (userForm.accessibleBranches || []).includes(loc.id);
+                                        const isRead = (userForm.readOnlyBranches || []).includes(loc.id);
                                         const value = isFull ? 'full' : isRead ? 'read' : 'none';
                                         
                                         return (
@@ -113,7 +113,7 @@ const UserModal: React.FC<UserModalProps> = ({
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     setUserForm((prev: any) => {
-                                                        const accessibleBranches = prev.accessibleBranches.filter((id: string) => id !== loc.id);
+                                                        const accessibleBranches = (prev.accessibleBranches || []).filter((id: string) => id !== loc.id);
                                                         const readOnlyBranches = (prev.readOnlyBranches || []).filter((id: string) => id !== loc.id);
                                                         
                                                         if (val === 'full') accessibleBranches.push(loc.id);
