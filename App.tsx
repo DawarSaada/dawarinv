@@ -413,6 +413,7 @@ const App: React.FC = () => {
       )}
       <ThemeLanguageControls language={language} theme={theme} onToggleLanguage={toggleLanguage} onToggleTheme={toggleTheme} />
       <InventoryDashboard
+        key={selectedLocation || 'global'}
         locationId={selectedLocation}
         inventory={displayInventory}
         transactions={transactions}
