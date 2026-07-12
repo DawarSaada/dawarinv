@@ -117,13 +117,15 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       isManagerOfSource: boolean
     }) => {
       // Use the newly created RPC
-      const { error } = await supabase.rpc('execute_transfer', {
+      console.log('Attempting transfer RPC with:', { fromLocation, toLocation, performedBy, isManagerOfSource, items });
+      const { data, error } = await supabase.rpc('execute_transfer', {
         p_from_location: fromLocation,
         p_to_location: toLocation,
         p_performed_by: performedBy,
         p_is_manager_of_source: isManagerOfSource,
         p_items: items
       });
+      console.log('Transfer RPC response:', { data, error });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -133,7 +135,8 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error("Transfer failed", error);
-      addToast('error', language === 'ar' ? 'فشل النقل. يرجى التحقق من اتصالك.' : 'Transfer failed. Please check your connection.');
+      const detail = error?.message || error?.details || error?.hint || JSON.stringify(error);
+      addToast('error', `Transfer failed: ${detail}`);
     }
   });
 
