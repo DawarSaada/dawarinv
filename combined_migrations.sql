@@ -354,7 +354,7 @@ BEGIN
     INSERT INTO public.notifications (location_id, item_id, type, message_en, message_ar)
     VALUES (
       NEW.to_location,
-      NEW.id,
+      NULL,
       'transfer',
       'Incoming Transfer: ' || NEW.quantity || ' ' || NEW.unit || ' of ' || NEW.item_name_en || ' from ' || NEW.from_location,
       'تحويل قادم: ' || NEW.quantity || ' ' || NEW.unit || ' من ' || NEW.item_name_ar || ' من ' || NEW.from_location
