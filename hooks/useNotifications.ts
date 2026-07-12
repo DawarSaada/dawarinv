@@ -30,26 +30,42 @@ export const useNotifications = (
 
     const t_text = TRANSLATIONS[language];
 
+    // Group incoming by transfer group ID to prevent spam
     if (relevantIncoming.length > 0) {
-      relevantIncoming.forEach(tx => {
-        const fromLoc = availableLocations.find(l => l.id === tx.fromLocation);
-        const fromLocName = fromLoc ? (fromLoc.id === 'warehouse' ? t_text.warehouse : fromLoc.id === 'mammal' ? t_text.mammal : (language === 'ar' ? (fromLoc.nameAr || fromLoc.name) : fromLoc.name)) : tx.fromLocation;
+      const incomingGroups = relevantIncoming.reduce((acc, tx) => {
+        const groupId = tx.transferGroupId || tx.id; // Fallback to id if no group id
+        if (!acc[groupId]) {
+          acc[groupId] = [];
+        }
+        acc[groupId].push(tx);
+        return acc;
+      }, {} as Record<string, Transaction[]>);
+
+      Object.values(incomingGroups).forEach(group => {
+        const firstTx = group[0];
+        const fromLoc = availableLocations.find(l => l.id === firstTx.fromLocation);
+        const fromLocName = fromLoc ? (fromLoc.id === 'warehouse' ? t_text.warehouse : fromLoc.id === 'mammal' ? t_text.mammal : (language === 'ar' ? (fromLoc.nameAr || fromLoc.name) : fromLoc.name)) : firstTx.fromLocation;
+        
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
             const title = t_text.incomingRequests;
+            const itemCount = group.length;
+            const bodyText = language === 'ar' 
+              ? `تحويل وارد: ${itemCount} عناصر من ${fromLocName}`
+              : `Incoming Transfer: ${itemCount} items from ${fromLocName}`;
+
             const options = {
-              body: `${language === 'ar' ? tx.itemNameAr : tx.itemNameEn}: ${tx.quantity} ${tx.unit} ${t_text.from} ${fromLocName}`,
+              body: bodyText,
               icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
               badge: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
               vibrate: [100, 50, 100],
-              data: { primaryKey: tx.id }
+              data: { primaryKey: firstTx.transferGroupId || firstTx.id }
             };
 
             if ('serviceWorker' in navigator) {
               navigator.serviceWorker.ready.then(registration => {
                 registration.showNotification(title, options);
               }).catch(err => {
-                console.error("Service worker notification failed, falling back to standard", err);
                 new Notification(title, options);
               });
             } else {
@@ -57,30 +73,48 @@ export const useNotifications = (
             }
           } catch (e) { console.error("Notification failed", e); }
         }
-        notifiedIds.current.add(tx.id);
+        
+        // Mark all items in this group as notified
+        group.forEach(tx => notifiedIds.current.add(tx.id));
       });
     }
 
+    // Group completed by transfer group ID
     if (relevantCompleted.length > 0) {
-      relevantCompleted.forEach(tx => {
-        const toLoc = availableLocations.find(l => l.id === tx.toLocation);
-        const toLocName = toLoc ? (toLoc.id === 'warehouse' ? t_text.warehouse : toLoc.id === 'mammal' ? t_text.mammal : (language === 'ar' ? (toLoc.nameAr || toLoc.name) : toLoc.name)) : tx.toLocation;
+      const completedGroups = relevantCompleted.reduce((acc, tx) => {
+        const groupId = tx.transferGroupId || tx.id;
+        if (!acc[groupId]) {
+          acc[groupId] = [];
+        }
+        acc[groupId].push(tx);
+        return acc;
+      }, {} as Record<string, Transaction[]>);
+
+      Object.values(completedGroups).forEach(group => {
+        const firstTx = group[0];
+        const toLoc = availableLocations.find(l => l.id === firstTx.toLocation);
+        const toLocName = toLoc ? (toLoc.id === 'warehouse' ? t_text.warehouse : toLoc.id === 'mammal' ? t_text.mammal : (language === 'ar' ? (toLoc.nameAr || toLoc.name) : toLoc.name)) : firstTx.toLocation;
+        
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
             const title = language === 'ar' ? 'تم استلام التحويل' : 'Transfer Received';
+            const itemCount = group.length;
+            const bodyText = language === 'ar' 
+              ? `تم استلام ${itemCount} عناصر بواسطة ${toLocName}`
+              : `${itemCount} items received by ${toLocName}`;
+
             const options = {
-              body: `${language === 'ar' ? tx.itemNameAr : tx.itemNameEn}: ${tx.quantity} ${tx.unit} ${language === 'ar' ? 'بواسطة' : 'by'} ${toLocName}`,
+              body: bodyText,
               icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
               badge: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
               vibrate: [100, 50, 100],
-              data: { primaryKey: tx.id + '_completed' }
+              data: { primaryKey: (firstTx.transferGroupId || firstTx.id) + '_completed' }
             };
 
             if ('serviceWorker' in navigator) {
               navigator.serviceWorker.ready.then(registration => {
                 registration.showNotification(title, options);
               }).catch(err => {
-                console.error("Service worker notification failed, falling back to standard", err);
                 new Notification(title, options);
               });
             } else {
@@ -88,7 +122,9 @@ export const useNotifications = (
             }
           } catch (e) { console.error("Notification failed", e); }
         }
-        notifiedIds.current.add(tx.id + '_completed');
+        
+        // Mark all items in this group as notified
+        group.forEach(tx => notifiedIds.current.add(tx.id + '_completed'));
       });
     }
   }, [transactions, currentUser, selectedLocation, language, availableLocations]);
