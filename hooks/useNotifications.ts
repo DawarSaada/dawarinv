@@ -1,6 +1,23 @@
 import { useEffect, useRef } from 'react';
 import { Transaction, LocationData, Language, User } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { supabase } from '../services/supabase';
+
+// Utility to convert Base64 string to Uint8Array for VAPID key
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 export const useNotifications = (
   currentUser: User | null,
@@ -13,6 +30,43 @@ export const useNotifications = (
 
   useEffect(() => {
     if (!currentUser) return;
+
+    // Web Push Subscription Logic
+    const subscribeToWebPush = async () => {
+      if ('serviceWorker' in navigator && 'PushManager' in window && Notification.permission === 'granted') {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          let subscription = await registration.pushManager.getSubscription();
+          
+          if (!subscription) {
+            // NOTE: The user will need to put their public VAPID key here
+            const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+            if (!publicVapidKey) return; // Skip if no key
+            
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+          }
+
+          // Save subscription to database
+          const subJson = subscription.toJSON();
+          if (subJson.endpoint && subJson.keys) {
+            await supabase.from('push_subscriptions').upsert({
+              user_id: currentUser.id,
+              location_id: selectedLocation,
+              endpoint: subJson.endpoint,
+              p256dh: subJson.keys.p256dh,
+              auth: subJson.keys.auth
+            }, { onConflict: 'endpoint' });
+          }
+        } catch (error) {
+          console.error('Error subscribing to web push:', error);
+        }
+      }
+    };
+
+    subscribeToWebPush();
 
     // Filter relevant incoming transfers that haven't been notified yet
     const relevantIncoming = transactions.filter(t =>

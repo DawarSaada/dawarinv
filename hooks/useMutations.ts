@@ -128,10 +128,22 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       console.log('Transfer RPC response:', { data, error });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       addToast('success', language === 'ar' ? 'تم بدء النقل بنجاح' : 'Transfer initiated successfully');
+      
+      // Trigger push notification to target branch
+      supabase.functions.invoke('push-notifications', {
+        body: {
+          location_id: variables.toLocation,
+          title: language === 'ar' ? 'تحويل وارد' : 'Incoming Transfer',
+          body: language === 'ar' 
+            ? `تحويل وارد: ${variables.items.length} عناصر من ${variables.fromLocation}` 
+            : `Incoming Transfer: ${variables.items.length} items from ${variables.fromLocation}`,
+          data: { primaryKey: 'transfer' }
+        }
+      }).catch(e => console.error('Push notification failed', e));
     },
     onError: (error: any) => {
       console.error("Transfer failed", error);
@@ -155,8 +167,8 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
   });
 
   const receiveTransferMutation = useMutation({
-    mutationFn: async (transactionId: string) => {
-      const { error } = await supabase.rpc('receive_transfer', { p_transaction_id: transactionId });
+    mutationFn: async ({ transactionId, receivedQuantity, notes }: { transactionId: string, receivedQuantity: number, notes: string }) => {
+      const { error } = await supabase.rpc('receive_transfer', { p_transaction_id: transactionId, p_received_quantity: receivedQuantity, p_notes: notes });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -239,6 +251,21 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
         p_signature_url: signatureUrl || null
       });
       if (error) throw error;
+      
+      // Attempt to find the source location of this transfer group by fetching one transaction
+      supabase.from('transactions').select('from_location').eq('transfer_group_id', transferGroupId).limit(1).single()
+        .then(({ data }) => {
+          if (data?.from_location) {
+            supabase.functions.invoke('push-notifications', {
+              body: {
+                location_id: data.from_location,
+                title: 'Transfer Received',
+                body: 'The transfer you sent has been successfully received.',
+                data: { primaryKey: transferGroupId + '_completed' }
+              }
+            }).catch(e => console.error('Push notification failed', e));
+          }
+        }).catch(e => console.error('Error fetching source location for push', e));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
