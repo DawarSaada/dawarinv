@@ -16,9 +16,17 @@ self.addEventListener('push', (event) => {
       vibrate: data.vibrate || [100, 50, 100],
       data: data.data || {}
     };
-
     event.waitUntil(
-      self.registration.showNotification(data.title, options)
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (let i = 0; i < clientList.length; i++) {
+          const client = clientList[i];
+          if (client.focused && client.visibilityState === 'visible') {
+            // App is open and focused, do not show system notification
+            return;
+          }
+        }
+        return self.registration.showNotification(data.title, options);
+      })
     );
   }
 });

@@ -100,33 +100,9 @@ export const useNotifications = (
         const fromLoc = availableLocations.find(l => l.id === firstTx.fromLocation);
         const fromLocName = fromLoc ? (fromLoc.id === 'warehouse' ? t_text.warehouse : fromLoc.id === 'mammal' ? t_text.mammal : (language === 'ar' ? (fromLoc.nameAr || fromLoc.name) : fromLoc.name)) : firstTx.fromLocation;
         
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            const title = t_text.incomingRequests;
-            const itemCount = group.length;
-            const bodyText = language === 'ar' 
-              ? `تحويل وارد: ${itemCount} عناصر من ${fromLocName}`
-              : `Incoming Transfer: ${itemCount} items from ${fromLocName}`;
-
-            const options = {
-              body: bodyText,
-              icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
-              badge: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
-              vibrate: [100, 50, 100],
-              data: { primaryKey: firstTx.transferGroupId || firstTx.id }
-            };
-
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(title, options);
-              }).catch(err => {
-                new Notification(title, options);
-              });
-            } else {
-              new Notification(title, options);
-            }
-          } catch (e) { console.error("Notification failed", e); }
-        }
+        // We no longer trigger local Notification popups here.
+        // The Supabase Edge Function handles background Web Push.
+        // We just mark them as notified so the NotificationCenter bell icon works correctly.
         
         // Mark all items in this group as notified
         group.forEach(tx => notifiedIds.current.add(tx.id));
@@ -149,33 +125,8 @@ export const useNotifications = (
         const toLoc = availableLocations.find(l => l.id === firstTx.toLocation);
         const toLocName = toLoc ? (toLoc.id === 'warehouse' ? t_text.warehouse : toLoc.id === 'mammal' ? t_text.mammal : (language === 'ar' ? (toLoc.nameAr || toLoc.name) : toLoc.name)) : firstTx.toLocation;
         
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            const title = language === 'ar' ? 'تم استلام التحويل' : 'Transfer Received';
-            const itemCount = group.length;
-            const bodyText = language === 'ar' 
-              ? `تم استلام ${itemCount} عناصر بواسطة ${toLocName}`
-              : `${itemCount} items received by ${toLocName}`;
-
-            const options = {
-              body: bodyText,
-              icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
-              badge: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
-              vibrate: [100, 50, 100],
-              data: { primaryKey: (firstTx.transferGroupId || firstTx.id) + '_completed' }
-            };
-
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(title, options);
-              }).catch(err => {
-                new Notification(title, options);
-              });
-            } else {
-              new Notification(title, options);
-            }
-          } catch (e) { console.error("Notification failed", e); }
-        }
+        // We no longer trigger local Notification popups here.
+        // The Supabase Edge Function handles background Web Push.
         
         // Mark all items in this group as notified
         group.forEach(tx => notifiedIds.current.add(tx.id + '_completed'));
