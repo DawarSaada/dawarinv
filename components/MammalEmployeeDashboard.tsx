@@ -168,7 +168,7 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors font-sans pb-24">
             {/* Header */}
             <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
-                <div className="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+                <div className="px-4 sm:px-6 pt-[max(env(safe-area-inset-top),1rem)] pb-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <div className="p-2 bg-brand-600 rounded-lg text-white flex-shrink-0">
                             <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6" />

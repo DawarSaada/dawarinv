@@ -57,7 +57,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <>
       {/* Header Mobile Only */}
-      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 sticky top-0 z-30 flex items-center justify-between">
+      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3 sticky top-0 z-30 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-brand-600 rounded-lg text-white">
             <Shield className="w-5 h-5" />

@@ -371,7 +371,7 @@ const App: React.FC = () => {
 
   if (!selectedLocation) {
     return (
-      <div className={`font-sans antialiased text-gray-900 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-hidden transition-colors ${language === 'ar' ? 'font-arabic' : ''}`}>
+      <div className={`font-sans antialiased text-gray-900 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-hidden transition-colors pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] px-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] ${language === 'ar' ? 'font-arabic' : ''}`}>
         {isOffline && (
           <div className="bg-orange-500 text-white text-center py-2 text-sm font-bold shadow-md relative z-50">
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
@@ -405,7 +405,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className={`font-sans antialiased text-gray-900 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-hidden transition-colors ${language === 'ar' ? 'font-arabic' : ''}`}>
+    <div className={`font-sans antialiased text-gray-900 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-hidden transition-colors pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] px-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] ${language === 'ar' ? 'font-arabic' : ''}`}>
       {isOffline && (
         <div className="bg-orange-500 text-white text-center py-2 text-sm font-bold shadow-md relative z-50">
           {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
