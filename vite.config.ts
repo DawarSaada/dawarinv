@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => {
             short_name: 'DawarSaada',
             description: 'Inventory Management System',
             theme_color: '#ffffff'
-          },
           }
         })
       ],
