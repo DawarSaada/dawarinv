@@ -49,13 +49,13 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   doc.setFontSize(22);
   doc.setTextColor(234, 88, 12); 
   doc.setFont("Amiri", "bold");
-  doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
+  doc.text(formatText(doc, isAr ? "دوار السعادة" : "DAWAR AL-SAADA"), 105, 20, { align: "center" });
   
   // Brand Subtitle
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, 'Inventory Management System'), 105, 25, { align: "center" });
+  doc.text(formatText(doc, isAr ? "نظام إدارة المخزون" : "Inventory Management System"), 105, 26, { align: "center" });
 
   // Generate and insert QR Code (Offline Text Summary)
   const qrText = `Dawar Saada PO #${po.poNumber}\nStatus: ${po.status.toUpperCase()}\nTotal: ${po.totalAmount.toFixed(2)} SAR\nDate: ${new Date(po.createdAt).toLocaleDateString('en-US')}`;
@@ -214,12 +214,12 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
   doc.setFontSize(22);
   doc.setTextColor(234, 88, 12); 
   doc.setFont("Amiri", "bold");
-  doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
+  doc.text(formatText(doc, isAr ? "دوار السعادة" : "DAWAR AL-SAADA"), 105, 20, { align: "center" });
   
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, 'Inventory Management System'), 105, 25, { align: "center" });
+  doc.text(formatText(doc, isAr ? "نظام إدارة المخزون" : 'Inventory Management System'), 105, 26, { align: "center" });
 
   // Generate and insert QR Code (Offline Text Summary)
   const qrText = `Dawar Saada Audit Report\nLocation: ${audit.locationId.toUpperCase()}\nStatus: ${audit.status.toUpperCase()}\nDate: ${new Date(audit.createdAt).toLocaleDateString('en-US')}`;
