@@ -493,6 +493,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {activeTab === 'catalog' && (
                     <ProductCatalogManagement 
                         catalog={catalog}
+                        suppliers={suppliers}
                         language={language}
                     />
                 )}

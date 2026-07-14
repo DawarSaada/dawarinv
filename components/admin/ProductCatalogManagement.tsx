@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { CatalogItem, Language } from '../../types';
+import { CatalogItem, Language, Supplier } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { Plus, Edit2, Trash2, Search, X, Check } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 
 interface ProductCatalogManagementProps {
     catalog: CatalogItem[];
+    suppliers: Supplier[];
     language: Language;
 }
 
-const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ catalog, language }) => {
+const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ catalog, suppliers, language }) => {
     const t = TRANSLATIONS[language];
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
 
-    const [form, setForm] = useState<Partial<CatalogItem>>({
-        nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: ''
+    const [form, setForm] = useState<Partial<CatalogItem> & { supplierIds: string[] }>({
+        nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: '', supplierIds: []
     });
 
     const filteredCatalog = catalog.filter(c => {
@@ -29,10 +30,11 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
     const handleOpenModal = (item?: CatalogItem) => {
         if (item) {
             setEditingItem(item);
-            setForm(item);
+            const assignedSuppliers = suppliers.filter(s => s.suppliedItems?.includes(item.id)).map(s => s.id);
+            setForm({ ...item, supplierIds: assignedSuppliers });
         } else {
             setEditingItem(null);
-            setForm({ nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: '' });
+            setForm({ nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: '', supplierIds: [] });
         }
         setIsModalOpen(true);
     };
@@ -40,6 +42,8 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            let productId = editingItem?.id;
+            
             if (editingItem) {
                 const { error } = await supabase.from('product_catalog').update({
                     name_en: form.nameEn,
@@ -52,7 +56,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                 }).eq('id', editingItem.id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from('product_catalog').insert({
+                const { data, error } = await supabase.from('product_catalog').insert({
                     name_en: form.nameEn,
                     name_ar: form.nameAr,
                     description: form.description,
@@ -60,9 +64,29 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                     unit: form.unit,
                     min_threshold: form.minThreshold,
                     barcode: form.barcode
-                });
+                }).select().single();
                 if (error) throw error;
+                productId = data.id;
             }
+
+            // Sync Suppliers
+            if (productId && form.supplierIds) {
+                const supplierUpdates = suppliers.map(async (supplier) => {
+                    const isSelected = form.supplierIds!.includes(supplier.id);
+                    const hasItem = supplier.suppliedItems?.includes(productId!);
+
+                    if (isSelected && !hasItem) {
+                        const newItems = [...(supplier.suppliedItems || []), productId!];
+                        return supabase.from('suppliers').update({ supplied_items: newItems }).eq('id', supplier.id);
+                    } else if (!isSelected && hasItem) {
+                        const newItems = supplier.suppliedItems!.filter(id => id !== productId);
+                        return supabase.from('suppliers').update({ supplied_items: newItems }).eq('id', supplier.id);
+                    }
+                });
+                await Promise.all(supplierUpdates);
+                queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+            }
+
             setIsModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ['catalog'] });
         } catch (err) {
@@ -189,7 +213,40 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                                     <input type="text" value={form.barcode} onChange={e => setForm({...form, barcode: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                             </div>
-                            <button type="submit" className="w-full bg-brand-600 text-white p-3 rounded-lg font-bold mt-4">Save Product</button>
+                            <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    {language === 'ar' ? 'الموردين (اختياري)' : 'Suppliers (Optional)'}
+                                </label>
+                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {suppliers.map(supplier => (
+                                        <label key={supplier.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors">
+                                            <input 
+                                                type="checkbox" 
+                                                className="rounded text-brand-600 focus:ring-brand-500"
+                                                checked={form.supplierIds?.includes(supplier.id) || false}
+                                                onChange={(e) => {
+                                                    const currentIds = form.supplierIds || [];
+                                                    if (e.target.checked) {
+                                                        setForm({...form, supplierIds: [...currentIds, supplier.id]});
+                                                    } else {
+                                                        setForm({...form, supplierIds: currentIds.filter(id => id !== supplier.id)});
+                                                    }
+                                                }}
+                                            />
+                                            <span className="text-sm dark:text-white line-clamp-1" title={language === 'ar' ? supplier.nameAr : supplier.nameEn}>
+                                                {language === 'ar' ? supplier.nameAr : supplier.nameEn}
+                                            </span>
+                                        </label>
+                                    ))}
+                                    {suppliers.length === 0 && (
+                                        <div className="text-sm text-gray-500 p-2 col-span-2">
+                                            {language === 'ar' ? 'لا يوجد موردين' : 'No suppliers available'}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <button type="submit" className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition-colors mt-4">Save Product</button>
                         </form>
                     </div>
                 </div>
