@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Transaction, Language, UserRole, InventoryItem, LocationData, LocationId, CatalogItem, TransferSettings, AppNotification } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
