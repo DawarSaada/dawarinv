@@ -7,8 +7,8 @@ import { cairoBase64 } from './cairoFont';
 // Helper to initialize custom font
 const initCustomFont = (doc: jsPDF) => {
   doc.addFileToVFS("Cairo-Regular.ttf", cairoBase64);
-  doc.addFont("Cairo-Regular.ttf", "Cairo", "normal");
-  doc.addFont("Cairo-Regular.ttf", "Cairo", "bold");
+  doc.addFont("Cairo-Regular.ttf", "Cairo", "normal", "Identity-H");
+  doc.addFont("Cairo-Regular.ttf", "Cairo", "bold", "Identity-H");
   doc.setFont("Cairo");
 };
 
