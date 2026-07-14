@@ -92,7 +92,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   doc.text(new Date(po.createdAt).toLocaleDateString('en-US'), 50, 60);
 
   const supplierObj = suppliers.find(s => s.id === po.supplierId);
-  const supplierName = supplierObj ? (isAr ? supplierObj.nameAr : supplierObj.nameEn) : po.supplierId;
+  const supplierName = supplierObj ? (isAr ? (supplierObj.nameAr || supplierObj.nameEn) : (supplierObj.nameEn || supplierObj.nameAr)) : po.supplierId;
 
   doc.setFont("Amiri", "bold");
   doc.text(formatText(doc, isAr ? `المورد:` : `Supplier:`), 20, 68);
@@ -126,7 +126,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
     const catalogItem = catalog.find(c => c.nameEn === item.itemNameEn || c.nameAr === item.itemNameAr);
     const unit = catalogItem ? catalogItem.unit : 'PCS';
     return [
-      formatText(doc, isAr && item.itemNameAr ? item.itemNameAr : item.itemNameEn),
+      formatText(doc, isAr ? (item.itemNameAr || item.itemNameEn) : (item.itemNameEn || item.itemNameAr)),
       formatText(doc, unit),
       item.quantity.toString(),
       item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2}),
@@ -273,7 +273,7 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
     }
 
     return [
-      formatText(doc, isAr && item.itemNameAr ? item.itemNameAr : item.itemNameEn),
+      formatText(doc, isAr ? (item.itemNameAr || item.itemNameEn) : (item.itemNameEn || item.itemNameAr)),
       item.expectedQuantity !== undefined ? item.expectedQuantity.toString() : '0',
       item.countedQuantity !== undefined ? item.countedQuantity.toString() : '-',
       formatText(doc, varianceText),
