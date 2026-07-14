@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { PurchaseOrder, Language, Supplier, CatalogItem, PurchaseOrderItem } from '../../types';
 import { TRANSLATIONS } from '../../constants';
-import { X, Plus, Trash2, Save, ShoppingCart, Info } from 'lucide-react';
+import { X, Plus, Trash2, Save, ShoppingCart, Info, Download } from 'lucide-react';
+import { exportPOToPDF } from '../../utils/pdfExport';
 
 interface PurchaseOrderModalProps {
   isOpen: boolean;
@@ -126,9 +127,20 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
               ? `${language === 'ar' ? 'أمر شراء' : 'Purchase Order'} #${purchaseOrder.poNumber}`
               : (language === 'ar' ? 'إنشاء أمر شراء جديد' : 'Create New Purchase Order')}
           </h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors">
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex gap-2">
+            {purchaseOrder && (
+              <button 
+                onClick={() => exportPOToPDF(purchaseOrder, language, catalog)}
+                className="p-2 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg transition-colors"
+                title="Download PDF"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -202,8 +214,9 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                   <tr>
-                    <th className="px-4 py-3 font-medium">{language === 'ar' ? 'العنصر' : 'Item'}</th>
-                    <th className="px-4 py-3 font-medium w-32">{language === 'ar' ? 'الكمية' : 'Qty'}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{language === 'ar' ? 'العنصر' : 'Item'}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{language === 'ar' ? 'الوحدة' : 'Unit'}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{language === 'ar' ? 'الكمية' : 'Qty'}</th>
                     <th className="px-4 py-3 font-medium w-40">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</th>
                     <th className="px-4 py-3 font-medium w-32 text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</th>
                     {!isViewMode && <th className="px-4 py-3 w-16"></th>}
@@ -248,6 +261,11 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                             )}
                           </div>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          {catalog.find(c => c.nameEn === item.nameEn || c.id === item.catalogId)?.unit || 'PCS'}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         {isViewMode ? (
@@ -305,7 +323,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                 </tbody>
                 <tfoot className="bg-gray-50 dark:bg-gray-800 font-bold text-lg">
                   <tr>
-                    <td colSpan={3} className="px-4 py-4 text-right text-gray-700 dark:text-gray-300">
+                    <td colSpan={4} className="px-4 py-4 text-right text-gray-700 dark:text-gray-300">
                       {language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}
                     </td>
                     <td className="px-4 py-4 text-right text-brand-600 dark:text-brand-400">

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Audit, Language, UserRole } from '../../types';
 import { TRANSLATIONS } from '../../constants';
-import { X, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { X, AlertCircle, CheckCircle, ArrowRight, Download } from 'lucide-react';
+import { exportAuditToPDF } from '../../utils/pdfExport';
 
 interface ReviewAuditModalProps {
   isOpen: boolean;
@@ -48,9 +49,18 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
                 : (language === 'ar' ? 'تم تطبيق التسويات لهذا الجرد' : 'Adjustments have been applied for this audit')}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors">
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => exportAuditToPDF(audit, language)}
+              className="p-2 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg transition-colors"
+              title="Download PDF"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
