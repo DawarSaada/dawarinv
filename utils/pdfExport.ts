@@ -70,7 +70,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   doc.setFontSize(14);
   doc.setTextColor(60, 60, 60);
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? 'Purchase Order' : 'Purchase Order'), 105, 35, { align: "center" });
+  doc.text(formatText(doc, isAr ? 'طلب شراء' : 'Purchase Order'), 105, 35, { align: "center" });
 
   // Info Box
   doc.setDrawColor(220, 220, 220);
@@ -149,12 +149,14 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
       textColor: 255,
       fontSize: 9,
       fontStyle: 'bold',
-      halign: 'center'
+      halign: 'center',
+      font: 'Amiri'
     },
     styles: { 
       fontSize: 9,
       cellPadding: 3,
-      overflow: 'linebreak'
+      overflow: 'linebreak',
+      font: 'Amiri'
     },
     columnStyles: {
       0: { cellWidth: 'auto' },
@@ -171,7 +173,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   currentY += 15;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("Amiri", "italic");
+  doc.setFont("Amiri", "normal");
   doc.text(formatText(doc, isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.'), 105, currentY, { align: "center" });
 
   drawWatermark(doc);
@@ -323,7 +325,7 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
   currentY += 15;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("Amiri", "italic");
+  doc.setFont("Amiri", "normal");
   doc.text(formatText(doc, isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.'), 105, currentY, { align: "center" });
 
   drawWatermark(doc);
