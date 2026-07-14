@@ -113,7 +113,7 @@ export const exportAuditToPDF = (audit: Audit, language: Language) => {
     
     return [
       item.itemNameEn,
-      item.systemQuantity.toString(),
+      item.expectedQuantity !== undefined ? item.expectedQuantity.toString() : '0',
       item.countedQuantity !== undefined ? item.countedQuantity.toString() : '-',
       varianceText
     ];
