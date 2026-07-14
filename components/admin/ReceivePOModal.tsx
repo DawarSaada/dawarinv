@@ -16,7 +16,7 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
   isOpen, onClose, language, purchaseOrder, onReceive, userName
 }) => {
   const t = TRANSLATIONS[language];
-  const [receivedItems, setReceivedItems] = useState<Record<string, number>>({});
+  const [receivedItems, setReceivedItems] = useState<Record<string, number | string>>({});
 
   useEffect(() => {
     if (purchaseOrder && purchaseOrder.items) {
@@ -36,13 +36,13 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
   const handleQuantityChange = (id: string, value: string) => {
     setReceivedItems({
       ...receivedItems,
-      [id]: Number(value)
+      [id]: value === '' ? '' : Number(value)
     });
   };
 
   const handleSubmit = () => {
     const itemsToReceive = Object.entries(receivedItems)
-      .map(([id, qty]) => ({ id, received_quantity: qty }))
+      .map(([id, qty]) => ({ id, received_quantity: Number(qty) || 0 }))
       .filter(item => item.received_quantity > 0);
 
     if (itemsToReceive.length === 0) {
@@ -95,7 +95,7 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
                     type="number"
                     min="0"
                     max={item.quantity - item.receivedQuantity}
-                    value={receivedItems[item.id] || 0}
+                    value={receivedItems[item.id] === undefined ? 0 : receivedItems[item.id]}
                     onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 font-bold"
                   />

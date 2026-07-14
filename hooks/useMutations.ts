@@ -370,7 +370,8 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
           contact_person: supplier.contactPerson,
           email: supplier.email,
           phone: supplier.phone,
-          address: supplier.address
+          address: supplier.address,
+          supplied_items: supplier.suppliedItems || []
         })
         .select()
         .single();
@@ -396,7 +397,8 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
           contact_person: supplier.contactPerson,
           email: supplier.email,
           phone: supplier.phone,
-          address: supplier.address
+          address: supplier.address,
+          supplied_items: supplier.suppliedItems || []
         })
         .eq('id', supplier.id);
       if (error) throw error;

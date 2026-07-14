@@ -70,6 +70,7 @@ export const useSuppliersQuery = () => {
         email: s.email,
         phone: s.phone,
         address: s.address,
+        suppliedItems: s.supplied_items || [],
         createdAt: s.created_at
       })) as Supplier[];
     },

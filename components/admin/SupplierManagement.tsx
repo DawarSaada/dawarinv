@@ -9,9 +9,10 @@ interface SupplierManagementProps {
   onEdit: (supplier: Supplier) => void;
   onDelete: (id: string) => void;
   language: Language;
+  catalog: any[];
 }
 
-const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAdd, onEdit, onDelete, language }) => {
+const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAdd, onEdit, onDelete, language, catalog }) => {
   const t = TRANSLATIONS[language];
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,7 +24,8 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
     contactPerson: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    suppliedItems: [] as string[]
   });
 
   const filteredSuppliers = suppliers.filter(s => 
@@ -34,7 +36,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
 
   const openAddModal = () => {
     setEditingSupplier(null);
-    setFormData({ nameEn: '', nameAr: '', contactPerson: '', email: '', phone: '', address: '' });
+    setFormData({ nameEn: '', nameAr: '', contactPerson: '', email: '', phone: '', address: '', suppliedItems: [] });
     setIsModalOpen(true);
   };
 
@@ -46,7 +48,8 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
       contactPerson: supplier.contactPerson || '',
       email: supplier.email || '',
       phone: supplier.phone || '',
-      address: supplier.address || ''
+      address: supplier.address || '',
+      suppliedItems: supplier.suppliedItems || []
     });
     setIsModalOpen(true);
   };
@@ -185,11 +188,11 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name (English) *</label>
-                  <input required type="text" value={formData.nameEn} onChange={e => setFormData({...formData, nameEn: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg" />
+                  <input required type="text" value={formData.nameEn} onChange={e => setFormData({...formData, nameEn: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name (Arabic) *</label>
-                  <input required type="text" value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-right" dir="rtl" />
+                  <input required type="text" value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-right dark:text-white" dir="rtl" />
                 </div>
               </div>
               
@@ -197,7 +200,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {language === 'ar' ? 'اسم جهة الاتصال' : 'Contact Person'}
                 </label>
-                <input type="text" value={formData.contactPerson} onChange={e => setFormData({...formData, contactPerson: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg" />
+                <input type="text" value={formData.contactPerson} onChange={e => setFormData({...formData, contactPerson: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -205,13 +208,13 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
                   </label>
-                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg" dir="ltr" />
+                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" dir="ltr" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {language === 'ar' ? 'رقم الهاتف' : 'Phone'}
                   </label>
-                  <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg" dir="ltr" />
+                  <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" dir="ltr" />
                 </div>
               </div>
 
@@ -219,7 +222,39 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {language === 'ar' ? 'العنوان' : 'Address'}
                 </label>
-                <textarea rows={3} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg resize-none" />
+                <textarea rows={3} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg resize-none dark:text-white" />
+              </div>
+
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {language === 'ar' ? 'العناصر الموردة (اختر من الفهرس)' : 'Supplied Items (Select from Catalog)'}
+                </label>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-48 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {catalog.map(item => (
+                    <label key={item.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors">
+                      <input 
+                        type="checkbox" 
+                        className="rounded text-brand-600 focus:ring-brand-500"
+                        checked={formData.suppliedItems.includes(item.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({...formData, suppliedItems: [...formData.suppliedItems, item.id]});
+                          } else {
+                            setFormData({...formData, suppliedItems: formData.suppliedItems.filter(id => id !== item.id)});
+                          }
+                        }}
+                      />
+                      <span className="text-sm dark:text-white line-clamp-1" title={language === 'ar' ? item.nameAr : item.nameEn}>
+                        {language === 'ar' ? item.nameAr : item.nameEn}
+                      </span>
+                    </label>
+                  ))}
+                  {catalog.length === 0 && (
+                    <div className="text-sm text-gray-500 p-2 col-span-2">
+                      {language === 'ar' ? 'لا توجد عناصر في الفهرس' : 'No items in catalog'}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-700 mt-6">

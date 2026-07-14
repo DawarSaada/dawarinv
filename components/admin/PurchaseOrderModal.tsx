@@ -27,6 +27,11 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
 
   const isViewMode = !!purchaseOrder;
 
+  const selectedSupplier = suppliers.find(s => s.id === supplierId);
+  const availableCatalog = selectedSupplier && selectedSupplier.suppliedItems && selectedSupplier.suppliedItems.length > 0
+    ? catalog.filter(c => selectedSupplier.suppliedItems!.includes(c.id))
+    : [];
+
   useEffect(() => {
     if (purchaseOrder) {
       setSupplierId(purchaseOrder.supplierId);
@@ -208,7 +213,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
                               className="w-full px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white"
                             >
                               <option value="">{language === 'ar' ? 'اختر من الكتالوج...' : 'Select from catalog...'}</option>
-                              {catalog.map(c => (
+                              {availableCatalog.map(c => (
                                 <option key={c.id} value={c.id}>{language === 'ar' ? c.nameAr : c.nameEn}</option>
                               ))}
                             </select>
