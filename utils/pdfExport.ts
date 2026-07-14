@@ -2,14 +2,24 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 import { PurchaseOrder, Audit, Language, CatalogItem } from '../types';
-import { cairoBase64 } from './cairoFont';
+import { amiriBase64 } from './amiriFont';
 
 // Helper to initialize custom font
 const initCustomFont = (doc: jsPDF) => {
-  doc.addFileToVFS("Cairo-Regular.ttf", cairoBase64);
-  doc.addFont("Cairo-Regular.ttf", "Cairo", "normal", "Identity-H");
-  doc.addFont("Cairo-Regular.ttf", "Cairo", "bold", "Identity-H");
-  doc.setFont("Cairo");
+  doc.addFileToVFS("Amiri-Regular.ttf", amiriBase64);
+  doc.addFont("Amiri-Regular.ttf", "Amiri", "normal", "Identity-H");
+  doc.addFont("Amiri-Regular.ttf", "Amiri", "bold", "Identity-H");
+  doc.setFont("Amiri");
+};
+
+// Process Arabic text for correct shaping and RTL
+const formatText = (doc: jsPDF, text: string) => {
+  if (!text) return '';
+  const str = String(text);
+  if (/[\u0600-\u06FF]/.test(str)) {
+    return (doc as any).processArabic(str);
+  }
+  return str;
 };
 
 // Helper to draw watermark
@@ -38,14 +48,14 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   // Brand Name
   doc.setFontSize(22);
   doc.setTextColor(234, 88, 12); 
-  doc.setFont("Cairo", "bold");
+  doc.setFont("Amiri", "bold");
   doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
   
   // Brand Subtitle
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("Cairo", "normal");
-  doc.text('Inventory Management System', 105, 25, { align: "center" });
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, 'Inventory Management System'), 105, 25, { align: "center" });
 
   // Generate and insert QR Code (Offline Text Summary)
   const qrText = `Dawar Saada PO #${po.poNumber}\nStatus: ${po.status.toUpperCase()}\nTotal: ${po.totalAmount.toFixed(2)} SAR\nDate: ${new Date(po.createdAt).toLocaleDateString('en-US')}`;
@@ -59,8 +69,8 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   // Document Title
   doc.setFontSize(14);
   doc.setTextColor(60, 60, 60);
-  doc.setFont("helvetica", "bold");
-  doc.text(isAr ? 'Purchase Order' : 'Purchase Order', 105, 35, { align: "center" });
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, isAr ? 'Purchase Order' : 'Purchase Order'), 105, 35, { align: "center" });
 
   // Info Box
   doc.setDrawColor(220, 220, 220);
@@ -71,45 +81,45 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   doc.setTextColor(0, 0, 0);
   
   // Left Column
-  doc.setFont("helvetica", "bold");
-  doc.text(`PO Number:`, 20, 52);
-  doc.setFont("helvetica", "normal");
-  doc.text(po.poNumber, 50, 52);
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, `PO Number:`), 20, 52);
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, po.poNumber), 50, 52);
 
-  doc.setFont("helvetica", "bold");
-  doc.text(`Date Created:`, 20, 60);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, `Date Created:`), 20, 60);
+  doc.setFont("Amiri", "normal");
   doc.text(new Date(po.createdAt).toLocaleDateString('en-US'), 50, 60);
 
   // Right Column
-  doc.setFont("helvetica", "bold");
-  doc.text(`Status:`, 120, 52);
-  doc.setFont("helvetica", "normal");
-  doc.text(po.status.toUpperCase(), 150, 52);
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, `Status:`), 120, 52);
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, po.status.toUpperCase()), 150, 52);
 
   if (po.expectedDelivery) {
-    doc.setFont("helvetica", "bold");
-    doc.text(`Expected Delivery:`, 120, 60);
-    doc.setFont("helvetica", "normal");
-    doc.text(po.expectedDelivery, 155, 60);
+    doc.setFont("Amiri", "bold");
+    doc.text(formatText(doc, `Expected Delivery:`), 120, 60);
+    doc.setFont("Amiri", "normal");
+    doc.text(formatText(doc, po.expectedDelivery), 155, 60);
   }
 
   doc.setTextColor(0, 0, 0);
 
   const tableColumn = [
-    isAr ? 'Item' : 'Item',
-    isAr ? 'Unit' : 'Unit',
-    isAr ? 'Qty' : 'Qty',
-    isAr ? 'Unit Price (SAR)' : 'Unit Price (SAR)',
-    isAr ? 'Total (SAR)' : 'Total (SAR)'
+    formatText(doc, isAr ? 'العنصر' : 'Item'),
+    formatText(doc, isAr ? 'الوحدة' : 'Unit'),
+    formatText(doc, isAr ? 'الكمية' : 'Qty'),
+    formatText(doc, isAr ? 'سعر الوحدة (ريال)' : 'Unit Price (SAR)'),
+    formatText(doc, isAr ? 'المجموع (ريال)' : 'Total (SAR)')
   ];
   
   const tableRows = po.items?.map(item => {
     const catalogItem = catalog.find(c => c.nameEn === item.itemNameEn || c.nameAr === item.itemNameAr);
     const unit = catalogItem ? catalogItem.unit : 'PCS';
     return [
-      item.itemNameEn,
-      unit,
+      formatText(doc, isAr && item.itemNameAr ? item.itemNameAr : item.itemNameEn),
+      formatText(doc, unit),
       item.quantity.toString(),
       item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2}),
       (item.quantity * item.unitPrice).toLocaleString(undefined, {minimumFractionDigits: 2})
@@ -117,7 +127,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   }) || [];
 
   tableRows.push([
-      { content: `Grand Total (SAR)`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: formatText(doc, `Grand Total (SAR)`), colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
       { content: po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2}), styles: { halign: 'right', fontStyle: 'bold' } }
   ]);
 
@@ -153,8 +163,8 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   currentY += 15;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("Cairo", "italic");
-  doc.text(isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.', 105, currentY, { align: "center" });
+  doc.setFont("Amiri", "italic");
+  doc.text(formatText(doc, isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.'), 105, currentY, { align: "center" });
 
   drawWatermark(doc);
 
@@ -182,13 +192,13 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
 
   doc.setFontSize(22);
   doc.setTextColor(234, 88, 12); 
-  doc.setFont("Cairo", "bold");
+  doc.setFont("Amiri", "bold");
   doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
   
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("Cairo", "normal");
-  doc.text('Inventory Management System', 105, 25, { align: "center" });
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, 'Inventory Management System'), 105, 25, { align: "center" });
 
   // Generate and insert QR Code (Offline Text Summary)
   const qrText = `Dawar Saada Audit Report\nLocation: ${audit.locationId.toUpperCase()}\nStatus: ${audit.status.toUpperCase()}\nDate: ${new Date(audit.createdAt).toLocaleDateString('en-US')}`;
@@ -201,60 +211,68 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
 
   doc.setFontSize(14);
   doc.setTextColor(60, 60, 60);
-  doc.setFont("helvetica", "bold");
-  doc.text('Inventory Audit Report', 105, 35, { align: "center" });
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, isAr ? 'تقرير جرد المخزون' : 'Inventory Audit Report'), 105, 35, { align: "center" });
 
   // Info Box
   doc.setDrawColor(220, 220, 220);
   doc.setFillColor(250, 250, 250);
-  doc.roundedRect(14, 42, 182, 30, 2, 2, "FD");
+  doc.roundedRect(14, 42, 182, 25, 2, 2, "FD");
 
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   
-  doc.setFont("helvetica", "bold");
-  doc.text(`Title:`, 20, 52);
-  doc.setFont("helvetica", "normal");
-  doc.text(audit.title, 50, 52);
+  // Left Column
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, isAr ? `العنوان:` : `Title:`), 20, 52);
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, audit.title), 50, 52);
 
-  doc.setFont("helvetica", "bold");
-  doc.text(`Date Created:`, 20, 60);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, isAr ? `تاريخ الإنشاء:` : `Date Created:`), 20, 60);
+  doc.setFont("Amiri", "normal");
   doc.text(new Date(audit.createdAt).toLocaleDateString('en-US'), 50, 60);
 
-  doc.setFont("helvetica", "bold");
-  doc.text(`Location:`, 120, 52);
-  doc.setFont("helvetica", "normal");
-  doc.text(audit.locationId.toUpperCase(), 150, 52);
+  // Right Column
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, isAr ? `الموقع:` : `Location:`), 120, 52);
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, audit.locationId.toUpperCase()), 150, 52);
 
-  doc.setFont("helvetica", "bold");
-  doc.text(`Status:`, 120, 60);
-  doc.setFont("helvetica", "normal");
-  doc.text(audit.status.toUpperCase(), 150, 60);
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, isAr ? `الحالة:` : `Status:`), 120, 60);
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, audit.status.toUpperCase()), 150, 60);
 
   doc.setTextColor(0, 0, 0);
 
   const tableColumn = [
-    'Item',
-    'System Qty',
-    'Counted Qty',
-    'Variance'
+    formatText(doc, isAr ? 'العنصر' : 'Item'),
+    formatText(doc, isAr ? 'الكمية بالنظام' : 'System Qty'),
+    formatText(doc, isAr ? 'الكمية الفعلية' : 'Counted Qty'),
+    formatText(doc, isAr ? 'التباين' : 'Variance'),
+    formatText(doc, isAr ? 'ملاحظات' : 'Notes')
   ];
-
+  
   const tableRows = audit.items?.map(item => {
-    let varianceText = item.variance !== undefined ? item.variance.toString() : '-';
-    if (item.variance && item.variance > 0) varianceText = '+' + varianceText;
-    
+    const isCounted = item.countedQuantity !== undefined && item.countedQuantity !== null;
+    const variance = isCounted ? item.countedQuantity! - item.expectedQuantity : null;
+    let varianceText = '-';
+    if (variance !== null) {
+        varianceText = variance > 0 ? `+${variance}` : `${variance}`;
+    }
+
     return [
-      item.itemNameEn,
+      formatText(doc, isAr && item.itemNameAr ? item.itemNameAr : item.itemNameEn),
       item.expectedQuantity !== undefined ? item.expectedQuantity.toString() : '0',
       item.countedQuantity !== undefined ? item.countedQuantity.toString() : '-',
-      varianceText
+      formatText(doc, varianceText),
+      formatText(doc, item.notes || '-')
     ];
   }) || [];
 
   autoTable(doc, {
-    startY: 80,
+    startY: 75,
     head: [tableColumn],
     body: tableRows,
     theme: 'grid',
@@ -263,18 +281,21 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
       textColor: 255,
       fontSize: 9,
       fontStyle: 'bold',
-      halign: 'center'
+      halign: 'center',
+      font: 'Amiri'
     },
     styles: { 
       fontSize: 9,
       cellPadding: 3,
-      overflow: 'linebreak'
+      overflow: 'linebreak',
+      font: 'Amiri'
     },
     columnStyles: {
       0: { cellWidth: 'auto' },
       1: { halign: 'center', cellWidth: 35 },
       2: { halign: 'center', cellWidth: 35 },
-      3: { halign: 'center', cellWidth: 35 }
+      3: { halign: 'center', cellWidth: 25 },
+      4: { cellWidth: 30 }
     },
     didParseCell: function (data) {
       if (data.section === 'body' && data.column.index === 3) {
@@ -294,8 +315,8 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
   currentY += 15;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("Cairo", "italic");
-  doc.text(isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.', 105, currentY, { align: "center" });
+  doc.setFont("Amiri", "italic");
+  doc.text(formatText(doc, isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.'), 105, currentY, { align: "center" });
 
   drawWatermark(doc);
 
@@ -305,8 +326,8 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
-      doc.text(`Page ${i} of ${pageCount}`, 195, 290, { align: "right" });
-      doc.text(`Generated on ${new Date().toLocaleString()}`, 14, 290);
+      doc.text(formatText(doc, `Page ${i} of ${pageCount}`), 195, 290, { align: "right" });
+      doc.text(formatText(doc, `Generated on ${new Date().toLocaleString()}`), 14, 290);
   }
 
   doc.save(`Audit_${audit.id.substring(0, 8)}.pdf`);
