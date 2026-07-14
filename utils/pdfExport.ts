@@ -116,39 +116,11 @@ export const exportPOToPDF = (po: PurchaseOrder, language: Language, catalog: Ca
   const lastY = (doc as any).lastAutoTable.finalY + 10;
   let currentY = lastY;
 
-  // --- Approval & Stamps Section ---
-  const approvalBoxHeight = 50;
-  
-  if (currentY + approvalBoxHeight > 280) {
-      doc.addPage();
-      currentY = 20;
-  }
-
-  currentY += 5;
-
-  doc.setDrawColor(180, 180, 180);
-  doc.setFillColor(252, 252, 252);
-  doc.roundedRect(14, currentY, 182, approvalBoxHeight, 2, 2, "FD");
-  
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text('AUTHORIZATION & VERIFICATION', 105, currentY + 6, { align: "center" });
-
-  const sigY = currentY + 35;
-  
-  // Left Signature
-  doc.setDrawColor(100, 100, 100);
-  doc.line(25, sigY, 75, sigY);
+  currentY += 15;
   doc.setFontSize(9);
-  doc.setTextColor(50, 50, 50);
-  doc.text('Prepared By', 50, sigY + 5, { align: "center" });
-
-  // Right Signature
-  doc.setDrawColor(100, 100, 100);
-  doc.line(135, sigY, 185, sigY);
-  doc.setFontSize(9);
-  doc.setTextColor(50, 50, 50);
-  doc.text('Approved By', 160, sigY + 5, { align: "center" });
+  doc.setTextColor(100, 100, 100);
+  doc.setFont("helvetica", "italic");
+  doc.text(isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.', 105, currentY, { align: "center" });
 
   // Footer
   const pageCount = (doc as any).internal.getNumberOfPages();
@@ -273,37 +245,11 @@ export const exportAuditToPDF = (audit: Audit, language: Language) => {
   const lastY = (doc as any).lastAutoTable.finalY + 10;
   let currentY = lastY;
 
-  // --- Approval & Stamps Section ---
-  const approvalBoxHeight = 50;
-  
-  if (currentY + approvalBoxHeight > 280) {
-      doc.addPage();
-      currentY = 20;
-  }
-
-  currentY += 5;
-
-  doc.setDrawColor(180, 180, 180);
-  doc.setFillColor(252, 252, 252);
-  doc.roundedRect(14, currentY, 182, approvalBoxHeight, 2, 2, "FD");
-  
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text('AUTHORIZATION & VERIFICATION', 105, currentY + 6, { align: "center" });
-
-  const sigY = currentY + 35;
-  
-  doc.setDrawColor(100, 100, 100);
-  doc.line(25, sigY, 75, sigY);
+  currentY += 15;
   doc.setFontSize(9);
-  doc.setTextColor(50, 50, 50);
-  doc.text('Auditor / Counter', 50, sigY + 5, { align: "center" });
-
-  doc.setDrawColor(100, 100, 100);
-  doc.line(135, sigY, 185, sigY);
-  doc.setFontSize(9);
-  doc.setTextColor(50, 50, 50);
-  doc.text('Manager Approval', 160, sigY + 5, { align: "center" });
+  doc.setTextColor(100, 100, 100);
+  doc.setFont("helvetica", "italic");
+  doc.text(isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.', 105, currentY, { align: "center" });
 
   // Footer
   const pageCount = (doc as any).internal.getNumberOfPages();
