@@ -89,7 +89,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                     {itemsWithVariance.map(item => (
-                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="p-3 font-bold text-gray-900 dark:text-white">
                           {language === 'ar' ? item.itemNameAr : item.itemNameEn}
                         </td>

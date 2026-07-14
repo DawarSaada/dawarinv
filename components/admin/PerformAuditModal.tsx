@@ -109,7 +109,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                   const variance = isCounted ? currentCountNum! - item.expectedQuantity : null;
                   
                   return (
-                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="p-4">
                         <div className="font-bold text-gray-900 dark:text-white">
                           {language === 'ar' ? item.itemNameAr : item.itemNameEn}
