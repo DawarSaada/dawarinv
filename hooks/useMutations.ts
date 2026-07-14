@@ -543,12 +543,115 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
 
   const receivePurchaseOrderMutation = useMutation({
     mutationFn: async ({ poId, items, performedBy }: { poId: string, items: { id: string, received_quantity: number }[], performedBy: string }) => {
-      const { error } = await supabase.rpc('receive_purchase_order', {
-        p_po_id: poId,
-        p_items: items,
-        p_performed_by: performedBy
-      });
-      if (error) throw error;
+      // 1. Fetch the current PO items to know their names
+      const { data: poItems, error: fetchError } = await supabase
+        .from('purchase_order_items')
+        .select('*')
+        .eq('po_id', poId);
+      
+      if (fetchError) throw fetchError;
+
+      // 2. Process each received item
+      for (const receiveItem of items) {
+        const poItem = poItems.find((i: any) => i.id === receiveItem.id);
+        if (!poItem) continue;
+
+        const newReceivedQty = poItem.received_quantity + receiveItem.received_quantity;
+
+        // Update purchase_order_items
+        const { error: updatePoItemError } = await supabase
+          .from('purchase_order_items')
+          .update({ received_quantity: newReceivedQty })
+          .eq('id', receiveItem.id);
+        
+        if (updatePoItemError) throw updatePoItemError;
+
+        // Find item in warehouse inventory
+        const { data: invItems, error: invFetchError } = await supabase
+          .from('inventory')
+          .select('*')
+          .eq('location_id', 'warehouse')
+          .ilike('name_en', poItem.item_name_en);
+        
+        if (invFetchError) throw invFetchError;
+        
+        const existingInvItem = invItems && invItems.length > 0 ? invItems[0] : null;
+
+        if (existingInvItem) {
+          // Update existing inventory
+          const { error: invUpdateError } = await supabase
+            .from('inventory')
+            .update({ 
+              quantity: existingInvItem.quantity + receiveItem.received_quantity,
+              last_updated: new Date().toISOString()
+            })
+            .eq('id', existingInvItem.id);
+          
+          if (invUpdateError) throw invUpdateError;
+
+          // Record transaction
+          await supabase.from('transactions').insert({
+            item_id: existingInvItem.id,
+            type: 'receive',
+            quantity: receiveItem.received_quantity,
+            performed_by: performedBy,
+            location_id: 'warehouse',
+            notes: `Received from PO #${poId}`
+          });
+        } else {
+          // Fetch from catalog to get category/unit
+          const { data: catalogItems } = await supabase
+            .from('product_catalog')
+            .select('*')
+            .ilike('name_en', poItem.item_name_en)
+            .limit(1);
+          
+          const cItem = catalogItems && catalogItems.length > 0 ? catalogItems[0] : null;
+
+          // Insert new inventory item
+          const { data: newInv, error: invInsertError } = await supabase
+            .from('inventory')
+            .insert({
+              name_en: poItem.item_name_en,
+              name_ar: poItem.item_name_ar || poItem.item_name_en,
+              category: cItem ? cItem.category : 'General',
+              quantity: receiveItem.received_quantity,
+              unit: cItem ? cItem.unit : 'PCS',
+              min_threshold: cItem ? cItem.min_threshold : 0,
+              location_id: 'warehouse'
+            })
+            .select()
+            .single();
+          
+          if (invInsertError) throw invInsertError;
+
+          // Record transaction
+          await supabase.from('transactions').insert({
+            item_id: newInv.id,
+            type: 'receive',
+            quantity: receiveItem.received_quantity,
+            performed_by: performedBy,
+            location_id: 'warehouse',
+            notes: `Received from PO #${poId}`
+          });
+        }
+      }
+
+      // 3. Check if all items are fully received to update PO status
+      const { data: finalPoItems } = await supabase
+        .from('purchase_order_items')
+        .select('quantity, received_quantity')
+        .eq('po_id', poId);
+      
+      if (finalPoItems) {
+        const allReceived = finalPoItems.every((i: any) => i.received_quantity >= i.quantity);
+        if (allReceived) {
+          await supabase
+            .from('purchase_orders')
+            .update({ status: 'received' })
+            .eq('id', poId);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase_orders'] });
