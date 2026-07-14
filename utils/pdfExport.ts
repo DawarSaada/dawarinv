@@ -1,9 +1,34 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import QRCode from 'qrcode';
 import { PurchaseOrder, Audit, Language, CatalogItem } from '../types';
+import { cairoBase64 } from './cairoFont';
 
-export const exportPOToPDF = (po: PurchaseOrder, language: Language, catalog: CatalogItem[]) => {
+// Helper to initialize custom font
+const initCustomFont = (doc: jsPDF) => {
+  doc.addFileToVFS("Cairo-Regular.ttf", cairoBase64);
+  doc.addFont("Cairo-Regular.ttf", "Cairo", "normal");
+  doc.addFont("Cairo-Regular.ttf", "Cairo", "bold");
+  doc.setFont("Cairo");
+};
+
+// Helper to draw watermark
+const drawWatermark = (doc: jsPDF) => {
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.saveGraphicsState();
+    doc.setGState(new (doc as any).GState({opacity: 0.1}));
+    doc.setFontSize(60);
+    doc.setTextColor(200, 200, 200);
+    doc.text("DAWAR SAADA", 105, 150, { align: "center", angle: 45 });
+    doc.restoreGraphicsState();
+  }
+};
+
+export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catalog: CatalogItem[]) => {
   const doc = new jsPDF();
+  initCustomFont(doc);
   const isAr = language === 'ar';
   
   // -- Visual Header --
@@ -13,14 +38,23 @@ export const exportPOToPDF = (po: PurchaseOrder, language: Language, catalog: Ca
   // Brand Name
   doc.setFontSize(22);
   doc.setTextColor(234, 88, 12); 
-  doc.setFont("helvetica", "bold");
+  doc.setFont("Cairo", "bold");
   doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
   
   // Brand Subtitle
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("Cairo", "normal");
   doc.text('Inventory Management System', 105, 25, { align: "center" });
+
+  // Generate and insert QR Code (Offline Text Summary)
+  const qrText = `Dawar Saada PO #${po.poNumber}\nStatus: ${po.status.toUpperCase()}\nTotal: ${po.totalAmount.toFixed(2)} SAR\nDate: ${new Date(po.createdAt).toLocaleDateString('en-US')}`;
+  try {
+    const qrDataUrl = await QRCode.toDataURL(qrText, { width: 50, margin: 1 });
+    doc.addImage(qrDataUrl, 'PNG', 160, 8, 30, 30);
+  } catch (err) {
+    console.error("Error generating QR code", err);
+  }
 
   // Document Title
   doc.setFontSize(14);
@@ -119,8 +153,10 @@ export const exportPOToPDF = (po: PurchaseOrder, language: Language, catalog: Ca
   currentY += 15;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("helvetica", "italic");
+  doc.setFont("Cairo", "italic");
   doc.text(isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.', 105, currentY, { align: "center" });
+
+  drawWatermark(doc);
 
   // Footer
   const pageCount = (doc as any).internal.getNumberOfPages();
@@ -135,8 +171,9 @@ export const exportPOToPDF = (po: PurchaseOrder, language: Language, catalog: Ca
   doc.save(`${po.poNumber}.pdf`);
 };
 
-export const exportAuditToPDF = (audit: Audit, language: Language) => {
+export const exportAuditToPDF = async (audit: Audit, language: Language) => {
   const doc = new jsPDF();
+  initCustomFont(doc);
   const isAr = language === 'ar';
 
   // -- Visual Header --
@@ -145,13 +182,22 @@ export const exportAuditToPDF = (audit: Audit, language: Language) => {
 
   doc.setFontSize(22);
   doc.setTextColor(234, 88, 12); 
-  doc.setFont("helvetica", "bold");
+  doc.setFont("Cairo", "bold");
   doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
   
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("Cairo", "normal");
   doc.text('Inventory Management System', 105, 25, { align: "center" });
+
+  // Generate and insert QR Code (Offline Text Summary)
+  const qrText = `Dawar Saada Audit Report\nLocation: ${audit.locationId.toUpperCase()}\nStatus: ${audit.status.toUpperCase()}\nDate: ${new Date(audit.createdAt).toLocaleDateString('en-US')}`;
+  try {
+    const qrDataUrl = await QRCode.toDataURL(qrText, { width: 50, margin: 1 });
+    doc.addImage(qrDataUrl, 'PNG', 160, 8, 30, 30);
+  } catch (err) {
+    console.error("Error generating QR code", err);
+  }
 
   doc.setFontSize(14);
   doc.setTextColor(60, 60, 60);
@@ -248,8 +294,10 @@ export const exportAuditToPDF = (audit: Audit, language: Language) => {
   currentY += 15;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.setFont("helvetica", "italic");
+  doc.setFont("Cairo", "italic");
   doc.text(isAr ? 'هذا المستند تم إنشاؤه بواسطة النظام ولا يتطلب توقيعاً أو ختماً.' : 'This is a system generated document and does not require a signature or stamp.', 105, currentY, { align: "center" });
+
+  drawWatermark(doc);
 
   // Footer
   const pageCount = (doc as any).internal.getNumberOfPages();
