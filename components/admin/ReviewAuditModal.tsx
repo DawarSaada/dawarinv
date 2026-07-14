@@ -65,38 +65,40 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
                   {itemsWithVariance.length}
                 </span>
               </div>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50/50 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
-                    <th className="p-3 font-medium">{language === 'ar' ? 'العنصر' : 'Item'}</th>
-                    <th className="p-3 font-medium text-center">{language === 'ar' ? 'النظام' : 'System'}</th>
-                    <th className="p-3 font-medium text-center"></th>
-                    <th className="p-3 font-medium text-center">{language === 'ar' ? 'الفعلي' : 'Counted'}</th>
-                    <th className="p-3 font-medium text-center">{language === 'ar' ? 'التباين' : 'Variance'}</th>
-                    <th className="p-3 font-medium">{language === 'ar' ? 'ملاحظات' : 'Notes'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {itemsWithVariance.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                      <td className="p-3 font-bold text-gray-900 dark:text-white">
-                        {language === 'ar' ? item.itemNameAr : item.itemNameEn}
-                      </td>
-                      <td className="p-3 text-center text-gray-500">{item.expectedQuantity}</td>
-                      <td className="p-3 text-center text-gray-300"><ArrowRight className="w-4 h-4 mx-auto" /></td>
-                      <td className="p-3 text-center font-bold text-gray-900 dark:text-white">{item.countedQuantity}</td>
-                      <td className="p-3 text-center">
-                        <span className={`inline-block px-2 py-1 rounded font-bold text-sm ${item.variance! > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                          {item.variance! > 0 ? '+' : ''}{item.variance}
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-gray-500 max-w-xs truncate" title={item.notes || ''}>
-                        {item.notes || '-'}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse whitespace-nowrap min-w-[600px]">
+                  <thead>
+                    <tr className="bg-gray-50/50 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
+                      <th className="p-3 font-medium">{language === 'ar' ? 'العنصر' : 'Item'}</th>
+                      <th className="p-3 font-medium text-center">{language === 'ar' ? 'النظام' : 'System'}</th>
+                      <th className="p-3 font-medium text-center"></th>
+                      <th className="p-3 font-medium text-center">{language === 'ar' ? 'الفعلي' : 'Counted'}</th>
+                      <th className="p-3 font-medium text-center">{language === 'ar' ? 'التباين' : 'Variance'}</th>
+                      <th className="p-3 font-medium">{language === 'ar' ? 'ملاحظات' : 'Notes'}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {itemsWithVariance.map(item => (
+                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                        <td className="p-3 font-bold text-gray-900 dark:text-white">
+                          {language === 'ar' ? item.itemNameAr : item.itemNameEn}
+                        </td>
+                        <td className="p-3 text-center text-gray-500">{item.expectedQuantity}</td>
+                        <td className="p-3 text-center text-gray-300"><ArrowRight className="w-4 h-4 mx-auto" /></td>
+                        <td className="p-3 text-center font-bold text-gray-900 dark:text-white">{item.countedQuantity}</td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-block px-2 py-1 rounded font-bold text-sm ${item.variance! > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                            {item.variance! > 0 ? '+' : ''}{item.variance}
+                          </span>
+                        </td>
+                        <td className="p-3 text-sm text-gray-500 max-w-xs truncate" title={item.notes || ''}>
+                          {item.notes || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

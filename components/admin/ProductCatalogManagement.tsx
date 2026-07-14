@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { CatalogItem, Language } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { Plus, Edit2, Trash2, Search, X, Check } from 'lucide-react';
@@ -11,6 +12,7 @@ interface ProductCatalogManagementProps {
 
 const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ catalog, language }) => {
     const t = TRANSLATIONS[language];
+    const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
@@ -62,9 +64,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                 if (error) throw error;
             }
             setIsModalOpen(false);
-            // We should invalidate queries here, but relying on realtime or user refreshing for now is ok
-            // Ideally we pass a queryClient.invalidateQueries(['catalog']) from the parent.
-            window.location.reload(); // Simple brute force for now since this is admin config
+            queryClient.invalidateQueries({ queryKey: ['catalog'] });
         } catch (err) {
             console.error("Failed to save catalog item", err);
             alert("Error saving item");
@@ -76,7 +76,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
         try {
             const { error } = await supabase.from('product_catalog').delete().eq('id', id);
             if (error) throw error;
-            window.location.reload();
+            queryClient.invalidateQueries({ queryKey: ['catalog'] });
         } catch (err) {
             console.error("Failed to delete", err);
             alert("Error deleting item");
