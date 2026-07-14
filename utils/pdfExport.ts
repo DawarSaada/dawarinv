@@ -6,28 +6,61 @@ export const exportPOToPDF = (po: PurchaseOrder, language: Language, catalog: Ca
   const doc = new jsPDF();
   const isAr = language === 'ar';
   
-  // Header
-  doc.setFontSize(24);
-  doc.setTextColor(41, 128, 185); // Brand-like blue color
-  doc.text('Dawar Saada', 14, 22);
+  // -- Visual Header --
+  doc.setFillColor(234, 88, 12); // Brand Orange
+  doc.rect(0, 0, 210, 5, 'F');
+
+  // Brand Name
+  doc.setFontSize(22);
+  doc.setTextColor(234, 88, 12); 
+  doc.setFont("helvetica", "bold");
+  doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
   
-  doc.setFontSize(14);
-  doc.setTextColor(100, 100, 100);
-  doc.text(isAr ? 'Purchase Order' : 'Purchase Order', 14, 30);
-  
-  // Document Info
+  // Brand Subtitle
   doc.setFontSize(10);
-  doc.setTextColor(50, 50, 50);
-  doc.text(`PO Number: ${po.poNumber}`, 14, 45);
-  doc.text(`Date: ${new Date(po.createdAt).toLocaleDateString()}`, 14, 50);
-  doc.text(`Status: ${po.status.toUpperCase()}`, 14, 55);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont("helvetica", "normal");
+  doc.text('Inventory Management System', 105, 25, { align: "center" });
+
+  // Document Title
+  doc.setFontSize(14);
+  doc.setTextColor(60, 60, 60);
+  doc.setFont("helvetica", "bold");
+  doc.text(isAr ? 'Purchase Order' : 'Purchase Order', 105, 35, { align: "center" });
+
+  // Info Box
+  doc.setDrawColor(220, 220, 220);
+  doc.setFillColor(250, 250, 250);
+  doc.roundedRect(14, 42, 182, 30, 2, 2, "FD");
+
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  
+  // Left Column
+  doc.setFont("helvetica", "bold");
+  doc.text(`PO Number:`, 20, 52);
+  doc.setFont("helvetica", "normal");
+  doc.text(po.poNumber, 50, 52);
+
+  doc.setFont("helvetica", "bold");
+  doc.text(`Date Created:`, 20, 60);
+  doc.setFont("helvetica", "normal");
+  doc.text(new Date(po.createdAt).toLocaleDateString('en-US'), 50, 60);
+
+  // Right Column
+  doc.setFont("helvetica", "bold");
+  doc.text(`Status:`, 120, 52);
+  doc.setFont("helvetica", "normal");
+  doc.text(po.status.toUpperCase(), 150, 52);
+
   if (po.expectedDelivery) {
-    doc.text(`Expected Delivery: ${po.expectedDelivery}`, 14, 60);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Expected Delivery:`, 120, 60);
+    doc.setFont("helvetica", "normal");
+    doc.text(po.expectedDelivery, 155, 60);
   }
 
-  // Draw a line
-  doc.setDrawColor(200, 200, 200);
-  doc.line(14, 65, 196, 65);
+  doc.setTextColor(0, 0, 0);
 
   const tableColumn = [
     isAr ? 'Item' : 'Item',
@@ -49,28 +82,83 @@ export const exportPOToPDF = (po: PurchaseOrder, language: Language, catalog: Ca
     ];
   }) || [];
 
+  tableRows.push([
+      { content: `Grand Total (SAR)`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2}), styles: { halign: 'right', fontStyle: 'bold' } }
+  ]);
+
   autoTable(doc, {
+    startY: 80,
     head: [tableColumn],
     body: tableRows,
-    startY: 75,
     theme: 'grid',
-    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
-    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { 
+      fillColor: [234, 88, 12], 
+      textColor: 255,
+      fontSize: 9,
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    styles: { 
+      fontSize: 9,
+      cellPadding: 3,
+      overflow: 'linebreak'
+    },
     columnStyles: {
       0: { cellWidth: 'auto' },
-      1: { cellWidth: 20 },
-      2: { halign: 'right', cellWidth: 20 },
-      3: { halign: 'right', cellWidth: 35 },
-      4: { halign: 'right', cellWidth: 35 }
-    },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 35, halign: 'right' },
+      4: { cellWidth: 35, halign: 'right' },
+    }
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY || 75;
+  const lastY = (doc as any).lastAutoTable.finalY + 10;
+  let currentY = lastY;
+
+  // --- Approval & Stamps Section ---
+  const approvalBoxHeight = 50;
   
-  // Grand Total Section
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Grand Total: SAR ${po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}`, 140, finalY + 15);
+  if (currentY + approvalBoxHeight > 280) {
+      doc.addPage();
+      currentY = 20;
+  }
+
+  currentY += 5;
+
+  doc.setDrawColor(180, 180, 180);
+  doc.setFillColor(252, 252, 252);
+  doc.roundedRect(14, currentY, 182, approvalBoxHeight, 2, 2, "FD");
+  
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text('AUTHORIZATION & VERIFICATION', 105, currentY + 6, { align: "center" });
+
+  const sigY = currentY + 35;
+  
+  // Left Signature
+  doc.setDrawColor(100, 100, 100);
+  doc.line(25, sigY, 75, sigY);
+  doc.setFontSize(9);
+  doc.setTextColor(50, 50, 50);
+  doc.text('Prepared By', 50, sigY + 5, { align: "center" });
+
+  // Right Signature
+  doc.setDrawColor(100, 100, 100);
+  doc.line(135, sigY, 185, sigY);
+  doc.setFontSize(9);
+  doc.setTextColor(50, 50, 50);
+  doc.text('Approved By', 160, sigY + 5, { align: "center" });
+
+  // Footer
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Page ${i} of ${pageCount}`, 195, 290, { align: "right" });
+      doc.text(`Generated on ${new Date().toLocaleString()}`, 14, 290);
+  }
 
   doc.save(`${po.poNumber}.pdf`);
 };
@@ -79,26 +167,54 @@ export const exportAuditToPDF = (audit: Audit, language: Language) => {
   const doc = new jsPDF();
   const isAr = language === 'ar';
 
-  // Header
-  doc.setFontSize(24);
-  doc.setTextColor(41, 128, 185);
-  doc.text('Dawar Saada', 14, 22);
+  // -- Visual Header --
+  doc.setFillColor(234, 88, 12); // Brand Orange
+  doc.rect(0, 0, 210, 5, 'F');
+
+  doc.setFontSize(22);
+  doc.setTextColor(234, 88, 12); 
+  doc.setFont("helvetica", "bold");
+  doc.text("DAWAR AL-SAADA", 105, 20, { align: "center" });
   
-  doc.setFontSize(14);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Inventory Audit Report`, 14, 30);
-
-  // Document Info
   doc.setFontSize(10);
-  doc.setTextColor(50, 50, 50);
-  doc.text(`Title: ${audit.title}`, 14, 45);
-  doc.text(`Location: ${audit.locationId.toUpperCase()}`, 14, 50);
-  doc.text(`Date: ${new Date(audit.createdAt).toLocaleDateString()}`, 14, 55);
-  doc.text(`Status: ${audit.status.toUpperCase()}`, 14, 60);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont("helvetica", "normal");
+  doc.text('Inventory Management System', 105, 25, { align: "center" });
 
-  // Draw a line
-  doc.setDrawColor(200, 200, 200);
-  doc.line(14, 65, 196, 65);
+  doc.setFontSize(14);
+  doc.setTextColor(60, 60, 60);
+  doc.setFont("helvetica", "bold");
+  doc.text('Inventory Audit Report', 105, 35, { align: "center" });
+
+  // Info Box
+  doc.setDrawColor(220, 220, 220);
+  doc.setFillColor(250, 250, 250);
+  doc.roundedRect(14, 42, 182, 30, 2, 2, "FD");
+
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  
+  doc.setFont("helvetica", "bold");
+  doc.text(`Title:`, 20, 52);
+  doc.setFont("helvetica", "normal");
+  doc.text(audit.title, 50, 52);
+
+  doc.setFont("helvetica", "bold");
+  doc.text(`Date Created:`, 20, 60);
+  doc.setFont("helvetica", "normal");
+  doc.text(new Date(audit.createdAt).toLocaleDateString('en-US'), 50, 60);
+
+  doc.setFont("helvetica", "bold");
+  doc.text(`Location:`, 120, 52);
+  doc.setFont("helvetica", "normal");
+  doc.text(audit.locationId.toUpperCase(), 150, 52);
+
+  doc.setFont("helvetica", "bold");
+  doc.text(`Status:`, 120, 60);
+  doc.setFont("helvetica", "normal");
+  doc.text(audit.status.toUpperCase(), 150, 60);
+
+  doc.setTextColor(0, 0, 0);
 
   const tableColumn = [
     'Item',
@@ -120,21 +236,30 @@ export const exportAuditToPDF = (audit: Audit, language: Language) => {
   }) || [];
 
   autoTable(doc, {
+    startY: 80,
     head: [tableColumn],
     body: tableRows,
-    startY: 75,
     theme: 'grid',
-    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
-    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { 
+      fillColor: [234, 88, 12], 
+      textColor: 255,
+      fontSize: 9,
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    styles: { 
+      fontSize: 9,
+      cellPadding: 3,
+      overflow: 'linebreak'
+    },
     columnStyles: {
       0: { cellWidth: 'auto' },
-      1: { halign: 'right', cellWidth: 35 },
-      2: { halign: 'right', cellWidth: 35 },
-      3: { halign: 'right', cellWidth: 35 }
+      1: { halign: 'center', cellWidth: 35 },
+      2: { halign: 'center', cellWidth: 35 },
+      3: { halign: 'center', cellWidth: 35 }
     },
     didParseCell: function (data) {
       if (data.section === 'body' && data.column.index === 3) {
-        // Color code variance
         const text = data.cell.text[0];
         if (text.startsWith('+')) {
           data.cell.styles.textColor = [39, 174, 96]; // Green
@@ -144,6 +269,51 @@ export const exportAuditToPDF = (audit: Audit, language: Language) => {
       }
     }
   });
+
+  const lastY = (doc as any).lastAutoTable.finalY + 10;
+  let currentY = lastY;
+
+  // --- Approval & Stamps Section ---
+  const approvalBoxHeight = 50;
+  
+  if (currentY + approvalBoxHeight > 280) {
+      doc.addPage();
+      currentY = 20;
+  }
+
+  currentY += 5;
+
+  doc.setDrawColor(180, 180, 180);
+  doc.setFillColor(252, 252, 252);
+  doc.roundedRect(14, currentY, 182, approvalBoxHeight, 2, 2, "FD");
+  
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text('AUTHORIZATION & VERIFICATION', 105, currentY + 6, { align: "center" });
+
+  const sigY = currentY + 35;
+  
+  doc.setDrawColor(100, 100, 100);
+  doc.line(25, sigY, 75, sigY);
+  doc.setFontSize(9);
+  doc.setTextColor(50, 50, 50);
+  doc.text('Auditor / Counter', 50, sigY + 5, { align: "center" });
+
+  doc.setDrawColor(100, 100, 100);
+  doc.line(135, sigY, 185, sigY);
+  doc.setFontSize(9);
+  doc.setTextColor(50, 50, 50);
+  doc.text('Manager Approval', 160, sigY + 5, { align: "center" });
+
+  // Footer
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Page ${i} of ${pageCount}`, 195, 290, { align: "right" });
+      doc.text(`Generated on ${new Date().toLocaleString()}`, 14, 290);
+  }
 
   doc.save(`Audit_${audit.id.substring(0, 8)}.pdf`);
 };
