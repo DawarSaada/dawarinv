@@ -9,14 +9,15 @@ interface PurchaseOrderModalProps {
   language: Language;
   suppliers: Supplier[];
   catalog: CatalogItem[];
-  purchaseOrder?: PurchaseOrder; // If provided, we are viewing/editing. If null, we are creating.
+  purchaseOrder?: PurchaseOrder;
   onSave: (po: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'poNumber'>, items: Omit<PurchaseOrderItem, 'id' | 'poId' | 'totalPrice'>[]) => void;
+  onEdit?: (id: string, po: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'poNumber'>, items: Omit<PurchaseOrderItem, 'id' | 'poId' | 'totalPrice'>[]) => void;
   onUpdateStatus?: (id: string, status: string) => void;
   userName: string;
 }
 
 const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
-  isOpen, onClose, language, suppliers, catalog, purchaseOrder, onSave, onUpdateStatus, userName
+  isOpen, onClose, language, suppliers, catalog, purchaseOrder, onSave, onEdit, onUpdateStatus, userName
 }) => {
   const t = TRANSLATIONS[language];
   
@@ -25,7 +26,9 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<{ catalogId: string, nameEn: string, nameAr: string, quantity: number, unitPrice: number }[]>([]);
 
-  const isViewMode = !!purchaseOrder;
+  const [isEditing, setIsEditing] = useState(false);
+
+  const isViewMode = !!purchaseOrder && !isEditing;
 
   const selectedSupplier = suppliers.find(s => s.id === supplierId);
   const availableCatalog = selectedSupplier && selectedSupplier.suppliedItems && selectedSupplier.suppliedItems.length > 0
@@ -50,6 +53,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
       setNotes('');
       setItems([]);
     }
+    setIsEditing(false);
   }, [purchaseOrder, isOpen]);
 
   if (!isOpen) return null;
@@ -67,7 +71,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
     if (field === 'catalogId') {
       const selected = catalog.find(c => c.id === value);
       if (selected) {
-        newItems[index] = { ...newItems[index], catalogId: value, nameEn: selected.nameEn, nameAr: selected.nameAr };
+        newItems[index] = { ...newItems[index], catalogId: value, nameEn: selected.nameEn, nameAr: selected.nameAr, unitPrice: selected.defaultPrice || 0 };
       }
     } else {
       (newItems[index] as any)[field] = value;
@@ -79,26 +83,34 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
     return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   };
 
-  const handleSubmit = (status: 'draft' | 'pending') => {
+  const handleSubmit = (status: 'draft' | 'pending' | 'approved') => {
     if (!supplierId || items.length === 0 || items.some(i => !i.nameEn || i.quantity <= 0 || i.unitPrice < 0)) {
       alert(language === 'ar' ? 'يرجى تعبئة جميع الحقول المطلوبة' : 'Please fill all required fields');
       return;
     }
 
-    onSave({
+    const payload = {
       supplierId,
       status,
       expectedDelivery: expectedDelivery || undefined,
       notes,
       totalAmount: calculateTotal(),
       createdBy: userName
-    }, items.map(i => ({
+    };
+
+    const payloadItems = items.map(i => ({
       itemNameEn: i.nameEn,
       itemNameAr: i.nameAr || i.nameEn,
       quantity: Number(i.quantity),
-      receivedQuantity: 0,
+      receivedQuantity: purchaseOrder?.items?.find(pi => pi.itemNameEn === i.nameEn)?.receivedQuantity || 0,
       unitPrice: Number(i.unitPrice)
-    })));
+    }));
+
+    if (isEditing && purchaseOrder && onEdit) {
+      onEdit(purchaseOrder.id, payload, payloadItems);
+    } else {
+      onSave(payload, payloadItems);
+    }
     onClose();
   };
 
@@ -313,6 +325,12 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
           {/* Status Controls for View Mode */}
           {isViewMode && onUpdateStatus && purchaseOrder.status !== 'received' && purchaseOrder.status !== 'cancelled' ? (
             <div className="flex gap-2">
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+              >
+                {language === 'ar' ? 'تعديل الطلب' : 'Edit Order'}
+              </button>
               {purchaseOrder.status === 'draft' && (
                 <button 
                   onClick={() => onUpdateStatus(purchaseOrder.id, 'pending')}
@@ -348,19 +366,30 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
             </button>
             {!isViewMode && (
               <>
-                <button 
-                  onClick={() => handleSubmit('draft')}
-                  className="px-6 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors font-medium flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  {language === 'ar' ? 'حفظ كمسودة' : 'Save Draft'}
-                </button>
-                <button 
-                  onClick={() => handleSubmit('pending')}
-                  className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-medium"
-                >
-                  {language === 'ar' ? 'إنشاء وإرسال' : 'Create & Submit'}
-                </button>
+                {isEditing ? (
+                  <button 
+                    onClick={() => handleSubmit(purchaseOrder!.status as any)}
+                    className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-medium"
+                  >
+                    {language === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => handleSubmit('draft')}
+                      className="px-6 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors font-medium flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {language === 'ar' ? 'حفظ كمسودة' : 'Save Draft'}
+                    </button>
+                    <button 
+                      onClick={() => handleSubmit('pending')}
+                      className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-medium"
+                    >
+                      {language === 'ar' ? 'إنشاء وإرسال' : 'Create & Submit'}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>

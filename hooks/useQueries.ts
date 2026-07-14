@@ -48,7 +48,8 @@ export const useCatalogQuery = () => {
         category: c.category,
         unit: c.unit,
         minThreshold: c.min_threshold,
-        barcode: c.barcode
+        barcode: c.barcode,
+        defaultPrice: c.default_price ? Number(c.default_price) : undefined
       })) as CatalogItem[];
     },
     placeholderData: [],

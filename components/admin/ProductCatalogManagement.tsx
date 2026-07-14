@@ -19,7 +19,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
     const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
 
     const [form, setForm] = useState<Partial<CatalogItem> & { supplierIds: string[] }>({
-        nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: '', supplierIds: []
+        nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: '', defaultPrice: 0, supplierIds: []
     });
 
     const filteredCatalog = catalog.filter(c => {
@@ -34,7 +34,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
             setForm({ ...item, supplierIds: assignedSuppliers });
         } else {
             setEditingItem(null);
-            setForm({ nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: '', supplierIds: [] });
+            setForm({ nameEn: '', nameAr: '', description: '', category: '', unit: '', minThreshold: 0, barcode: '', defaultPrice: 0, supplierIds: [] });
         }
         setIsModalOpen(true);
     };
@@ -52,7 +52,8 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                     category: form.category,
                     unit: form.unit,
                     min_threshold: form.minThreshold,
-                    barcode: form.barcode
+                    barcode: form.barcode,
+                    default_price: form.defaultPrice || 0
                 }).eq('id', editingItem.id);
                 if (error) throw error;
             } else {
@@ -63,7 +64,8 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                     category: form.category,
                     unit: form.unit,
                     min_threshold: form.minThreshold,
-                    barcode: form.barcode
+                    barcode: form.barcode,
+                    default_price: form.defaultPrice || 0
                 }).select().single();
                 if (error) throw error;
                 productId = data.id;
@@ -209,8 +211,12 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                                     <input required type="number" min="0" value={form.minThreshold} onChange={e => setForm({...form, minThreshold: Number(e.target.value)})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm mb-1 dark:text-gray-300">Barcode</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{language === 'ar' ? 'الباركود' : 'Barcode'}</label>
                                     <input type="text" value={form.barcode} onChange={e => setForm({...form, barcode: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{language === 'ar' ? 'سعر الوحدة الافتراضي (SAR)' : 'Default Unit Price (SAR)'}</label>
+                                    <input type="number" step="0.01" min="0" value={form.defaultPrice || ''} onChange={e => setForm({...form, defaultPrice: parseFloat(e.target.value) || 0})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                             </div>
                             <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">

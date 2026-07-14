@@ -36,6 +36,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
     editSupplierMutation,
     deleteSupplierMutation,
     createPurchaseOrderMutation,
+    editPurchaseOrderMutation,
     updatePurchaseOrderStatusMutation,
     receivePurchaseOrderMutation,
     scheduleAuditMutation,
@@ -243,6 +244,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
     handleEditSupplier: (s: any) => editSupplierMutation.mutate(s),
     handleDeleteSupplier: (id: string) => deleteSupplierMutation.mutate(id),
     handleCreatePO: (po: any, items: any[]) => createPurchaseOrderMutation.mutate({ po, items }),
+    handleEditPO: (id: string, po: any, items: any[]) => editPurchaseOrderMutation.mutate({ id, po, items }),
     handleUpdatePOStatus: (id: string, status: string) => updatePurchaseOrderStatusMutation.mutate({ id, status }),
     handleReceivePO: (poId: string, items: any[], performedBy: string) => receivePurchaseOrderMutation.mutate({ poId, items, performedBy }),
 

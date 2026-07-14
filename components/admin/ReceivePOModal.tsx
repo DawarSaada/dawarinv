@@ -94,7 +94,6 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
                   <input 
                     type="number"
                     min="0"
-                    max={item.quantity - item.receivedQuantity}
                     value={receivedItems[item.id] === undefined ? 0 : receivedItems[item.id]}
                     onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 font-bold"

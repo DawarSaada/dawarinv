@@ -8,6 +8,7 @@ interface PurchaseOrderManagementProps {
   suppliers: Supplier[];
   catalog: CatalogItem[];
   onCreatePO: (po: any, items: any[]) => void;
+  onEditPO: (id: string, po: any, items: any[]) => void;
   onUpdateStatus: (id: string, status: string) => void;
   onReceivePO: (poId: string, items: any[], performedBy: string) => void;
   userName: string;
@@ -18,7 +19,7 @@ interface PurchaseOrderManagementProps {
 }
 
 const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({ 
-  purchaseOrders, suppliers, catalog, onCreatePO, onUpdateStatus, onReceivePO, userName, language,
+  purchaseOrders, suppliers, catalog, onCreatePO, onEditPO, onUpdateStatus, onReceivePO, userName, language,
   onOpenCreateModal, onOpenViewModal, onOpenReceiveModal
 }) => {
   const t = TRANSLATIONS[language];

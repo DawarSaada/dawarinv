@@ -476,6 +476,54 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     }
   });
 
+  const editPurchaseOrderMutation = useMutation({
+    mutationFn: async (params: { id: string, po: Partial<PurchaseOrder>, items: Omit<PurchaseOrderItem, 'id' | 'poId' | 'totalPrice'>[] }) => {
+      // 1. Update PO Header
+      const { error: poError } = await supabase
+        .from('purchase_orders')
+        .update({
+          expected_delivery: params.po.expectedDelivery,
+          notes: params.po.notes,
+          total_amount: params.po.totalAmount
+        })
+        .eq('id', params.id);
+      
+      if (poError) throw poError;
+
+      // 2. Delete existing items
+      const { error: deleteError } = await supabase
+        .from('purchase_order_items')
+        .delete()
+        .eq('po_id', params.id);
+      
+      if (deleteError) throw deleteError;
+
+      // 3. Insert new items
+      const newItems = params.items.map(item => ({
+        po_id: params.id,
+        item_name_en: item.itemNameEn,
+        item_name_ar: item.itemNameAr,
+        quantity: item.quantity,
+        received_quantity: item.receivedQuantity || 0,
+        unit_price: item.unitPrice,
+        total_price: item.quantity * item.unitPrice
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('purchase_order_items')
+        .insert(newItems);
+      
+      if (itemsError) throw itemsError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase_orders'] });
+      addToast('success', language === 'ar' ? 'تم تحديث أمر الشراء بنجاح' : 'Purchase order updated successfully');
+    },
+    onError: (error: any) => {
+      addToast('error', error.message);
+    }
+  });
+
   const updatePurchaseOrderStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: string }) => {
       const { error } = await supabase
@@ -637,6 +685,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     editSupplierMutation,
     deleteSupplierMutation,
     createPurchaseOrderMutation,
+    editPurchaseOrderMutation,
     updatePurchaseOrderStatusMutation,
     receivePurchaseOrderMutation,
     scheduleAuditMutation,

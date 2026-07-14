@@ -96,6 +96,7 @@ export interface CatalogItem {
   unit: string;
   minThreshold: number;
   barcode?: string;
+  defaultPrice?: number;
 }
 
 export interface AppNotification {

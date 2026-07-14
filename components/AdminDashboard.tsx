@@ -54,6 +54,7 @@ interface AdminDashboardProps {
     onEditSupplier: (s: Supplier) => void;
     onDeleteSupplier: (id: string) => void;
     onCreatePO: (po: any, items: any[]) => void;
+    onEditPO: (id: string, po: any, items: any[]) => void;
     onUpdatePOStatus: (id: string, status: string) => void;
     onReceivePO: (poId: string, items: any[], performedBy: string) => void;
     audits: Audit[];
@@ -90,6 +91,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onEditSupplier,
     onDeleteSupplier,
     onCreatePO,
+    onEditPO,
     onUpdatePOStatus,
     onReceivePO,
     audits = [],
@@ -515,9 +517,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         suppliers={suppliers}
                         catalog={catalog}
                         onCreatePO={onCreatePO}
+                        onEditPO={onEditPO}
                         onUpdateStatus={onUpdatePOStatus}
                         onReceivePO={onReceivePO}
-                        userName={getUserName(currentUserRole)} // Or actual username
+                        userName={getUserName(currentUserRole)}
                         language={language}
                         onOpenCreateModal={() => { setSelectedPO(undefined); setIsPOModalOpen(true); }}
                         onOpenViewModal={(po) => { setSelectedPO(po); setIsPOModalOpen(true); }}
@@ -570,6 +573,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 catalog={catalog}
                 purchaseOrder={selectedPO}
                 onSave={onCreatePO}
+                onEdit={onEditPO}
                 onUpdateStatus={onUpdatePOStatus}
                 userName={getUserName(currentUserRole)}
             />

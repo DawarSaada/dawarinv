@@ -123,6 +123,7 @@ const App: React.FC = () => {
     handleEditSupplier,
     handleDeleteSupplier,
     handleCreatePO,
+    handleEditPO,
     handleUpdatePOStatus,
     handleReceivePO,
     handleScheduleAudit,
@@ -330,8 +331,9 @@ const App: React.FC = () => {
           purchaseOrders={purchaseOrders}
           onAddSupplier={handleAddSupplier}
           onEditSupplier={handleEditSupplier}
-          onDeleteSupplier={handleDeleteSupplier}
+          onDeleteSupplier={(id) => deleteSupplierMutation.mutate(id)}
           onCreatePO={handleCreatePO}
+          onEditPO={handleEditPO}
           onUpdatePOStatus={handleUpdatePOStatus}
           onReceivePO={handleReceivePO}
           audits={audits}
