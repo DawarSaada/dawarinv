@@ -115,7 +115,28 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onApplyAudit
 }) => {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'audits'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'audits'>(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (['inventory', 'audits'].includes(hash)) {
+      return hash as any;
+    }
+    return 'inventory';
+  });
+
+  useEffect(() => {
+    window.location.hash = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (['inventory', 'audits'].includes(hash)) {
+        setActiveTab(hash as any);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'inStock' | 'lowStock'>('all');

@@ -99,7 +99,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onApplyAudit
 }) => {
     const { addToast } = useToast();
-    const [activeTab, setActiveTab] = useState<'users' | 'transactions' | 'inventory' | 'reports' | 'settings' | 'catalog' | 'analytics' | 'suppliers' | 'purchase_orders' | 'audits'>(currentUserRole === 'admin' ? 'users' : 'inventory');
+    const [activeTab, setActiveTab] = useState<'users' | 'transactions' | 'inventory' | 'reports' | 'settings' | 'catalog' | 'analytics' | 'suppliers' | 'purchase_orders' | 'audits'>(() => {
+        const hash = window.location.hash.replace('#', '');
+        const validTabs = ['users', 'transactions', 'inventory', 'reports', 'settings', 'catalog', 'analytics', 'suppliers', 'purchase_orders', 'audits'];
+        if (validTabs.includes(hash)) {
+            return hash as any;
+        }
+        return currentUserRole === 'admin' ? 'users' : 'inventory';
+    });
+
+    useEffect(() => {
+        window.location.hash = activeTab;
+    }, [activeTab]);
+
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            const validTabs = ['users', 'transactions', 'inventory', 'reports', 'settings', 'catalog', 'analytics', 'suppliers', 'purchase_orders', 'audits'];
+            if (validTabs.includes(hash)) {
+                setActiveTab(hash as any);
+            }
+        };
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
     const [selectedInventoryLocation, setSelectedInventoryLocation] = useState<string>('warehouse');
     const [showUserModal, setShowUserModal] = useState(false);
     
@@ -481,6 +504,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onEdit={onEditSupplier}
                         onDelete={onDeleteSupplier}
                         language={language}
+                        catalog={catalog}
                     />
                 )}
 
