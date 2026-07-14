@@ -99,15 +99,26 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   doc.setFont("Amiri", "normal");
   doc.text(formatText(doc, supplierName), 50, 68);
 
+  const translateStatus = (status: string, isAr: boolean) => {
+    if (!isAr) return status;
+    const map: Record<string, string> = {
+      'PENDING': 'قيد الانتظار',
+      'APPROVED': 'معتمد',
+      'REJECTED': 'مرفوض',
+      'DELIVERED': 'تم التوصيل'
+    };
+    return map[status.toUpperCase()] || status;
+  };
+
   // Right Column
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, `Status:`), 120, 52);
+  doc.text(formatText(doc, isAr ? `الحالة:` : `Status:`), 120, 52);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, po.status.toUpperCase()), 150, 52);
+  doc.text(formatText(doc, translateStatus(po.status, isAr)), 150, 52);
 
   if (po.expectedDelivery) {
     doc.setFont("Amiri", "bold");
-    doc.text(formatText(doc, `Expected Delivery:`), 120, 60);
+    doc.text(formatText(doc, isAr ? `تاريخ التسليم المتوقع:` : `Expected Delivery:`), 120, 60);
     doc.setFont("Amiri", "normal");
     doc.text(formatText(doc, po.expectedDelivery), 155, 60);
   }
@@ -135,7 +146,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   }) || [];
 
   tableRows.push([
-      { content: formatText(doc, `Grand Total (SAR)`), colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: formatText(doc, isAr ? 'الإجمالي الكلي (ريال)' : `Grand Total (SAR)`), colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
       { content: po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2}), styles: { halign: 'right', fontStyle: 'bold' } }
   ]);
 
