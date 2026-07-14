@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
-import { PurchaseOrder, Audit, Language, CatalogItem } from '../types';
+import { PurchaseOrder, Audit, Language, CatalogItem, Supplier } from '../types';
 import { amiriBase64 } from './amiriFont';
 
 // Helper to initialize custom font
@@ -36,7 +36,7 @@ const drawWatermark = (doc: jsPDF) => {
   }
 };
 
-export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catalog: CatalogItem[]) => {
+export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catalog: CatalogItem[], suppliers: Supplier[]) => {
   const doc = new jsPDF();
   initCustomFont(doc);
   const isAr = language === 'ar';
@@ -75,21 +75,29 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   // Info Box
   doc.setDrawColor(220, 220, 220);
   doc.setFillColor(250, 250, 250);
-  doc.roundedRect(14, 42, 182, 30, 2, 2, "FD");
+  doc.roundedRect(14, 42, 182, 35, 2, 2, "FD");
 
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   
   // Left Column
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, `PO Number:`), 20, 52);
+  doc.text(formatText(doc, isAr ? `رقم الطلب:` : `PO Number:`), 20, 52);
   doc.setFont("Amiri", "normal");
   doc.text(formatText(doc, po.poNumber), 50, 52);
 
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, `Date Created:`), 20, 60);
+  doc.text(formatText(doc, isAr ? `تاريخ الإنشاء:` : `Date Created:`), 20, 60);
   doc.setFont("Amiri", "normal");
   doc.text(new Date(po.createdAt).toLocaleDateString('en-US'), 50, 60);
+
+  const supplierObj = suppliers.find(s => s.id === po.supplierId);
+  const supplierName = supplierObj ? (isAr ? supplierObj.nameAr : supplierObj.nameEn) : po.supplierId;
+
+  doc.setFont("Amiri", "bold");
+  doc.text(formatText(doc, isAr ? `المورد:` : `Supplier:`), 20, 68);
+  doc.setFont("Amiri", "normal");
+  doc.text(formatText(doc, supplierName), 50, 68);
 
   // Right Column
   doc.setFont("Amiri", "bold");
@@ -132,7 +140,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   ]);
 
   autoTable(doc, {
-    startY: 80,
+    startY: 85,
     head: [tableColumn],
     body: tableRows,
     theme: 'grid',

@@ -130,7 +130,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
           <div className="flex gap-2">
             {purchaseOrder && (
               <button 
-                onClick={() => exportPOToPDF(purchaseOrder, language, catalog)}
+                onClick={() => exportPOToPDF(purchaseOrder, language, catalog, suppliers)}
                 className="p-2 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg transition-colors"
                 title="Download PDF"
               >
