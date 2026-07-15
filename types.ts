@@ -61,6 +61,7 @@ export interface PurchaseOrder {
   id: string;
   poNumber: string;
   supplierId: string;
+  locationId?: string;
   status: PurchaseOrderStatus;
   expectedDelivery?: string;
   totalAmount: number;

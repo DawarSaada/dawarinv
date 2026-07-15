@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { InventoryItem, LocationId, Language, Transaction, LocationData, CatalogItem, AppNotification, TransferSettings, Audit } from '../types';
+import { InventoryItem, LocationId, Language, Transaction, LocationData, CatalogItem, AppNotification, TransferSettings, Audit, Supplier, PurchaseOrder, PurchaseOrderStatus } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
 import SmartAssistant from './SmartAssistant';
@@ -30,6 +30,9 @@ import BulkActionsBar from './inventory/BulkActionsBar';
 import ScannerModal from './ScannerModal';
 import PrintLabels from './inventory/PrintLabels';
 import TransferDetailModal from './TransferDetailModal';
+import PurchaseOrderManagement from './admin/PurchaseOrderManagement';
+import PurchaseOrderModal from './admin/PurchaseOrderModal';
+import ReceivePOModal from './admin/ReceivePOModal';
 
 interface InventoryDashboardProps {
   locationId: LocationId;
@@ -71,6 +74,12 @@ interface InventoryDashboardProps {
   onSaveAuditCounts?: (items: any[]) => void;
   onSubmitAudit?: (id: string) => void;
   onApplyAudit?: (auditId: string, performedBy: string) => void;
+  suppliers?: Supplier[];
+  purchaseOrders?: PurchaseOrder[];
+  onCreatePO?: (po: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'poNumber' | 'status'> & { status?: string }, items: any[]) => void;
+  onEditPO?: (id: string, po: Partial<PurchaseOrder>, items: any[]) => void;
+  onUpdatePOStatus?: (id: string, status: PurchaseOrderStatus, performedBy: string) => void;
+  onReceivePO?: (poId: string, items: any[], performedBy: string) => void;
 }
 
 const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ 
@@ -112,12 +121,18 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onScheduleAudit,
   onSaveAuditCounts,
   onSubmitAudit,
-  onApplyAudit
+  onApplyAudit,
+  suppliers = [],
+  purchaseOrders = [],
+  onCreatePO,
+  onEditPO,
+  onUpdatePOStatus,
+  onReceivePO
 }) => {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'audits'>(() => {
+  const [activeTab, setActiveTab] = useState<'inventory' | 'audits' | 'purchase_orders'>(() => {
     const hash = window.location.hash.replace('#', '');
-    if (['inventory', 'audits'].includes(hash)) {
+    if (['inventory', 'audits', 'purchase_orders'].includes(hash)) {
       return hash as any;
     }
     return 'inventory';
@@ -130,7 +145,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['inventory', 'audits'].includes(hash)) {
+      if (['inventory', 'audits', 'purchase_orders'].includes(hash)) {
         setActiveTab(hash as any);
       }
     };
@@ -185,6 +200,11 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const [isPerformAuditModalOpen, setIsPerformAuditModalOpen] = useState(false);
   const [isReviewAuditModalOpen, setIsReviewAuditModalOpen] = useState(false);
   const [selectedAudit, setSelectedAudit] = useState<Audit | null>(null);
+
+  // PO Modals State
+  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | undefined>(undefined);
+  const [isPOModalOpen, setIsPOModalOpen] = useState(false);
+  const [isReceivePOModalOpen, setIsReceivePOModalOpen] = useState(false);
 
   const [rejectionTarget, setRejectionTarget] = useState<Transaction[] | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -493,12 +513,18 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                 onClick={() => setActiveTab('audits')}
                 className={`px-4 py-2 font-bold text-sm transition-colors border-b-2 ${activeTab === 'audits' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
               >
-                {language === 'ar' ? 'الجرد الدوري' : 'Audits'}
+                {language === 'ar' ? 'جرد المخزون' : 'Audits'}
+              </button>
+              <button 
+                onClick={() => setActiveTab('purchase_orders')}
+                className={`px-4 py-2 font-bold text-sm transition-colors border-b-2 ${activeTab === 'purchase_orders' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+              >
+                {language === 'ar' ? 'طلبات الشراء' : 'Purchase Orders'}
               </button>
             </div>
           )}
 
-          {activeTab === 'inventory' ? (
+          {activeTab === 'inventory' && (
             <>
               {isInventoryLocked && (
                 <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-3 animate-fade-in">
@@ -600,7 +626,9 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
               </div>
           )}
             </>
-          ) : (
+          )}
+
+          {activeTab === 'audits' && (
             <AuditManagement 
               audits={audits.filter(a => a.locationId === locationId || isGlobalView)}
               locations={availableLocations}
@@ -624,6 +652,29 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
               }}
               onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
             />
+          )}
+
+          {activeTab === 'purchase_orders' && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 overflow-x-auto">
+              {onCreatePO && onUpdatePOStatus ? (
+                <PurchaseOrderManagement
+                  purchaseOrders={purchaseOrders.filter(po => po.locationId === locationId || (locationId === 'warehouse' && !po.locationId))}
+                  suppliers={suppliers}
+                  catalog={catalog}
+                  language={language}
+                  onCreatePO={(po, items) => onCreatePO({...po, locationId}, items)}
+                  onEditPO={onEditPO || (() => {})}
+                  onUpdateStatus={onUpdatePOStatus as any}
+                  onReceivePO={onReceivePO || (() => {})}
+                  userName={''}
+                  onOpenCreateModal={() => { setSelectedPO(undefined); setIsPOModalOpen(true); }}
+                  onOpenViewModal={(po) => { setSelectedPO(po); setIsPOModalOpen(true); }}
+                  onOpenReceiveModal={(po) => { setSelectedPO(po); setIsReceivePOModalOpen(true); }}
+                />
+              ) : (
+                <div className="text-center text-gray-500 py-12">Purchase Order Management not configured</div>
+              )}
+            </div>
           )}
 
         </main>
@@ -877,6 +928,33 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         userRole={userRole as any}
         onApplyAudit={(id) => onApplyAudit?.(id, getUserName(userRole))}
       />
+
+      {/* PO Modals */}
+      {isPOModalOpen && onCreatePO && onEditPO && (
+        <PurchaseOrderModal
+          isOpen={isPOModalOpen}
+          onClose={() => setIsPOModalOpen(false)}
+          purchaseOrder={selectedPO}
+          suppliers={suppliers}
+          catalog={catalog}
+          onSave={selectedPO 
+            ? (po, items) => onEditPO(selectedPO.id, po, items)
+            : (po, items) => onCreatePO({...po, locationId}, items)}
+          userName={''}
+          language={language}
+        />
+      )}
+
+      {isReceivePOModalOpen && selectedPO && onReceivePO && (
+        <ReceivePOModal
+          isOpen={isReceivePOModalOpen}
+          onClose={() => setIsReceivePOModalOpen(false)}
+          purchaseOrder={selectedPO || null}
+          onReceive={onReceivePO}
+          userName={''}
+          language={language}
+        />
+      )}
     </div>
   );
 };

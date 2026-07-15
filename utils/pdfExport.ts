@@ -80,24 +80,30 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   
-  // Left Column
+  const col1LabelX = isAr ? 190 : 20;
+  const col1ValueX = isAr ? 150 : 50;
+  const col2LabelX = isAr ? 90 : 120;
+  const col2ValueX = isAr ? 60 : 155;
+  const alignConfig = isAr ? { align: "right" as const } : { align: "left" as const };
+
+  // Left/Right Columns (Mirrored for RTL)
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `رقم الطلب:` : `PO Number:`), 20, 52);
+  doc.text(formatText(doc, isAr ? `رقم الطلب:` : `PO Number:`), col1LabelX, 52, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, po.poNumber), 50, 52);
+  doc.text(formatText(doc, po.poNumber), col1ValueX, 52, alignConfig);
 
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `تاريخ الإنشاء:` : `Date Created:`), 20, 60);
+  doc.text(formatText(doc, isAr ? `تاريخ الإنشاء:` : `Date Created:`), col1LabelX, 60, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(new Date(po.createdAt).toLocaleDateString('en-US'), 50, 60);
+  doc.text(new Date(po.createdAt).toLocaleDateString('en-US'), col1ValueX, 60, alignConfig);
 
   const supplierObj = suppliers.find(s => s.id === po.supplierId);
   const supplierName = supplierObj ? (isAr ? (supplierObj.nameAr || supplierObj.nameEn) : (supplierObj.nameEn || supplierObj.nameAr)) : po.supplierId;
 
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `المورد:` : `Supplier:`), 20, 68);
+  doc.text(formatText(doc, isAr ? `المورد:` : `Supplier:`), col1LabelX, 68, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, supplierName), 50, 68);
+  doc.text(formatText(doc, supplierName), col1ValueX, 68, alignConfig);
 
   const translateStatus = (status: string, isAr: boolean) => {
     if (!isAr) return status;
@@ -110,22 +116,21 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
     return map[status.toUpperCase()] || status;
   };
 
-  // Right Column
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `الحالة:` : `Status:`), 120, 52);
+  doc.text(formatText(doc, isAr ? `الحالة:` : `Status:`), col2LabelX, 52, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, translateStatus(po.status, isAr)), 150, 52);
+  doc.text(formatText(doc, translateStatus(po.status, isAr)), col2ValueX, 52, alignConfig);
 
   if (po.expectedDelivery) {
     doc.setFont("Amiri", "bold");
-    doc.text(formatText(doc, isAr ? `تاريخ التسليم المتوقع:` : `Expected Delivery:`), 120, 60);
+    doc.text(formatText(doc, isAr ? `تاريخ التسليم المتوقع:` : `Expected Delivery:`), col2LabelX, 60, alignConfig);
     doc.setFont("Amiri", "normal");
-    doc.text(formatText(doc, po.expectedDelivery), 155, 60);
+    doc.text(formatText(doc, po.expectedDelivery), col2ValueX, 60, alignConfig);
   }
 
   doc.setTextColor(0, 0, 0);
 
-  const tableColumn = [
+  let tableColumn = [
     formatText(doc, isAr ? 'العنصر' : 'Item'),
     formatText(doc, isAr ? 'الوحدة' : 'Unit'),
     formatText(doc, isAr ? 'الكمية' : 'Qty'),
@@ -133,7 +138,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
     formatText(doc, isAr ? 'المجموع (ريال)' : 'Total (SAR)')
   ];
   
-  const tableRows = po.items?.map(item => {
+  let tableRows = po.items?.map(item => {
     const catalogItem = catalog.find(c => c.nameEn === item.itemNameEn || c.nameAr === item.itemNameAr);
     const unit = catalogItem ? catalogItem.unit : 'PCS';
     return [
@@ -145,10 +150,33 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
     ];
   }) || [];
 
-  tableRows.push([
-      { content: formatText(doc, isAr ? 'الإجمالي الكلي (ريال)' : `Grand Total (SAR)`), colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-      { content: po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2}), styles: { halign: 'right', fontStyle: 'bold' } }
-  ]);
+  let grandTotalRow = [
+      { content: formatText(doc, isAr ? 'الإجمالي الكلي (ريال)' : `Grand Total (SAR)`), colSpan: 4, styles: { halign: isAr ? 'left' : 'right', fontStyle: 'bold' } },
+      { content: po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2}), styles: { halign: isAr ? 'left' : 'right', fontStyle: 'bold' } }
+  ] as any[];
+
+  let columnStyles: any = {
+    0: { cellWidth: 'auto', halign: isAr ? 'right' : 'left' },
+    1: { cellWidth: 20, halign: 'center' },
+    2: { cellWidth: 20, halign: 'center' },
+    3: { cellWidth: 35, halign: isAr ? 'left' : 'right' },
+    4: { cellWidth: 35, halign: isAr ? 'left' : 'right' },
+  };
+
+  if (isAr) {
+    tableColumn.reverse();
+    tableRows = tableRows.map(row => [...row].reverse());
+    grandTotalRow.reverse();
+    columnStyles = {
+      0: { cellWidth: 35, halign: 'left' },
+      1: { cellWidth: 35, halign: 'left' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 'auto', halign: 'right' },
+    };
+  }
+
+  tableRows.push(grandTotalRow);
 
   autoTable(doc, {
     startY: 85,
@@ -169,13 +197,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
       overflow: 'linebreak',
       font: 'Amiri'
     },
-    columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { cellWidth: 20, halign: 'center' },
-      2: { cellWidth: 20, halign: 'center' },
-      3: { cellWidth: 35, halign: 'right' },
-      4: { cellWidth: 35, halign: 'right' },
-    }
+    columnStyles
   });
 
   const lastY = (doc as any).lastAutoTable.finalY + 10;
@@ -243,31 +265,37 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   
+  const col1LabelX = isAr ? 190 : 20;
+  const col1ValueX = isAr ? 150 : 50;
+  const col2LabelX = isAr ? 90 : 120;
+  const col2ValueX = isAr ? 60 : 150;
+  const alignConfig = isAr ? { align: "right" as const } : { align: "left" as const };
+
   // Left Column
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `العنوان:` : `Title:`), 20, 52);
+  doc.text(formatText(doc, isAr ? `العنوان:` : `Title:`), col1LabelX, 52, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, audit.title), 50, 52);
+  doc.text(formatText(doc, audit.title), col1ValueX, 52, alignConfig);
 
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `تاريخ الإنشاء:` : `Date Created:`), 20, 60);
+  doc.text(formatText(doc, isAr ? `تاريخ الإنشاء:` : `Date Created:`), col1LabelX, 60, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(new Date(audit.createdAt).toLocaleDateString('en-US'), 50, 60);
+  doc.text(new Date(audit.createdAt).toLocaleDateString('en-US'), col1ValueX, 60, alignConfig);
 
   // Right Column
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `الموقع:` : `Location:`), 120, 52);
+  doc.text(formatText(doc, isAr ? `الموقع:` : `Location:`), col2LabelX, 52, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, audit.locationId.toUpperCase()), 150, 52);
+  doc.text(formatText(doc, audit.locationId.toUpperCase()), col2ValueX, 52, alignConfig);
 
   doc.setFont("Amiri", "bold");
-  doc.text(formatText(doc, isAr ? `الحالة:` : `Status:`), 120, 60);
+  doc.text(formatText(doc, isAr ? `الحالة:` : `Status:`), col2LabelX, 60, alignConfig);
   doc.setFont("Amiri", "normal");
-  doc.text(formatText(doc, audit.status.toUpperCase()), 150, 60);
+  doc.text(formatText(doc, audit.status.toUpperCase()), col2ValueX, 60, alignConfig);
 
   doc.setTextColor(0, 0, 0);
 
-  const tableColumn = [
+  let tableColumn = [
     formatText(doc, isAr ? 'العنصر' : 'Item'),
     formatText(doc, isAr ? 'الكمية بالنظام' : 'System Qty'),
     formatText(doc, isAr ? 'الكمية الفعلية' : 'Counted Qty'),
@@ -275,7 +303,7 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
     formatText(doc, isAr ? 'ملاحظات' : 'Notes')
   ];
   
-  const tableRows = audit.items?.map(item => {
+  let tableRows = audit.items?.map(item => {
     const isCounted = item.countedQuantity !== undefined && item.countedQuantity !== null;
     const variance = isCounted ? item.countedQuantity! - item.expectedQuantity : null;
     let varianceText = '-';
@@ -291,6 +319,26 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
       formatText(doc, item.notes || '-')
     ];
   }) || [];
+
+  let columnStyles: any = {
+    0: { cellWidth: 'auto', halign: isAr ? 'right' : 'left' },
+    1: { halign: 'center', cellWidth: 35 },
+    2: { halign: 'center', cellWidth: 35 },
+    3: { halign: 'center', cellWidth: 25 },
+    4: { cellWidth: 30, halign: isAr ? 'left' : 'left' } // Left aligned Notes usually ok
+  };
+
+  if (isAr) {
+    tableColumn.reverse();
+    tableRows = tableRows.map(row => [...row].reverse());
+    columnStyles = {
+      0: { cellWidth: 30, halign: 'right' },
+      1: { halign: 'center', cellWidth: 25 },
+      2: { halign: 'center', cellWidth: 35 },
+      3: { halign: 'center', cellWidth: 35 },
+      4: { cellWidth: 'auto', halign: 'right' }
+    };
+  }
 
   autoTable(doc, {
     startY: 75,
@@ -311,20 +359,18 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
       overflow: 'linebreak',
       font: 'Amiri'
     },
-    columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { halign: 'center', cellWidth: 35 },
-      2: { halign: 'center', cellWidth: 35 },
-      3: { halign: 'center', cellWidth: 25 },
-      4: { cellWidth: 30 }
-    },
+    columnStyles,
     didParseCell: function (data) {
-      if (data.section === 'body' && data.column.index === 3) {
-        const text = data.cell.text[0];
-        if (text.startsWith('+')) {
-          data.cell.styles.textColor = [39, 174, 96]; // Green
-        } else if (text.startsWith('-') && text !== '-') {
-          data.cell.styles.textColor = [231, 76, 60]; // Red
+      if (data.section === 'body') {
+        // variance column is index 3 in English, but index 1 in Arabic (5 - 1 - 3 = 1)
+        const varianceIndex = isAr ? 1 : 3;
+        if (data.column.index === varianceIndex) {
+          const text = data.cell.text[0];
+          if (text && text.includes('+')) {
+            data.cell.styles.textColor = [39, 174, 96]; // Green
+          } else if (text && text.includes('-') && text !== '-') {
+            data.cell.styles.textColor = [231, 76, 60]; // Red
+          }
         }
       }
     }

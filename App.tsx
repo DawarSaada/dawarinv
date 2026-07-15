@@ -455,6 +455,12 @@ const App: React.FC = () => {
         onSaveAuditCounts={handleSaveAuditCounts}
         onSubmitAudit={handleSubmitAudit}
         onApplyAudit={handleApplyAudit}
+        suppliers={suppliers}
+        purchaseOrders={purchaseOrders}
+        onCreatePO={handleCreatePO}
+        onEditPO={handleEditPO}
+        onUpdatePOStatus={handleUpdatePOStatus}
+        onReceivePO={handleReceivePO}
       />
     </div>
   );

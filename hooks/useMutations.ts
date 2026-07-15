@@ -439,6 +439,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
         .insert({
           po_number: poNumber,
           supplier_id: params.po.supplierId,
+          location_id: params.po.locationId || 'warehouse',
           status: params.po.status || 'draft',
           expected_delivery: params.po.expectedDelivery || null,
           notes: params.po.notes,
@@ -543,6 +544,15 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
 
   const receivePurchaseOrderMutation = useMutation({
     mutationFn: async ({ poId, items, performedBy }: { poId: string, items: { id: string, received_quantity: number }[], performedBy: string }) => {
+      const { data: poRecord, error: poError } = await supabase
+        .from('purchase_orders')
+        .select('location_id')
+        .eq('id', poId)
+        .single();
+      
+      if (poError) throw poError;
+      const poLocationId = poRecord.location_id || 'warehouse';
+
       // 1. Fetch the current PO items to know their names
       const { data: poItems, error: fetchError } = await supabase
         .from('purchase_order_items')
@@ -566,11 +576,11 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
         
         if (updatePoItemError) throw updatePoItemError;
 
-        // Find item in warehouse inventory
+        // Find item in target inventory
         const { data: invItems, error: invFetchError } = await supabase
-          .from('inventory')
+          .from('inventory_items')
           .select('*')
-          .eq('location_id', 'warehouse')
+          .eq('location_id', poLocationId)
           .ilike('name_en', poItem.item_name_en);
         
         if (invFetchError) throw invFetchError;
@@ -580,7 +590,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
         if (existingInvItem) {
           // Update existing inventory
           const { error: invUpdateError } = await supabase
-            .from('inventory')
+            .from('inventory_items')
             .update({ 
               quantity: existingInvItem.quantity + receiveItem.received_quantity,
               last_updated: new Date().toISOString()
@@ -595,7 +605,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
             type: 'receive',
             quantity: receiveItem.received_quantity,
             performed_by: performedBy,
-            location_id: 'warehouse',
+            location_id: poLocationId,
             notes: `Received from PO #${poId}`
           });
         } else {
@@ -603,26 +613,23 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
           const { data: catalogItems } = await supabase
             .from('product_catalog')
             .select('*')
-            .ilike('name_en', poItem.item_name_en)
-            .limit(1);
+            .ilike('name_en', poItem.item_name_en);
           
-          const cItem = catalogItems && catalogItems.length > 0 ? catalogItems[0] : null;
+          const catItem = catalogItems && catalogItems.length > 0 ? catalogItems[0] : null;
 
           // Insert new inventory item
-          const { data: newInv, error: invInsertError } = await supabase
-            .from('inventory')
+          const { error: invInsertError } = await supabase
+            .from('inventory_items')
             .insert({
               name_en: poItem.item_name_en,
               name_ar: poItem.item_name_ar || poItem.item_name_en,
-              category: cItem ? cItem.category : 'General',
+              category: catItem ? catItem.category : 'General',
               quantity: receiveItem.received_quantity,
-              unit: cItem ? cItem.unit : 'PCS',
-              min_threshold: cItem ? cItem.min_threshold : 0,
-              location_id: 'warehouse'
-            })
-            .select()
-            .single();
-          
+              unit: catItem ? catItem.unit : 'Piece',
+              min_threshold: catItem ? catItem.min_threshold : 0,
+              location_id: poLocationId
+            });
+            
           if (invInsertError) throw invInsertError;
 
           // Record transaction

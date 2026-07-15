@@ -1,0 +1,67 @@
+[
+  {
+    "id": "4b094f76-03eb-486b-860d-4468fa7e4e82",
+    "name_en": "Hello",
+    "name_ar": "Hello",
+    "description": "",
+    "category": "ABC",
+    "unit": "kg",
+    "min_threshold": 5,
+    "barcode": null,
+    "created_at": "2026-06-16T16:45:27.129453+00:00",
+    "updated_at": "2026-06-16T16:45:27.129453+00:00",
+    "default_price": 0
+  },
+  {
+    "id": "eb30b166-c9b4-4f23-bf32-50e5fc0a33a8",
+    "name_en": "استكر بر ",
+    "name_ar": "استكر بر ",
+    "description": "",
+    "category": "Received",
+    "unit": "Box",
+    "min_threshold": 1,
+    "barcode": null,
+    "created_at": "2026-06-16T16:45:27.129453+00:00",
+    "updated_at": "2026-06-16T16:45:27.129453+00:00",
+    "default_price": 0
+  },
+  {
+    "id": "e050ab47-9653-4b20-9902-d680f372fb54",
+    "name_en": "تقسيمات بوكس افطار ",
+    "name_ar": "تقسيمات بوكس افطار ",
+    "description": null,
+    "category": "Received",
+    "unit": "Box",
+    "min_threshold": 0,
+    "barcode": null,
+    "created_at": "2026-06-16T16:45:27.129453+00:00",
+    "updated_at": "2026-06-16T16:45:27.129453+00:00",
+    "default_price": 0
+  },
+  {
+    "id": "c88cb96d-5a34-47de-a07a-c93b58e1542a",
+    "name_en": "خلية كبير ",
+    "name_ar": "خلية كبير ",
+    "description": "",
+    "category": "Received",
+    "unit": "Box",
+    "min_threshold": 3,
+    "barcode": null,
+    "created_at": "2026-06-16T16:45:27.129453+00:00",
+    "updated_at": "2026-06-16T16:45:27.129453+00:00",
+    "default_price": 0
+  },
+  {
+    "id": "f3127956-a002-4b37-a48c-427c3125829d",
+    "name_en": "غطاء بوكس افطار ",
+    "name_ar": "غطاء بوكس افطار ",
+    "description": null,
+    "category": "Received",
+    "unit": "Box",
+    "min_threshold": 0,
+    "barcode": null,
+    "created_at": "2026-06-16T16:45:27.129453+00:00",
+    "updated_at": "2026-06-16T16:45:27.129453+00:00",
+    "default_price": 0
+  }
+]

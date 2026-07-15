@@ -100,6 +100,7 @@ export const usePurchaseOrdersQuery = () => {
         id: po.id,
         poNumber: po.po_number,
         supplierId: po.supplier_id,
+        locationId: po.location_id,
         status: po.status,
         expectedDelivery: po.expected_delivery,
         totalAmount: Number(po.total_amount),

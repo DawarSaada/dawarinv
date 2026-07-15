@@ -179,7 +179,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                         setNewItem({...newItem, catalogId: ''});
                                     }
                                 }}
-                                className="w-full px-4 py-2 border border-brand-200 dark:border-brand-900/30 rounded-lg bg-brand-50/50 dark:bg-brand-900/10 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
                             >
                                 <option value="">{language === 'ar' ? '-- اختر منتج --' : '-- Select Product --'}</option>
                                 {catalog.map(c => (
@@ -196,7 +196,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.itemNameEn}</label>
                             <input
                                 required
-                                readOnly={!!newItem.catalogId}
+                                readOnly={!isEditMode || !!newItem.catalogId}
                                 type="text"
                                 value={newItem.nameEn}
                                 onChange={e => {
@@ -204,7 +204,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setError('');
                                 }}
                                 placeholder={t.itemNameEnPlaceholder}
-                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
 
@@ -212,7 +212,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.itemNameAr}</label>
                             <input
                                 required
-                                readOnly={!!newItem.catalogId}
+                                readOnly={!isEditMode || !!newItem.catalogId}
                                 type="text"
                                 value={newItem.nameAr}
                                 onChange={e => {
@@ -220,7 +220,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setError('');
                                 }}
                                 placeholder={t.itemNameArPlaceholder}
-                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-arabic ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-arabic ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 dir="rtl"
                             />
                         </div>
@@ -232,14 +232,14 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                             {t.description}
                         </label>
                         <textarea
-                            readOnly={!!newItem.catalogId}
+                            readOnly={!isEditMode || !!newItem.catalogId}
                             value={newItem.description}
                             onChange={e => {
                                 setNewItem({...newItem, description: e.target.value});
                                 setError('');
                             }}
                             placeholder={t.descriptionPlaceholder}
-                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none resize-none h-20 text-sm ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none resize-none h-20 text-sm ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                         />
                     </div>
 
@@ -247,7 +247,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.category}</label>
                         <input
                             required
-                            readOnly={!!newItem.catalogId}
+                            readOnly={!isEditMode || !!newItem.catalogId}
                             type="text"
                             list="category-suggestions"
                             value={newItem.category}
@@ -255,8 +255,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                 setNewItem({...newItem, category: e.target.value});
                                 setError('');
                             }}
-                            placeholder={t.categoryPlaceholder}
-                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            placeholder={t.category}
+                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                         />
                         <datalist id="category-suggestions">
                             {Array.from(new Set(existingItems.map(i => i.category))).sort().map(cat => (
@@ -285,7 +285,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.unit}</label>
                             <input
                                 required
-                                readOnly={!!newItem.catalogId}
+                                readOnly={!isEditMode || !!newItem.catalogId}
                                 type="text"
                                 value={newItem.unit}
                                 onChange={e => {
@@ -293,7 +293,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setError('');
                                 }}
                                 placeholder={t.unitPlaceholder}
-                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${newItem.catalogId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
@@ -379,6 +379,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
             
             {showScanner && (
                 <BarcodeScanner 
+                    t={t}
                     onScan={(decodedText) => {
                         setNewItem({...newItem, barcode: decodedText});
                         setShowScanner(false);
