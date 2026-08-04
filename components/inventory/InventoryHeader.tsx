@@ -17,6 +17,8 @@ interface InventoryHeaderProps {
   onLogout: () => void;
   alerts?: AppNotification[];
   language?: Language;
+  onMarkAsRead?: (id: string) => void;
+  onMarkAllAsRead?: () => void;
 }
 
 const InventoryHeader: React.FC<InventoryHeaderProps> = ({
@@ -27,17 +29,11 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
   isAssistantOpen,
   setIsAssistantOpen,
   onLogout,
-  alerts = [],
-  language = 'en'
+  alerts,
+  language,
+  onMarkAsRead,
+  onMarkAllAsRead
 }) => {
-  const handleMarkAsRead = (id: string) => {
-    // In a real app with Supabase, we would do a mutation.
-    // For now, let's keep it visually working (the actual mutation will be handled if passed in)
-  };
-
-  const handleMarkAllAsRead = () => {
-    // Mutation
-  };
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 transition-colors">
       <div className="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
@@ -58,22 +54,22 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-1 sm:gap-3">
+          <NotificationCenter 
+            notifications={alerts || []}
+            language={language || 'en'}
+            t={t}
+            onMarkAsRead={onMarkAsRead}
+            onMarkAllAsRead={onMarkAllAsRead}
+          />
           <button onClick={() => setIsAssistantOpen(!isAssistantOpen)} className={`p-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-all ${isAssistantOpen ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 ring-1 ring-brand-200 dark:ring-brand-800' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
             <Sparkles className="w-4 h-4 text-brand-500 sm:mr-2 sm:rtl:ml-2 sm:rtl:mr-0 inline" />
             <span className="hidden sm:inline">{t.askAI}</span>
           </button>
           <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
           
-          <NotificationCenter 
-            notifications={alerts}
-            language={language}
-            t={t}
-            onMarkAsRead={handleMarkAsRead}
-            onMarkAllAsRead={handleMarkAllAsRead}
-          />
-
-          <button onClick={onLogout} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 rounded-lg transition-colors ml-1 rtl:ml-0 rtl:mr-1">
-            <LogOut className="w-5 h-5 rtl:rotate-180" />
+          <button onClick={onLogout} className="p-2 sm:px-4 sm:py-2 text-red-600 dark:text-red-400 font-medium hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
+            <LogOut className="w-5 h-5 sm:mr-2 sm:rtl:ml-2 sm:rtl:mr-0 inline" />
+            <span className="hidden sm:inline">{t.logout}</span>
           </button>
         </div>
       </div>

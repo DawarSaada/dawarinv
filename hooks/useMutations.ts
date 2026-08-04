@@ -348,16 +348,17 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
 
   const markAllNotificationsAsReadMutation = useMutation({
     mutationFn: async (locationId: string) => {
-      let query = supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('is_read', false);
-        
-      if (locationId !== 'all') {
-        query = query.eq('location_id', locationId);
+      if (locationId === 'all') {
+        // Do not allow marking ALL notifications in the entire system as read
+        return;
       }
       
-      const { error } = await query;
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('location_id', locationId)
+        .eq('is_read', false);
+        
       if (error) throw error;
     },
     onSuccess: () => {
