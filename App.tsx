@@ -26,8 +26,6 @@ const App: React.FC = () => {
   const { data: catalog = [] } = useCatalogQuery();
   const { data: suppliers = [] } = useSuppliersQuery();
   const { data: purchaseOrders = [] } = usePurchaseOrdersQuery();
-  const { data: audits = [] } = useAuditsQuery();
-  const { data: alerts = [] } = useNotificationsQuery(selectedLocation);
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -92,6 +90,9 @@ const App: React.FC = () => {
     }
     return null;
   });
+
+  const { data: audits = [] } = useAuditsQuery();
+  const { data: alerts = [] } = useNotificationsQuery(selectedLocation);
 
   // Theme & Language State - Initialize from localStorage
   const [language, setLanguage] = useState<Language>(() => {

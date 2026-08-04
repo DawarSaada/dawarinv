@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { InventoryItem, Transaction, TransactionType, LocationId, User, Language } from '../types';
+import { InventoryItem, Transaction, TransactionType, LocationId, User, Language, AppNotification } from '../types';
 import { useInventoryQuery, useTransactionsQuery } from './useQueries';
 import { useInventoryMutations } from './useMutations';
 
