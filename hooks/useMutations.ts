@@ -777,7 +777,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
   const deleteAuditMutation = useMutation({
     mutationFn: async (auditId: string) => {
       const { error } = await supabase
-        .from('inventory_audits')
+        .from('audits')
         .delete()
         .eq('id', auditId);
       if (error) throw error;
