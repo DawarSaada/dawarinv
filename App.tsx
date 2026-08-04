@@ -13,6 +13,7 @@ import { useAuth } from './hooks/useAuth';
 import { useInventoryData } from './hooks/useInventoryData';
 import { useLocationsQuery, useUsersQuery, useRealtimeSubscriptions, useTransactionsQuery, useCatalogQuery, useNotificationsQuery, useSuppliersQuery, usePurchaseOrdersQuery, useAuditsQuery } from './hooks/useQueries';
 import { useNotifications } from './hooks/useNotifications';
+import { useOMSSubscription } from './hooks/useOMSSubscription';
 
 
 const App: React.FC = () => {
@@ -67,6 +68,8 @@ const App: React.FC = () => {
     handleEditUser,
     handleDeleteUser
   } = useAuth(requestNotificationPermission, fetchedUsers);
+
+  const { isSubscriptionLocked, isLoading: isSubLoading, subDetails } = useOMSSubscription();
 
   const [selectedLocation, setSelectedLocation] = useState<LocationId | null>(() => {
     try {
@@ -212,6 +215,36 @@ const App: React.FC = () => {
     return locations;
   }, [locations, currentUser]);
 
+  // Subscription Blocking Logic
+  if (isSubscriptionLocked && currentUser?.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-8 text-center border border-gray-100 dark:border-gray-700">
+          <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Subscription Expired</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
+            The OMS subscription has expired or is inactive. This inventory management application has been temporarily locked.
+          </p>
+          <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800/30">
+            <p className="text-sm font-medium text-brand-800 dark:text-brand-300">
+              Please contact the Admin to renew the subscription.
+            </p>
+          </div>
+          <button 
+            onClick={() => handleLogout(setSelectedLocation, () => { })}
+            className="mt-8 px-6 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const toggleLanguage = () => {
     setLanguage(prev => {
       const newLang = prev === 'en' ? 'ar' : 'en';
@@ -322,6 +355,7 @@ const App: React.FC = () => {
           onManageLocation={setSelectedLocation}
           onCleanUpTransactions={handleCleanUpTransactions}
           getUserName={getUserName}
+          subDetails={subDetails}
           transferSettings={transferSettings}
           onTransferSettingsChange={(settings) => {
             setTransferSettings(settings);

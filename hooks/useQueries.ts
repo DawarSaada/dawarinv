@@ -61,6 +61,8 @@ export const useSuppliersQuery = () => {
     queryKey: ['suppliers'],
     queryFn: async () => {
       const { data, error } = await supabase.from('suppliers').select('*').order('name_en');
+      console.log("Suppliers Query Data:", data);
+      console.log("Suppliers Query Error:", error);
       if (error) throw error;
       if (!data) return [];
       return data.map((s: any) => ({

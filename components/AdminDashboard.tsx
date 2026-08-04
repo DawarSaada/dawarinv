@@ -55,13 +55,14 @@ interface AdminDashboardProps {
     onDeleteSupplier: (id: string) => void;
     onCreatePO: (po: any, items: any[]) => void;
     onEditPO: (id: string, po: any, items: any[]) => void;
-    onUpdatePOStatus: (id: string, status: string) => void;
+    onUpdatePOStatus: (id: string, status: string, performedBy: string) => void;
     onReceivePO: (poId: string, items: any[], performedBy: string) => void;
     audits: Audit[];
     onScheduleAudit: (params: any) => void;
     onSaveAuditCounts: (items: any[]) => void;
     onSubmitAudit: (auditId: string) => void;
     onApplyAudit: (auditId: string, performedBy: string) => void;
+    subDetails?: { status: string, expiry: string | null };
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
@@ -98,7 +99,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onScheduleAudit,
     onSaveAuditCounts,
     onSubmitAudit,
-    onApplyAudit
+    onApplyAudit,
+    subDetails
 }) => {
     const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<'users' | 'transactions' | 'inventory' | 'reports' | 'settings' | 'catalog' | 'analytics' | 'suppliers' | 'purchase_orders' | 'audits'>(() => {
@@ -489,6 +491,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         language={language}
                         transferSettings={transferSettings}
                         onTransferSettingsChange={onTransferSettingsChange}
+                        subDetails={subDetails}
                     />
                 )}
 

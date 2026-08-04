@@ -10,6 +10,7 @@ interface AdminSettingsProps {
     language: Language;
     transferSettings?: TransferSettings;
     onTransferSettingsChange?: (settings: TransferSettings) => void;
+    subDetails?: { status: string, expiry: string | null };
 }
 
 const AdminSettings: React.FC<AdminSettingsProps> = ({
@@ -19,7 +20,8 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     onManualCleanUp,
     language,
     transferSettings = { enableSignatureCapture: false, enablePhotoEvidence: false, enableAutoReject: false, autoRejectDays: 7 },
-    onTransferSettingsChange
+    onTransferSettingsChange,
+    subDetails
 }) => {
     const t = {
         transferSettings: language === 'ar' ? 'إعدادات التحويل' : 'Transfer Settings',
@@ -54,6 +56,44 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
             <div className="mb-8">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{language === 'ar' ? 'الإعدادات' : 'Settings'}</h2>
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{language === 'ar' ? 'إدارة إعدادات النظام' : 'Manage system settings'}</p>
+            </div>
+
+            {/* Subscription Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 max-w-2xl mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {language === 'ar' ? 'حالة الاشتراك' : 'Subscription Status'}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {language === 'ar' ? 'تفاصيل اشتراك OMS' : 'OMS Subscription Details'}
+                        </p>
+                    </div>
+                </div>
+                
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {language === 'ar' ? 'الحالة' : 'Status'}
+                        </span>
+                        <span className={`text-sm font-bold ${subDetails?.status.includes('active') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {subDetails?.status.toUpperCase() || 'UNKNOWN'}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {language === 'ar' ? 'تاريخ الانتهاء' : 'Expiry Date'}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                            {subDetails?.expiry ? new Date(subDetails.expiry).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : (language === 'ar' ? 'غير متوفر' : 'N/A')}
+                        </span>
+                    </div>
+                </div>
             </div>
 
             {/* Data Retention Section */}
