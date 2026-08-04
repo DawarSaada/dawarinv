@@ -207,7 +207,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
   }, [markNotificationAsReadMutation]);
 
   const handleMarkAllNotificationsAsRead = useCallback(async () => {
-    if (selectedLocation && selectedLocation !== 'all') {
+    if (selectedLocation) {
       markAllNotificationsAsReadMutation.mutate(selectedLocation);
     }
   }, [selectedLocation, markAllNotificationsAsReadMutation]);
