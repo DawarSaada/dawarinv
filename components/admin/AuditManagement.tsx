@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Audit, Language, LocationData, UserRole } from '../../types';
 import { TRANSLATIONS } from '../../constants';
-import { Search, Plus, ClipboardCheck, Calendar, Play, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Plus, ClipboardCheck, Calendar, Play, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 
 interface AuditManagementProps {
   audits: Audit[];
@@ -11,14 +11,16 @@ interface AuditManagementProps {
   onOpenScheduleModal: () => void;
   onOpenPerformModal: (audit: Audit) => void;
   onOpenReviewModal: (audit: Audit) => void;
+  onDeleteAudit?: (id: string) => void;
 }
 
 const AuditManagement: React.FC<AuditManagementProps> = ({
-  audits, locations, userRole, language, onOpenScheduleModal, onOpenPerformModal, onOpenReviewModal
+  audits, locations, userRole, language, onOpenScheduleModal, onOpenPerformModal, onOpenReviewModal, onDeleteAudit
 }) => {
   const t = TRANSLATIONS[language];
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const filteredAudits = audits.filter(audit => {
     const matchesSearch = audit.title.toLowerCase().includes(search.toLowerCase());
@@ -166,6 +168,16 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
                   {language === 'ar' ? 'عرض النتائج' : 'View Results'}
                 </button>
               )}
+              
+              {userRole === 'admin' && onDeleteAudit && (
+                <button
+                  onClick={() => setDeleteConfirm(audit.id)}
+                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                  title={language === 'ar' ? 'حذف الجرد' : 'Delete Audit'}
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -177,6 +189,36 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
           </div>
         )}
       </div>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-gray-700">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {language === 'ar' ? 'هل أنت متأكد أنك تريد حذف هذا الجرد؟ لا يمكن التراجع عن هذه العملية.' : 'Are you sure you want to delete this audit? This action cannot be undone.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  if (onDeleteAudit) onDeleteAudit(deleteConfirm);
+                  setDeleteConfirm(null);
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors"
+              >
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -132,7 +132,8 @@ const App: React.FC = () => {
     handleScheduleAudit,
     handleSaveAuditCounts,
     handleSubmitAudit,
-    handleApplyAudit
+    handleApplyAudit,
+    handleDeleteAudit
   } = useInventoryData({ currentUser, selectedLocation, language, addToast });
 
   // Transfer Settings (admin-configurable)
@@ -375,6 +376,7 @@ const App: React.FC = () => {
           onSaveAuditCounts={handleSaveAuditCounts}
           onSubmitAudit={handleSubmitAudit}
           onApplyAudit={handleApplyAudit}
+          onDeleteAudit={handleDeleteAudit}
           alerts={alerts}
           onMarkNotificationAsRead={handleMarkNotificationAsRead}
           onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
@@ -489,6 +491,7 @@ const App: React.FC = () => {
         onSaveAuditCounts={handleSaveAuditCounts}
         onSubmitAudit={handleSubmitAudit}
         onApplyAudit={handleApplyAudit}
+        onDeleteAudit={handleDeleteAudit}
         suppliers={suppliers}
         purchaseOrders={purchaseOrders}
         onCreatePO={handleCreatePO}

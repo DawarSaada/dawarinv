@@ -74,6 +74,7 @@ interface InventoryDashboardProps {
   onSaveAuditCounts?: (items: any[]) => void;
   onSubmitAudit?: (id: string) => void;
   onApplyAudit?: (auditId: string, performedBy: string) => void;
+  onDeleteAudit?: (auditId: string) => void;
   suppliers?: Supplier[];
   purchaseOrders?: PurchaseOrder[];
   onCreatePO?: (po: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'poNumber' | 'status'> & { status?: string }, items: any[]) => void;
@@ -122,6 +123,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onSaveAuditCounts,
   onSubmitAudit,
   onApplyAudit,
+  onDeleteAudit,
   suppliers = [],
   purchaseOrders = [],
   onCreatePO,

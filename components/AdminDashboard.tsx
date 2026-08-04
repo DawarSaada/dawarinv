@@ -62,6 +62,7 @@ interface AdminDashboardProps {
     onSaveAuditCounts: (items: any[]) => void;
     onSubmitAudit: (auditId: string) => void;
     onApplyAudit: (auditId: string, performedBy: string) => void;
+    onDeleteAudit: (auditId: string) => void;
     subDetails?: { status: string, expiry: string | null };
 }
 
@@ -100,6 +101,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onSaveAuditCounts,
     onSubmitAudit,
     onApplyAudit,
+    onDeleteAudit,
     subDetails
 }) => {
     const { addToast } = useToast();
@@ -540,6 +542,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onOpenScheduleModal={() => setIsScheduleAuditModalOpen(true)}
                         onOpenPerformModal={(audit) => { setSelectedAudit(audit); setIsPerformAuditModalOpen(true); }}
                         onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
+                        onDeleteAudit={onDeleteAudit}
                     />
                 )}
             </main>

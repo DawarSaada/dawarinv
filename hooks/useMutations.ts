@@ -801,6 +801,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     scheduleAuditMutation,
     saveAuditCountsMutation,
     submitAuditMutation,
-    applyAuditMutation
+    applyAuditMutation,
+    deleteAuditMutation
   };
 };

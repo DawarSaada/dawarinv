@@ -42,7 +42,8 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
     scheduleAuditMutation,
     saveAuditCountsMutation,
     submitAuditMutation,
-    applyAuditMutation
+    applyAuditMutation,
+    deleteAuditMutation
   } = useInventoryMutations({ language, addToast });
 
   const handleCleanUpTransactions = useCallback(async (months: number) => {
@@ -252,6 +253,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
     handleScheduleAudit: (params: any) => scheduleAuditMutation.mutate(params),
     handleSaveAuditCounts: (items: any[]) => saveAuditCountsMutation.mutate({ items }),
     handleSubmitAudit: (id: string) => submitAuditMutation.mutate(id),
-    handleApplyAudit: (auditId: string, performedBy: string) => applyAuditMutation.mutate({ auditId, performedBy })
+    handleApplyAudit: (auditId: string, performedBy: string) => applyAuditMutation.mutate({ auditId, performedBy }),
+    handleDeleteAudit: (auditId: string) => deleteAuditMutation.mutate(auditId)
   };
 };
