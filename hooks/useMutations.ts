@@ -342,7 +342,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     mutationFn: async (notificationId: string) => {
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
+        .delete()
         .eq('id', notificationId);
       if (error) throw error;
     },
@@ -357,7 +357,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
+        .delete()
         .in('id', notificationIds);
         
       if (error) throw error;
