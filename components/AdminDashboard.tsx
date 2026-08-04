@@ -55,7 +55,7 @@ interface AdminDashboardProps {
     onDeleteSupplier: (id: string) => void;
     onCreatePO: (po: any, items: any[]) => void;
     onEditPO: (id: string, po: any, items: any[]) => void;
-    onUpdatePOStatus: (id: string, status: string, performedBy: string) => void;
+    onUpdatePOStatus: (id: string, status: string) => void;
     onReceivePO: (poId: string, items: any[], performedBy: string) => void;
     audits: Audit[];
     onScheduleAudit: (params: any) => void;
@@ -206,7 +206,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         branchCode: '',
         branchName: '',
         branchNameAr: '',
-        accessibleBranches: [] as string[]
+        accessibleBranches: [] as string[],
+        readOnlyBranches: [] as string[]
     });
 
     const t = TRANSLATIONS[language];

@@ -366,7 +366,7 @@ const App: React.FC = () => {
           purchaseOrders={purchaseOrders}
           onAddSupplier={handleAddSupplier}
           onEditSupplier={handleEditSupplier}
-          onDeleteSupplier={(id) => deleteSupplierMutation.mutate(id)}
+          onDeleteSupplier={handleDeleteSupplier}
           onCreatePO={handleCreatePO}
           onEditPO={handleEditPO}
           onUpdatePOStatus={handleUpdatePOStatus}

@@ -774,6 +774,24 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     }
   });
 
+  const deleteAuditMutation = useMutation({
+    mutationFn: async (auditId: string) => {
+      const { error } = await supabase
+        .from('inventory_audits')
+        .delete()
+        .eq('id', auditId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audits'] });
+      addToast('success', language === 'ar' ? 'تم حذف الجرد بنجاح' : 'Audit deleted successfully');
+    },
+    onError: (error: any) => {
+      addToast('error', language === 'ar' ? 'فشل في حذف الجرد' : 'Failed to delete audit');
+      console.error(error);
+    }
+  });
+
   return {
     addItemMutation,
     editItemMutation,
