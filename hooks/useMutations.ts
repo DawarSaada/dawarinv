@@ -253,19 +253,24 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       if (error) throw error;
       
       // Attempt to find the source location of this transfer group by fetching one transaction
-      supabase.from('transactions').select('from_location').eq('transfer_group_id', transferGroupId).limit(1).single()
-        .then(({ data }) => {
+      // Trigger push notification to source location (fire and forget)
+      (async () => {
+        try {
+          const { data } = await supabase.from('transactions').select('from_location').eq('transfer_group_id', transferGroupId).limit(1).single();
           if (data?.from_location) {
-            supabase.functions.invoke('push-notifications', {
+            await supabase.functions.invoke('push-notifications', {
               body: {
                 location_id: data.from_location,
                 title: 'Transfer Received',
                 body: 'The transfer you sent has been successfully received.',
                 data: { primaryKey: transferGroupId + '_completed' }
               }
-            }).catch(e => console.error('Push notification failed', e));
+            });
           }
-        }).catch(e => console.error('Error fetching source location for push', e));
+        } catch (e) {
+          console.error('Push notification failed', e);
+        }
+      })();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
@@ -620,7 +625,8 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
           const catItem = catalogItems && catalogItems.length > 0 ? catalogItems[0] : null;
 
           // Insert new inventory item
-          const { error: invInsertError } = await supabase
+          // Insert new inventory item
+          const { data: newInv, error: invInsertError } = await supabase
             .from('inventory_items')
             .insert({
               name_en: poItem.item_name_en,
@@ -630,7 +636,9 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
               unit: catItem ? catItem.unit : 'Piece',
               min_threshold: catItem ? catItem.min_threshold : 0,
               location_id: poLocationId
-            });
+            })
+            .select()
+            .single();
             
           if (invInsertError) throw invInsertError;
 
