@@ -5,7 +5,7 @@ import { AppNotification, Language } from '../types';
 interface NotificationCenterProps {
   notifications: AppNotification[];
   onMarkAsRead: (id: string) => void;
-  onMarkAllAsRead: () => void;
+  onMarkAllAsRead?: () => void;
   language: Language;
   t: any;
   align?: 'left' | 'right';
@@ -88,7 +88,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </span>
               )}
             </h3>
-            {unreadCount > 0 && (
+            {unreadCount > 0 && onMarkAllAsRead && (
               <button 
                 onClick={() => onMarkAllAsRead()}
                 className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium"

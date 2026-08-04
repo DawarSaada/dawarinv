@@ -76,7 +76,6 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
             language={language}
             t={t}
             onMarkAsRead={onMarkNotificationAsRead || (() => {})}
-            onMarkAllAsRead={onMarkAllNotificationsAsRead || (() => {})}
           />
           <button onClick={onLogout} className="p-2 text-red-500 rounded-lg">
             <LogOut className="w-5 h-5 rtl:rotate-180" />
@@ -107,7 +106,6 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
               language={language}
               t={t}
               onMarkAsRead={onMarkNotificationAsRead || (() => {})}
-              onMarkAllAsRead={onMarkAllNotificationsAsRead || (() => {})}
               align={language === 'ar' ? 'right' : 'left'}
             />
             <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{t.notifications || 'Notifications'}</span>
