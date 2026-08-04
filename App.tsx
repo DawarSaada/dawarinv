@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const { data: suppliers = [] } = useSuppliersQuery();
   const { data: purchaseOrders = [] } = usePurchaseOrdersQuery();
   const { data: audits = [] } = useAuditsQuery();
+  const { data: alerts = [] } = useNotificationsQuery(selectedLocation);
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -134,7 +135,7 @@ const App: React.FC = () => {
     handleSubmitAudit,
     handleApplyAudit,
     handleDeleteAudit
-  } = useInventoryData({ currentUser, selectedLocation, language, addToast });
+  } = useInventoryData({ currentUser, selectedLocation, language, alerts, addToast });
 
   // Transfer Settings (admin-configurable)
   const [transferSettings, setTransferSettings] = useState<TransferSettings>(() => {
@@ -152,7 +153,6 @@ const App: React.FC = () => {
     }
   }, [currentUser?.role]); // Only run once on login
 
-  const { data: alerts = [] } = useNotificationsQuery(selectedLocation);
 
 
   const [theme, setTheme] = useState<Theme>(() => {

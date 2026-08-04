@@ -7,10 +7,11 @@ interface UseInventoryDataProps {
   currentUser: User | null;
   selectedLocation: string | null;
   language: Language;
+  alerts: AppNotification[];
   addToast: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void;
 }
 
-export const useInventoryData = ({ currentUser, selectedLocation, language, addToast }: UseInventoryDataProps) => {
+export const useInventoryData = ({ currentUser, selectedLocation, language, alerts, addToast }: UseInventoryDataProps) => {
   const { data: inventoryData } = useInventoryQuery();
   const inventory = inventoryData || {};
   const { data: transactions } = useTransactionsQuery();
