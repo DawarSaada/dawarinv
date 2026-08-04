@@ -207,10 +207,11 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, addT
   }, [markNotificationAsReadMutation]);
 
   const handleMarkAllNotificationsAsRead = useCallback(async () => {
-    if (selectedLocation) {
-      markAllNotificationsAsReadMutation.mutate(selectedLocation);
+    const unreadIds = alerts.filter(a => !a.isRead).map(a => a.id);
+    if (unreadIds.length > 0) {
+      markAllNotificationsAsReadMutation.mutate(unreadIds);
     }
-  }, [selectedLocation, markAllNotificationsAsReadMutation]);
+  }, [alerts, markAllNotificationsAsReadMutation]);
 
   // Return a mock isMutating for backwards compatibility with anything expecting a ref
   const isMutating = { current: false };
