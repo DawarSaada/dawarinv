@@ -16,6 +16,13 @@ export const useOMSSubscription = () => {
 
   useEffect(() => {
     const fetchSubscription = async () => {
+      if (!omsSupabase) {
+        setIsSubscriptionLocked(false);
+        setSubDetails({ status: 'bypassed (no credentials)', expiry: null });
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const { data, error: fetchError } = await omsSupabase
           .from('app_settings')

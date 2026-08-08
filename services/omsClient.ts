@@ -4,7 +4,9 @@ const omsSupabaseUrl = import.meta.env.VITE_OMS_SUPABASE_URL;
 const omsSupabaseKey = import.meta.env.VITE_OMS_SUPABASE_ANON_KEY;
 
 if (!omsSupabaseUrl || !omsSupabaseKey) {
-  console.error("Missing OMS Supabase credentials in environment variables.");
+  console.warn("Missing OMS Supabase credentials in environment variables. Subscription checks will be bypassed.");
 }
 
-export const omsSupabase = createClient(omsSupabaseUrl || '', omsSupabaseKey || '');
+export const omsSupabase = (omsSupabaseUrl && omsSupabaseKey) 
+  ? createClient(omsSupabaseUrl, omsSupabaseKey) 
+  : null;
