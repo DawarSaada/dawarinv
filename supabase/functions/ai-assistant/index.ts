@@ -43,7 +43,7 @@ const csv = (value: string): string[] =>
     .map((entry) => entry.trim())
     .filter(Boolean);
 
-const allowedOrigins = csv(env('ALLOWED_ORIGINS') || 'http://localhost:3000,http://localhost:5199,http://localhost:5173');
+const allowedOrigins = csv(env('ALLOWED_ORIGINS') || 'http://localhost:3000,http://localhost:5199,http://localhost:5173,https://dawarinv.vercel.app');
 
 const primaryModel = env('OPENROUTER_MODEL') || DEFAULT_MODEL;
 const allowlist = Array.from(new Set([primaryModel, ...csv(env('OPENROUTER_MODELS'))]));
