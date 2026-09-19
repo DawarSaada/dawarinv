@@ -20,6 +20,7 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
   const [title, setTitle] = useState('');
   const [locationId, setLocationId] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [recurrence, setRecurrence] = useState<'none'|'weekly'|'monthly'>('none');
 
   if (!isOpen) return null;
 
@@ -27,31 +28,59 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
     e.preventDefault();
     if (!title || !locationId) return;
 
-    // Fetch items currently in that location to snapshot for the audit
-    const locationItems = inventory[locationId] || [];
-    
-    // Map them to AuditItem format
-    const items = locationItems.map(item => ({
-      itemId: item.id,
-      itemNameEn: item.nameEn,
-      itemNameAr: item.nameAr || item.nameEn,
-      category: item.category,
-      unit: item.unit,
-      expectedQuantity: item.quantity
-    }));
+    const baseDate = new Date(scheduledDate || new Date().toISOString().split('T')[0]);
 
-    if (items.length === 0) {
-      alert(language === 'ar' ? 'هذا الموقع فارغ، لا يمكن جدولة جرد.' : 'This location has no items to audit.');
+    // Determine how many occurrences to create
+    let occurrences = 1;
+    if (recurrence === 'weekly') occurrences = 4; // next 4 weeks
+    if (recurrence === 'monthly') occurrences = 6; // next 6 months
+
+    // Determine which locations to audit
+    const targetLocations = locationId === 'all' ? locations : locations.filter(l => l.id === locationId);
+
+    if (targetLocations.length === 0) return;
+
+    let totalSchedules = 0;
+
+    targetLocations.forEach(loc => {
+      const locationItems = inventory[loc.id] || [];
+      const items = locationItems.map(item => ({
+        itemId: item.id,
+        itemNameEn: item.nameEn,
+        itemNameAr: item.nameAr || item.nameEn,
+        category: item.category,
+        unit: item.unit,
+        expectedQuantity: item.quantity
+      }));
+
+      if (items.length === 0) return; // Skip empty locations
+
+      for (let i = 0; i < occurrences; i++) {
+        const d = new Date(baseDate);
+        if (recurrence === 'weekly') {
+          d.setDate(d.getDate() + (i * 7));
+        } else if (recurrence === 'monthly') {
+          d.setMonth(d.getMonth() + i);
+        }
+
+        const recurrenceTitle = i === 0 ? title : `${title} (${recurrence === 'weekly' ? 'Week' : 'Month'} ${i+1})`;
+        const finalTitle = locationId === 'all' ? `${recurrenceTitle} - ${loc.name}` : recurrenceTitle;
+
+        onSchedule({
+          title: finalTitle,
+          locationId: loc.id,
+          scheduledDate: d.toISOString().split('T')[0],
+          createdBy: userName,
+          items
+        });
+        totalSchedules++;
+      }
+    });
+
+    if (totalSchedules === 0) {
+      alert(language === 'ar' ? 'المواقع المحددة فارغة.' : 'Selected locations have no items to audit.');
       return;
     }
-
-    onSchedule({
-      title,
-      locationId,
-      scheduledDate,
-      createdBy: userName,
-      items
-    });
 
     onClose();
   };
@@ -95,6 +124,7 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
               className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
             >
               <option value="">{language === 'ar' ? 'اختر الموقع...' : 'Select Location...'}</option>
+              <option value="all" className="font-bold">{language === 'ar' ? 'جميع المواقع (الفروع والمستودع)' : 'All Locations (Branches & Warehouse)'}</option>
               {locations.map(loc => (
                 <option key={loc.id} value={loc.id}>{loc.name}</option>
               ))}
@@ -103,14 +133,30 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {language === 'ar' ? 'التاريخ المجدول (اختياري)' : 'Scheduled Date (Optional)'}
+              {language === 'ar' ? 'التاريخ المجدول' : 'Scheduled Date'} {recurrence !== 'none' && '*'}
             </label>
             <input
               type="date"
+              required={recurrence !== 'none'}
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
               className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {language === 'ar' ? 'تكرار الجرد' : 'Recurrence'}
+            </label>
+            <select
+              value={recurrence}
+              onChange={(e) => setRecurrence(e.target.value as any)}
+              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
+            >
+              <option value="none">{language === 'ar' ? 'مرة واحدة فقط' : 'One-time only'}</option>
+              <option value="weekly">{language === 'ar' ? 'أسبوعياً (ينشئ 4 أسابيع قادمة)' : 'Weekly (generates next 4 weeks)'}</option>
+              <option value="monthly">{language === 'ar' ? 'شهرياً (ينشئ 6 أشهر قادمة)' : 'Monthly (generates next 6 months)'}</option>
+            </select>
           </div>
 
           <div className="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">

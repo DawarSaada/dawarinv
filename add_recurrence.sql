@@ -1,0 +1,1 @@
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'none';
