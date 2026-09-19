@@ -127,7 +127,7 @@ export const Modal: React.FC<ModalProps> = ({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-modal flex items-end justify-center sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-modal flex items-end justify-center sm:items-center sm:px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)]">
       <div
         className="absolute inset-0 animate-fade-in bg-gray-950/55 backdrop-blur-[2px]"
         onClick={() => {

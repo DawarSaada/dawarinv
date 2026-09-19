@@ -135,7 +135,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   let lastGroup: string | undefined;
 
   return createPortal(
-    <div className="fixed inset-0 z-palette flex items-start justify-center p-4 pt-[12vh]">
+    <div className="fixed inset-0 z-palette flex items-start justify-center px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)] pt-[12vh]">
       <div className="absolute inset-0 animate-fade-in bg-gray-950/50 backdrop-blur-[2px]" onClick={onClose} aria-hidden />
 
       <div

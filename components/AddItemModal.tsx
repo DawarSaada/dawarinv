@@ -140,7 +140,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
     const isEditMode = !!initialData;
 
     return (
-        <div className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
+        <div className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)] ${language === 'ar' ? 'font-arabic' : ''}`}>
             <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md p-4 sm:p-6 shadow-2xl overflow-y-auto max-h-[90dvh]">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">

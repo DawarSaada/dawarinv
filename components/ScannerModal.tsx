@@ -84,7 +84,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, la
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex flex-col items-center justify-center p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
+    <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex flex-col items-center justify-center px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)] ${language === 'ar' ? 'font-arabic' : ''}`}>
       <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden relative">
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           <button 

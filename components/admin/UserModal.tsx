@@ -32,7 +32,7 @@ const UserModal: React.FC<UserModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)]">
             <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{editingUserId ? t.editUser : t.createUser}</h2>

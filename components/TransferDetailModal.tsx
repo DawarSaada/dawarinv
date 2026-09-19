@@ -298,7 +298,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
   if (!isOpen || transactions.length === 0) return null;
 
   return (
-    <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-2 sm:p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
+    <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center px-2 pb-2 pt-[max(env(safe-area-inset-top,0.5rem),0.5rem)] sm:px-4 sm:pb-4 sm:pt-[max(env(safe-area-inset-top,1rem),1rem)] ${language === 'ar' ? 'font-arabic' : ''}`}>
       <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         
         {/* Header */}
@@ -595,7 +595,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
 
       {/* Rejection Reason Modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)]">
           <div className={`bg-white dark:bg-gray-900 rounded-xl w-full max-w-sm p-6 shadow-2xl ${language === 'ar' ? 'font-arabic' : ''}`}>
             <div className="flex items-center gap-2 mb-4">
               <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">

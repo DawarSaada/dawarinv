@@ -129,7 +129,7 @@ export function AppShell<T extends string>({
   return (
     <div className={cn('min-h-screen bg-gray-50 dark:bg-gray-950', className)}>
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 start-0 z-sticky hidden w-64 flex-col border-e border-gray-200 bg-white lg:flex dark:border-gray-800 dark:bg-gray-900">
+      <aside className="fixed inset-y-0 start-0 z-sticky hidden w-64 flex-col border-e border-gray-200 bg-white lg:flex dark:border-gray-800 dark:bg-gray-900 pt-safe">
         <div className="flex h-14 flex-shrink-0 items-center border-b border-gray-200 px-4 dark:border-gray-800">
           {brand}
         </div>
@@ -149,7 +149,7 @@ export function AppShell<T extends string>({
             onClick={() => setDrawerOpen(false)}
             aria-hidden
           />
-          <div className="relative flex h-full w-72 max-w-[85vw] animate-fade-in flex-col border-e border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="relative flex h-full w-72 max-w-[85vw] animate-fade-in flex-col border-e border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 pt-safe">
             <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-gray-200 px-3 dark:border-gray-800">
               {brand}
               <button
@@ -173,7 +173,7 @@ export function AppShell<T extends string>({
 
       <div className="lg:ps-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-sticky border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/85">
+        <header className="sticky top-0 z-sticky border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/85 pt-safe">
           <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
             <button
               type="button"

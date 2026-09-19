@@ -82,7 +82,7 @@ const SmartAssistant: React.FC<SmartAssistantProps> = ({ locationName, items, is
   return (
     <div className="fixed inset-y-0 right-0 rtl:right-auto rtl:left-0 w-full border-s border-gray-200 dark:border-gray-800 sm:w-96 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-50 flex flex-col border-l rtl:border-r rtl:border-l-0 border-gray-200 dark:border-gray-800">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-brand-50 dark:bg-gray-900">
+      <div className="px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-brand-50 dark:bg-gray-900">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white dark:bg-gray-900 rounded-lg shadow-sm">
             <Sparkles className="w-5 h-5 text-brand-600 dark:text-brand-500" />
