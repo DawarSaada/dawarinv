@@ -88,17 +88,17 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
 
           <div className="space-y-4">
             {purchaseOrder.items?.map(item => (
-              <div key={item.id} className="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-800 rounded-xl">
-                <div className="flex-1">
+              <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border border-gray-200 dark:border-gray-800 rounded-xl">
+                <div className="flex-1 w-full">
                   <h4 className="font-bold text-gray-900 dark:text-white">
                     {language === 'ar' ? item.itemNameAr : item.itemNameEn}
                   </h4>
-                  <div className="text-sm text-gray-500 flex gap-4 mt-1">
+                  <div className="text-sm text-gray-500 flex flex-wrap gap-x-4 gap-y-1 mt-1">
                     <span>{language === 'ar' ? 'الكمية المطلوبة:' : 'Ordered:'} {item.quantity}</span>
                     <span className="text-brand-600 dark:text-brand-400">{language === 'ar' ? 'مستلم مسبقاً:' : 'Previously Received:'} {item.receivedQuantity}</span>
                   </div>
                 </div>
-                <div className="w-32">
+                <div className="w-full sm:w-32">
                   <label className="block text-xs text-gray-500 mb-1">{language === 'ar' ? 'الكمية المستلمة الآن' : 'Receiving Now'}</label>
                   <input 
                     type="number"
