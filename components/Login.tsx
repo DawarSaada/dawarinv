@@ -104,7 +104,7 @@ const Login: React.FC<LoginProps> = ({
 
       {/* Form panel */}
       <main className="flex flex-1 flex-col">
-        <div className="flex items-center justify-between px-5 pt-5 sm:px-8">
+        <div className="flex items-center justify-between px-5 sm:px-8 pt-[max(env(safe-area-inset-top,1.25rem),1.25rem)]">
           <div className="flex items-center gap-2.5 lg:hidden">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white">
               <Boxes className="h-5 w-5" />
@@ -204,7 +204,7 @@ const Login: React.FC<LoginProps> = ({
               </Button>
             </form>
 
-            <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500 lg:text-start">
+            <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500 lg:text-start pb-[max(env(safe-area-inset-bottom,1rem),1rem)]">
               {t.copyright}
             </p>
           </div>
