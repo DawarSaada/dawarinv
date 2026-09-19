@@ -4,6 +4,7 @@ import { CatalogItem, Language, Supplier } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { Plus, Edit2, Trash2, Search, X, Check } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import { useCurrency } from '../AppSettingsProvider';
 
 interface ProductCatalogManagementProps {
     catalog: CatalogItem[];
@@ -13,6 +14,7 @@ interface ProductCatalogManagementProps {
 
 const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ catalog, suppliers, language }) => {
     const t = TRANSLATIONS[language];
+    const currency = useCurrency();
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -110,15 +112,15 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 transition-colors">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white font-arabic">Product Catalog (Master List)</h2>
+                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 sm:text-xl dark:text-white">Product Catalog (Master List)</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Manage the official list of products available to branches.</p>
                 </div>
                 <button 
                     onClick={() => handleOpenModal()}
-                    className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors font-medium"
+                    className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-800"
                 >
                     <Plus className="w-5 h-5" />
                     {language === 'ar' ? 'إضافة منتج' : 'Add Product'}
@@ -131,7 +133,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                     placeholder={t.searchPlaceholder}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 rtl:pr-10 rtl:pl-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full pl-10 pr-4 rtl:pr-10 rtl:pl-4 h-10 bg-white text-sm dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
                 />
                 <Search className="w-5 h-5 text-gray-400 absolute left-3 rtl:right-3 rtl:left-auto top-3.5" />
             </div>
@@ -139,7 +141,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
             <div className="overflow-x-auto">
                 <table className="w-full text-left rtl:text-right">
                     <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+                        <tr className="border-b border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400">
                             <th className="pb-3 px-4">Name (En)</th>
                             <th className="pb-3 px-4 font-arabic">Name (Ar)</th>
                             <th className="pb-3 px-4">Category</th>
@@ -179,7 +181,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-6">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-lg p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold dark:text-white">{editingItem ? 'Edit Product' : 'Add Product'}</h3>
                             <button onClick={() => setIsModalOpen(false)}><X className="w-5 h-5 text-gray-500" /></button>
@@ -215,15 +217,15 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                                     <input type="text" value={form.barcode} onChange={e => setForm({...form, barcode: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{language === 'ar' ? 'سعر الوحدة الافتراضي (SAR)' : 'Default Unit Price (SAR)'}</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{language === 'ar' ? `سعر الوحدة الافتراضي (${currency})` : `Default Unit Price (${currency})`}</label>
                                     <input type="number" step="0.01" min="0" value={form.defaultPrice || ''} onChange={e => setForm({...form, defaultPrice: parseFloat(e.target.value) || 0})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                             </div>
-                            <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
+                            <div className="pt-4 mt-2 border-t border-gray-200 dark:border-gray-800">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     {language === 'ar' ? 'الموردين (اختياري)' : 'Suppliers (Optional)'}
                                 </label>
-                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div className="border border-gray-200 dark:border-gray-800 rounded-lg max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {suppliers.map(supplier => (
                                         <label key={supplier.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors">
                                             <input 

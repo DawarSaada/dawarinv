@@ -59,8 +59,8 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-brand-50 dark:bg-brand-900/30 rounded-lg">
                             <Pencil className="w-5 h-5 text-brand-600" />
@@ -91,7 +91,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                     value={category} 
                                     onChange={(e) => setCategory(e.target.value)}
                                     disabled={!applyCategory}
-                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                                     placeholder={t.category}
                                 />
                             </div>
@@ -111,7 +111,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                     value={unit} 
                                     onChange={(e) => setUnit(e.target.value)}
                                     disabled={!applyUnit}
-                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                                     placeholder={t.unit}
                                 />
                             </div>
@@ -131,14 +131,14 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                                     value={minThreshold} 
                                     onChange={(e) => setMinThreshold(e.target.value)}
                                     disabled={!applyThreshold}
-                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                                     placeholder={t.minThreshold}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
                         <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
                         <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
                             {language === 'ar' 
@@ -148,16 +148,16 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
                     </div>
                 </div>
 
-                <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+                <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-800 flex gap-3">
                     <button 
                         onClick={onClose}
-                        className="flex-1 px-4 py-3 text-gray-500 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all text-sm"
+                        className="flex-1 px-4 py-3 text-gray-500 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all text-sm"
                     >
                         {t.cancel}
                     </button>
                     <button 
                         onClick={handleSave}
-                        className="flex-1 px-4 py-3 bg-brand-600 text-white rounded-2xl font-bold transition-all shadow-lg text-sm flex items-center justify-center gap-2"
+                        className="flex-1 px-4 py-3 bg-brand-600 text-white rounded-xl font-bold transition-all shadow-lg text-sm flex items-center justify-center gap-2"
                     >
                         <Save className="w-4 h-4" />
                         {t.save}

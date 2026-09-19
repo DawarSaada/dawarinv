@@ -76,15 +76,15 @@ const AdminReports: React.FC<AdminReportsProps> = ({
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{t.reports}</h2>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t.dailyPerformanceDesc}</p>
+          <h2 className="text-lg font-semibold tracking-tight text-gray-900 sm:text-xl dark:text-white">{t.reports}</h2>
+          <p className="mt-0.5 text-xs text-gray-500 sm:text-sm dark:text-gray-400">{t.dailyPerformanceDesc}</p>
         </div>
       </div>
 
       {/* Report Controls */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm mb-8">
+      <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><Calendar className="w-3 h-3" /> {t.date}</label>
@@ -92,7 +92,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                       type="date" 
                       value={reportDate}
                       onChange={(e) => setReportDate(e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                      className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                   />
               </div>
               <div className="space-y-1.5">
@@ -100,7 +100,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                   <select 
                       value={reportLocation}
                       onChange={(e) => setReportLocation(e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                      className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                   >
                       <option value="all">{t.allStatuses}</option>
                       {availableLocations.map(loc => (
@@ -115,7 +115,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                   <select 
                       value={reportFilter}
                       onChange={(e) => setReportFilter(e.target.value as any)}
-                      className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                      className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                   >
                       <option value="all">{t.allTypes}</option>
                       <option value="received">{t.received}</option>
@@ -134,8 +134,8 @@ const AdminReports: React.FC<AdminReportsProps> = ({
       </div>
 
       {/* Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
                   <BarChart className="w-5 h-5 text-brand-600" /> {language === 'ar' ? 'حركة المعاملات آخر 7 أيام' : 'Transaction Trends (Last 7 Days)'}
               </h3>
@@ -158,7 +158,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
               </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
                   <PieChart className="w-5 h-5 text-brand-600" /> {language === 'ar' ? 'توزيع الأصناف حسب الفئة' : 'Category Distribution'}
               </h3>
@@ -187,7 +187,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
       </div>
 
       {/* Top Items Ranking */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm mb-8">
+      <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mb-4">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
               <ArrowUpCircle className="w-5 h-5 text-orange-500" /> {language === 'ar' ? 'أكثر الأصناف استهلاكاً' : 'Top Consumed Items'}
           </h3>
@@ -216,14 +216,14 @@ const AdminReports: React.FC<AdminReportsProps> = ({
       </div>
 
       {/* Daily Report Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-800">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.dailyTransactions}</h3>
           </div>
           <div className="overflow-x-auto">
               <table className="w-full text-left rtl:text-right text-xs sm:text-sm">
                   <thead>
-                      <tr className="bg-gray-50/30 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-700 text-gray-400 font-bold uppercase">
+                      <tr className="bg-gray-50/30 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-800 text-gray-400 font-bold uppercase">
                           <th className="px-6 py-4">{t.time}</th>
                           <th className="px-6 py-4">{t.type}</th>
                           <th className="px-6 py-4">{t.itemName}</th>
@@ -231,7 +231,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                           <th className="px-6 py-4">{t.status}</th>
                       </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {filteredReportTx.map(tx => (
                           <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
                               <td className="px-6 py-4 text-gray-500">{new Date(tx.date).toLocaleTimeString(language === 'ar' ? 'ar-EG' : 'en-US')}</td>

@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
-import { InventoryItem, Transaction, TransactionType, LocationId, User, Language, AppNotification } from '../types';
-import { useInventoryQuery, useTransactionsQuery } from './useQueries';
+import { InventoryItem, Transaction, TransactionType, LocationId, User, Language, AppNotification, PurchaseOrder } from '../types';
+import { useInventoryQuery, useTransactionsQuery, usePurchaseOrdersQuery } from './useQueries';
 import { useInventoryMutations } from './useMutations';
+import { canWriteLocation, isAdmin, readOnlyMessage, subjectFrom } from '../services/permissions';
 
 interface UseInventoryDataProps {
   currentUser: User | null;
@@ -12,9 +13,35 @@ interface UseInventoryDataProps {
 }
 
 export const useInventoryData = ({ currentUser, selectedLocation, language, alerts, addToast }: UseInventoryDataProps) => {
+  /**
+   * Every write goes through this.
+   *
+   * The previous guards only compared `branch_code`, so a branch manager who had
+   * been granted full access to another branch was silently blocked, and a branch
+   * marked read-only for them was still writable. Both are now decided by
+   * services/permissions.ts, and a refusal tells the user why instead of quietly
+   * doing nothing.
+   */
+  const guardWrite = useCallback(
+    (locationId: string): boolean => {
+      if (canWriteLocation(subjectFrom(currentUser), locationId)) return true;
+      addToast('error', readOnlyMessage(language));
+      return false;
+    },
+    [currentUser, language, addToast]
+  );
   const { data: inventoryData } = useInventoryQuery();
   const inventory = inventoryData || {};
   const { data: transactions } = useTransactionsQuery();
+  // Purchase orders are only used here to answer "which location does this order
+  // belong to?", so writes to a PO follow the same rule as writes to stock.
+  const { data: purchaseOrders = [] } = usePurchaseOrdersQuery();
+
+  const poLocation = useCallback(
+    (poId: string): string =>
+      (purchaseOrders as PurchaseOrder[]).find((po) => po.id === poId)?.locationId || '',
+    [purchaseOrders]
+  );
 
   const {
     addItemMutation,
@@ -48,12 +75,16 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
   } = useInventoryMutations({ language, addToast });
 
   const handleCleanUpTransactions = useCallback(async (months: number) => {
+    // Permanently deletes transaction history, so it is not a branch action.
+    if (!isAdmin(subjectFrom(currentUser))) {
+      addToast('error', language === 'ar' ? 'تنظيف السجلات متاح للمدير فقط.' : 'Only an administrator can clean up transaction logs.');
+      return;
+    }
     cleanUpTransactionsMutation.mutate(months);
-  }, [cleanUpTransactionsMutation]);
+  }, [cleanUpTransactionsMutation, currentUser, language, addToast]);
 
   const handleAddItem = useCallback(async (locationId: string, item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
-    if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId) return;
-    if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal') return;
+    if (!guardWrite(locationId)) return;
 
     const nameEnTrimmed = item.nameEn.trim();
     const nameArTrimmed = item.nameAr.trim();
@@ -71,8 +102,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
   }, [currentUser, inventory, addItemMutation, language, addToast]);
 
   const handleEditItem = useCallback(async (locationId: string, updatedItem: InventoryItem) => {
-    if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId) return;
-    if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal') return;
+    if (!guardWrite(locationId)) return;
 
     const nameEnTrimmed = updatedItem.nameEn.trim();
     const nameArTrimmed = updatedItem.nameAr.trim();
@@ -92,31 +122,34 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
   }, [currentUser, inventory, editItemMutation, language, addToast]);
 
   const handleDeleteItem = useCallback(async (locationId: string, itemId: string) => {
-     if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId && locationId !== 'all') return;
-     if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
+     if (!guardWrite(locationId)) return;
 
      const itemIds = itemId.split(',').map(id => id.trim()).filter(Boolean);
      deleteItemMutation.mutate(itemIds);
-  }, [currentUser, deleteItemMutation]);
+  }, [guardWrite, deleteItemMutation]);
 
   const handleBulkDeleteItems = useCallback(async (locationId: string, itemIds: string[]) => {
-      if (currentUser?.role === 'branch_manager' && currentUser.branchCode !== locationId && locationId !== 'all') return;
-      if (currentUser?.role === 'warehouse_manager' && locationId !== 'warehouse' && locationId !== 'mammal' && locationId !== 'all') return;
+      if (!guardWrite(locationId)) return;
 
       const cleanedIds = itemIds.map(id => id.trim()).filter(Boolean);
       deleteItemMutation.mutate(cleanedIds);
-  }, [currentUser, deleteItemMutation]);
+  }, [guardWrite, deleteItemMutation]);
 
   const handleBulkEditItems = useCallback(async (locationId: string, itemIds: string[], updates: Partial<InventoryItem>) => {
+      // Bulk edit previously had no permission check at all.
+      if (!guardWrite(locationId)) return;
       const cleanedIds = itemIds.map(id => id.trim()).filter(Boolean);
       bulkEditItemsMutation.mutate({ itemIds: cleanedIds, updates });
-  }, [bulkEditItemsMutation]);
+  }, [guardWrite, bulkEditItemsMutation]);
 
   const handleTransfer = useCallback(async (items: { itemId: string, quantity: number }[], toLocation: LocationId, sourceOverride?: LocationId) => {
     if (!currentUser) return;
     
     const fromLocation = sourceOverride || selectedLocation;
     if (!fromLocation || fromLocation === 'all') return;
+
+    // Shipping stock out of a branch requires write access to that branch.
+    if (!guardWrite(fromLocation)) return;
 
     const isManagerOfSource = 
         (currentUser.role === 'branch_manager' && currentUser.branchCode === fromLocation) ||
@@ -143,42 +176,62 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
       performedBy: currentUser.name,
       isManagerOfSource
     });
-  }, [currentUser, selectedLocation, inventory, transferMutation]);
+  }, [currentUser, selectedLocation, inventory, transferMutation, guardWrite]);
+
+  /**
+   * The location a transfer touches, for permission purposes.
+   *
+   * Shipping stock out moves the SOURCE branch's numbers; receiving moves the
+   * DESTINATION's. Both are writes to that branch, so both need write access there.
+   */
+  const sourceOf = (transaction: Transaction) => transaction.fromLocation || '';
+  const destinationOf = (transaction: Transaction) => transaction.toLocation || transaction.fromLocation || '';
 
   const handleConfirmSourceTransfer = useCallback(async (transaction: Transaction) => {
       if (!currentUser) return;
+      if (!guardWrite(sourceOf(transaction))) return;
       confirmSourceTransferMutation.mutate(transaction.id);
-  }, [currentUser, confirmSourceTransferMutation]);
+  }, [currentUser, confirmSourceTransferMutation, guardWrite]);
 
   const handleReceiveTransfer = useCallback(async (transaction: Transaction) => {
       if (!currentUser) return;
-      receiveTransferMutation.mutate(transaction.id);
-  }, [currentUser, receiveTransferMutation]);
+      // Receiving credits the destination branch, so it needs write access there.
+      if (!guardWrite(destinationOf(transaction))) return;
+      // Full receipt of the transferred quantity unless a partial quantity was already recorded
+      receiveTransferMutation.mutate({
+        transactionId: transaction.id,
+        receivedQuantity: transaction.receivedQuantity ?? transaction.quantity,
+        notes: transaction.receiptNotes ?? ''
+      });
+  }, [currentUser, receiveTransferMutation, guardWrite]);
 
   const handleRejectTransfer = useCallback(async (transaction: Transaction, reason: string) => {
       if (!currentUser) return;
+      if (!guardWrite(destinationOf(transaction))) return;
       rejectTransferMutation.mutate({ transactionId: transaction.id, reason });
-  }, [currentUser, rejectTransferMutation]);
+  }, [currentUser, rejectTransferMutation, guardWrite]);
 
   const handleDailyLog = useCallback(async (type: TransactionType, itemId: string, quantity: number, notes: string) => {
       if (!currentUser || !selectedLocation || selectedLocation === 'all') return;
+      if (!guardWrite(selectedLocation)) return;
       
       dailyLogMutation.mutate({
         location: selectedLocation,
         performedBy: currentUser.name,
         logs: [{ type, itemId, quantity, notes }]
       });
-  }, [currentUser, selectedLocation, dailyLogMutation]);
+  }, [currentUser, selectedLocation, dailyLogMutation, guardWrite]);
 
   const handleBulkLog = useCallback(async (logs: { type: TransactionType, itemId: string, quantity: number, notes: string }[]) => {
       if (!currentUser || !selectedLocation || selectedLocation === 'all') return;
+      if (!guardWrite(selectedLocation)) return;
       
       dailyLogMutation.mutate({
         location: selectedLocation,
         performedBy: currentUser.name,
         logs
       });
-  }, [currentUser, selectedLocation, dailyLogMutation]);
+  }, [currentUser, selectedLocation, dailyLogMutation, guardWrite]);
 
   const handleReceiveTransferGroup = useCallback(async (
     transferGroupId: string, 
@@ -186,22 +239,33 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
     signatureUrl?: string
   ) => {
     if (!currentUser) return;
+    // Group operations only carry an id, so the acting location is the one being
+    // viewed. These are reached from a single location's list, never from the
+    // combined view.
+    if (!guardWrite(selectedLocation || '')) return;
     receiveTransferGroupMutation.mutate({ transferGroupId, items, signatureUrl });
-  }, [currentUser, receiveTransferGroupMutation]);
+  }, [currentUser, receiveTransferGroupMutation, guardWrite, selectedLocation]);
 
   const handleRejectTransferGroup = useCallback(async (transferGroupId: string, reason: string) => {
     if (!currentUser) return;
+    if (!guardWrite(selectedLocation || '')) return;
     rejectTransferGroupMutation.mutate({ transferGroupId, reason });
-  }, [currentUser, rejectTransferGroupMutation]);
+  }, [currentUser, rejectTransferGroupMutation, guardWrite, selectedLocation]);
 
   const handleConfirmTransferGroup = useCallback(async (transferGroupId: string) => {
     if (!currentUser) return;
+    if (!guardWrite(selectedLocation || '')) return;
     confirmTransferGroupMutation.mutate(transferGroupId);
-  }, [currentUser, confirmTransferGroupMutation]);
+  }, [currentUser, confirmTransferGroupMutation, guardWrite, selectedLocation]);
 
   const handleAutoRejectExpired = useCallback(async (days: number) => {
+    // Sweeps every branch's pending transfers, so it is not a branch action.
+    if (!isAdmin(subjectFrom(currentUser))) {
+      addToast('error', language === 'ar' ? 'الرفض التلقائي متاح للمدير فقط.' : 'Only an administrator can run auto-reject.');
+      return;
+    }
     autoRejectExpiredMutation.mutate(days);
-  }, [autoRejectExpiredMutation]);
+  }, [autoRejectExpiredMutation, currentUser, language, addToast]);
 
   const handleMarkNotificationAsRead = useCallback(async (notificationId: string) => {
     markNotificationAsReadMutation.mutate(notificationId);
@@ -245,17 +309,71 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
     // Phase 3 Mutations
     handleAddSupplier: (s: any) => addSupplierMutation.mutate(s),
     handleEditSupplier: (s: any) => editSupplierMutation.mutate(s),
-    handleDeleteSupplier: (id: string) => deleteSupplierMutation.mutate(id),
-    handleCreatePO: (po: any, items: any[]) => createPurchaseOrderMutation.mutate({ po, items }),
+    // Suppliers are shared master data: deleting one affects every branch, and
+    // purchase orders reference it, so it stays an administrator action.
+    handleDeleteSupplier: (id: string) => {
+      if (!isAdmin(subjectFrom(currentUser))) {
+        addToast('error', language === 'ar' ? 'حذف المورد متاح للمدير فقط.' : 'Only an administrator can delete a supplier.');
+        return;
+      }
+      deleteSupplierMutation.mutate(id);
+    },
+    // A branch manager raises orders for their own shelf and approves them as part of
+    // raising them, so their order is created approved. Enforced here rather than only
+    // in the dialog, so no other code path can leave a branch order waiting for an
+    // approver who does not exist in that flow. The admin and warehouse flows keep
+    // draft / submit for approval.
+    handleCreatePO: (po: any, items: any[]) => {
+      const isBranchOrder = currentUser?.role === 'branch_manager';
+      createPurchaseOrderMutation.mutate({
+        po: { ...po, status: isBranchOrder ? 'approved' : po.status },
+        items,
+      });
+    },
     handleEditPO: (id: string, po: any, items: any[]) => editPurchaseOrderMutation.mutate({ id, po, items }),
-    handleUpdatePOStatus: (id: string, status: string) => updatePurchaseOrderStatusMutation.mutate({ id, status }),
-    handleReceivePO: (poId: string, items: any[], performedBy: string) => receivePurchaseOrderMutation.mutate({ poId, items, performedBy }),
+    // Approving, cancelling or receiving a purchase order writes the branch the
+    // order is delivered to. The admin screen reached by a warehouse manager had no
+    // check here, so a branch order could be received into a branch they may only
+    // read. The branch screen guards the same path in InventoryDashboard.
+    handleUpdatePOStatus: (id: string, status: string) => {
+      if (!guardWrite(poLocation(id))) return;
+      updatePurchaseOrderStatusMutation.mutate({ id, status });
+    },
+    handleReceivePO: (poId: string, items: any[], performedBy: string) => {
+      if (!guardWrite(poLocation(poId))) return;
+      receivePurchaseOrderMutation.mutate({ poId, items, performedBy });
+    },
 
-    // Phase 4 Mutations
-    handleScheduleAudit: (params: any) => scheduleAuditMutation.mutate(params),
-    handleSaveAuditCounts: (items: any[]) => saveAuditCountsMutation.mutate({ items }),
-    handleSubmitAudit: (id: string) => submitAuditMutation.mutate(id),
-    handleApplyAudit: (auditId: string, performedBy: string) => applyAuditMutation.mutate({ auditId, performedBy }),
-    handleDeleteAudit: (auditId: string) => deleteAuditMutation.mutate(auditId)
+    // Phase 4 Mutations.
+    // Audits move stock (apply_audit_variances) and delete records, and none of these
+    // were permission-checked, so a read-only branch could run a count and post the
+    // variances. They are scoped to the location being viewed, which is where the
+    // audit list is filtered from.
+    handleScheduleAudit: (params: any) => {
+      const target = params?.locationId || params?.location_id || selectedLocation || '';
+      if (!guardWrite(target)) return;
+      scheduleAuditMutation.mutate(params);
+    },
+    handleSaveAuditCounts: (items: any[]) => {
+      if (!guardWrite(selectedLocation || '')) return;
+      saveAuditCountsMutation.mutate({ items });
+    },
+    handleSubmitAudit: (id: string) => {
+      if (!guardWrite(selectedLocation || '')) return;
+      submitAuditMutation.mutate(id);
+    },
+    handleApplyAudit: (auditId: string, performedBy: string) => {
+      if (!guardWrite(selectedLocation || '')) return;
+      applyAuditMutation.mutate({ auditId, performedBy });
+    },
+    handleDeleteAudit: (auditId: string) => {
+      // Deleting an audit destroys the record of a count, so it stays admin-only.
+      if (!canWriteLocation(subjectFrom(currentUser), selectedLocation || '')) return;
+      if (!isAdmin(subjectFrom(currentUser))) {
+        addToast('error', language === 'ar' ? 'حذف الجرد متاح للمدير فقط.' : 'Only an administrator can delete an audit.');
+        return;
+      }
+      deleteAuditMutation.mutate(auditId);
+    }
   };
 };

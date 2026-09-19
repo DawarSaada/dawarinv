@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, Transaction, Language, UserRole, InventoryItem, LocationData, LocationId, CatalogItem, TransferSettings, AppNotification } from '../types';
+import { User, Transaction, Language, UserRole, InventoryItem, LocationData, LocationId, CatalogItem, TransferSettings, AppNotification, SubscriptionDetails } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
 import ConfirmationModal from './ConfirmationModal';
@@ -8,7 +8,27 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-import AdminSidebar from './admin/AdminSidebar';
+import {
+    Activity,
+    BookOpen,
+    Building2,
+    ClipboardCheck,
+    FileText,
+    History,
+    LogOut,
+    Moon,
+    Package,
+    Search,
+    Settings,
+    Shield,
+    ShoppingCart,
+    Sun,
+    Users
+} from 'lucide-react';
+import { AppShell, ShellBrand, PageBody, Badge, Menu, CommandPalette, Button, type NavItem, type CommandItem } from './ui';
+import AppControls from './AppControls';
+import NotificationCenter from './NotificationCenter';
+import { useHotkey } from '../hooks/useHotkey';
 import UserManagement from './admin/UserManagement';
 import AdminInventoryView from './admin/AdminInventoryView';
 import AdminTransactionsLog from './admin/AdminTransactionsLog';
@@ -25,10 +45,26 @@ import AuditManagement from './admin/AuditManagement';
 import ScheduleAuditModal from './admin/ScheduleAuditModal';
 import PerformAuditModal from './admin/PerformAuditModal';
 import ReviewAuditModal from './admin/ReviewAuditModal';
-import { Supplier, PurchaseOrder, PurchaseOrderItem, Audit } from '../types';
+import { Supplier, PurchaseOrder, PurchaseOrderItem, Audit, Theme } from '../types';
+import { canOpenTab, canWriteLocation, subjectFrom } from '../services/permissions';
+
+const ALL_TABS = [
+    'users',
+    'transactions',
+    'inventory',
+    'reports',
+    'settings',
+    'catalog',
+    'analytics',
+    'suppliers',
+    'purchase_orders',
+    'audits',
+] as const;
 
 interface AdminDashboardProps {
     currentUserRole: UserRole;
+    /** Full user record, needed for branch-level write access decisions. */
+    currentUser?: User | null;
     users: User[];
     transactions: Transaction[];
     inventory: Record<string, InventoryItem[]>;
@@ -63,11 +99,23 @@ interface AdminDashboardProps {
     onSubmitAudit: (auditId: string) => void;
     onApplyAudit: (auditId: string, performedBy: string) => void;
     onDeleteAudit: (auditId: string) => void;
-    subDetails?: { status: string, expiry: string | null };
+    subDetails?: SubscriptionDetails;
+    onRefreshSubscription?: () => void;
+    /** Business settings, owned by the shared settings store. */
+    retentionMonths: number;
+    onRetentionMonthsChange?: (months: number) => void;
+    /** False when the deployment has no central settings store yet. */
+    settingsAreShared?: boolean;
+    updatedBy?: string;
+    /** Theme/language controls are hosted by the shell top bar instead of floating buttons. */
+    theme?: Theme;
+    onToggleTheme?: () => void;
+    onToggleLanguage?: () => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
     currentUserRole,
+    currentUser,
     users, 
     transactions, 
     inventory,
@@ -102,13 +150,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onSubmitAudit,
     onApplyAudit,
     onDeleteAudit,
-    subDetails
+    subDetails,
+    onRefreshSubscription,
+    retentionMonths,
+    onRetentionMonthsChange,
+    settingsAreShared = true,
+    updatedBy,
+    theme,
+    onToggleTheme,
+    onToggleLanguage
 }) => {
     const { addToast } = useToast();
+    const [commandOpen, setCommandOpen] = useState(false);
+    useHotkey('k', () => setCommandOpen((open) => !open), { mod: true });
     const [activeTab, setActiveTab] = useState<'users' | 'transactions' | 'inventory' | 'reports' | 'settings' | 'catalog' | 'analytics' | 'suppliers' | 'purchase_orders' | 'audits'>(() => {
         const hash = window.location.hash.replace('#', '');
-        const validTabs = ['users', 'transactions', 'inventory', 'reports', 'settings', 'catalog', 'analytics', 'suppliers', 'purchase_orders', 'audits'];
-        if (validTabs.includes(hash)) {
+        const allowed = (ALL_TABS as readonly string[]).includes(hash)
+            && canOpenTab({ role: currentUserRole }, hash);
+        if (allowed) {
             return hash as any;
         }
         return currentUserRole === 'admin' ? 'users' : 'inventory';
@@ -121,8 +180,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     useEffect(() => {
         const handleHashChange = () => {
             const hash = window.location.hash.replace('#', '');
-            const validTabs = ['users', 'transactions', 'inventory', 'reports', 'settings', 'catalog', 'analytics', 'suppliers', 'purchase_orders', 'audits'];
-            if (validTabs.includes(hash)) {
+            const allowed = (ALL_TABS as readonly string[]).includes(hash)
+                && canOpenTab({ role: currentUserRole }, hash);
+            if (allowed) {
                 setActiveTab(hash as any);
             }
         };
@@ -154,14 +214,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const [txPage, setTxPage] = useState(1);
     const [txPageSize, setTxPageSize] = useState(25);
 
-    // Settings State
-    const [retentionMonths, setRetentionMonths] = useState<number>(() => {
-        const saved = localStorage.getItem('dawar_retention_months');
-        return saved ? parseInt(saved, 10) : 0;
-    });
-
-    const handleSaveSettings = () => {
-        localStorage.setItem('dawar_retention_months', retentionMonths.toString());
+    // Retention is a business setting, owned by App (see hooks/useAppSettings): it used
+    // to be read and written here in localStorage, so only the browser that set it
+    // ever followed the rule.
+    const handleSaveSettings = async () => {
+        await onRetentionMonthsChange?.(retentionMonths);
         addToast('success', language === 'ar' ? 'تم حفظ الإعدادات' : 'Settings saved');
     };
 
@@ -382,22 +439,131 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-    return (
-        <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row transition-colors pb-24 lg:pb-0 ${language === 'ar' ? 'font-arabic' : ''}`}>
-            <AdminSidebar 
-                currentUserRole={currentUserRole}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                onLogout={onLogout}
-                language={language}
-                t={t}
-                alerts={alerts}
-                onMarkNotificationAsRead={onMarkNotificationAsRead}
-                onMarkAllNotificationsAsRead={onMarkAllNotificationsAsRead}
-            />
+    const isAr = language === 'ar';
 
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-                {activeTab === 'users' && (
+    // Section list drives the sidebar, the mobile tab bar and the command palette.
+    const adminMenu = [
+        { id: 'users' as const, label: t.users, icon: <Users />, adminOnly: true, mobilePrimary: true },
+        { id: 'inventory' as const, label: t.inventory, icon: <Package />, adminOnly: false, mobilePrimary: true },
+        { id: 'reports' as const, label: t.reports, icon: <FileText />, adminOnly: false, mobilePrimary: true },
+        { id: 'transactions' as const, label: t.viewLogs, icon: <History />, adminOnly: false, mobilePrimary: true },
+        { id: 'analytics' as const, label: isAr ? 'التحليلات' : 'Analytics', icon: <Activity />, adminOnly: false, mobilePrimary: false },
+        { id: 'catalog' as const, label: isAr ? 'دليل المنتجات' : 'Catalog', icon: <BookOpen />, adminOnly: true, mobilePrimary: false },
+        { id: 'audits' as const, label: isAr ? 'الجرد الدوري' : 'Audits', icon: <ClipboardCheck />, adminOnly: false, mobilePrimary: false },
+        { id: 'suppliers' as const, label: isAr ? 'الموردين' : 'Suppliers', icon: <Building2 />, adminOnly: false, mobilePrimary: false },
+        { id: 'purchase_orders' as const, label: isAr ? 'أوامر الشراء' : 'Purchase Orders', icon: <ShoppingCart />, adminOnly: false, mobilePrimary: false },
+        { id: 'settings' as const, label: isAr ? 'الإعدادات' : 'Settings', icon: <Settings />, adminOnly: true, mobilePrimary: false },
+    ].filter((item) => currentUserRole === 'admin' || !item.adminOnly);
+
+    const navItems: NavItem[] = adminMenu.map(({ id, label, icon, mobilePrimary }) => ({
+        id,
+        label,
+        icon,
+        mobilePrimary,
+    }));
+
+    const commands: CommandItem[] = [
+        ...adminMenu.map((item) => ({
+            id: `go-${item.id}`,
+            label: isAr ? `الانتقال إلى ${item.label}` : `Go to ${item.label}`,
+            group: isAr ? 'التنقل' : 'Navigate',
+            icon: item.icon,
+            keywords: [item.id, 'tab', 'section'],
+            onSelect: () => setActiveTab(item.id),
+        })),
+        ...(availableLocations ?? []).slice(0, 12).map((location) => ({
+            id: `open-${location.id}`,
+            label: isAr ? `فتح مخزون ${location.nameAr || location.name}` : `Open ${location.name} inventory`,
+            group: isAr ? 'المواقع' : 'Locations',
+            icon: <Package />,
+            keywords: [location.id],
+            onSelect: () => onManageLocation(location.id),
+        })),
+        ...(onToggleTheme
+            ? [{
+                id: 'toggle-theme',
+                label: theme === 'dark' ? (isAr ? 'الوضع الفاتح' : 'Switch to light mode') : isAr ? 'الوضع الداكن' : 'Switch to dark mode',
+                group: isAr ? 'الإعدادات' : 'Preferences',
+                icon: theme === 'dark' ? <Sun /> : <Moon />,
+                onSelect: onToggleTheme,
+            }]
+            : []),
+        ...(onToggleLanguage
+            ? [{
+                id: 'toggle-language',
+                label: isAr ? 'Switch to English' : 'التبديل إلى العربية',
+                group: isAr ? 'الإعدادات' : 'Preferences',
+                icon: <Search />,
+                onSelect: onToggleLanguage,
+            }]
+            : []),
+        {
+            id: 'logout',
+            label: t.logout,
+            group: isAr ? 'الإعدادات' : 'Preferences',
+            icon: <LogOut />,
+            onSelect: onLogout,
+        },
+    ];
+
+    return (
+        <AppShell
+            className={language === 'ar' ? 'font-arabic' : ''}
+            navLabel={isAr ? 'فتح القائمة' : 'Open navigation'}
+            closeLabel={isAr ? 'إغلاق القائمة' : 'Close navigation'}
+            brand={
+                <ShellBrand
+                    mark={<Shield className="h-4.5 w-4.5" />}
+                    title={t.adminDashboard}
+                    subtitle={isAr ? 'مخزون دوار السعادة' : 'Dawar Saada Inventory'}
+                />
+            }
+            navItems={navItems}
+            activeId={activeTab}
+            onNavigate={(id) => setActiveTab(id as typeof activeTab)}
+            topbar={
+                <button
+                    type="button"
+                    onClick={() => setCommandOpen(true)}
+                    className="flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 text-start text-sm text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200"
+                >
+                    <Search className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{isAr ? 'ابحث أو انتقل إلى…' : 'Search or jump to…'}</span>
+                    <kbd className="ms-auto hidden flex-shrink-0 rounded border border-gray-200 px-1.5 py-0.5 text-2xs text-gray-400 sm:block dark:border-gray-700">
+                        ⌘K
+                    </kbd>
+                </button>
+            }
+            topbarEnd={
+                <>
+                    <Badge tone="success" dot pulse className="hidden md:inline-flex">
+                        {isAr ? 'مباشر' : 'Live'}
+                    </Badge>
+                    <NotificationCenter
+                        notifications={alerts || []}
+                        language={language}
+                        t={t}
+                        onMarkAsRead={onMarkNotificationAsRead}
+                        onMarkAllAsRead={onMarkAllNotificationsAsRead}
+                    />
+                    {theme && onToggleTheme && onToggleLanguage && (
+                        <AppControls
+                            language={language}
+                            theme={theme}
+                            onToggleTheme={onToggleTheme}
+                            onToggleLanguage={onToggleLanguage}
+                        />
+                    )}
+                </>
+            }
+            sidebarFooter={
+                <Button variant="ghost" block icon={<LogOut className="rtl:rotate-180" />} onClick={onLogout}>
+                    {t.logout}
+                </Button>
+            }
+        >
+            <PageBody className="space-y-4">
+                {activeTab === 'users' && currentUserRole === 'admin' && (
                     <UserManagement 
                         users={users}
                         t={t}
@@ -420,6 +586,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onExportPDF={exportToPDF}
                         onManageLocation={onManageLocation}
                         onDeleteItem={handleDeleteItemRequest}
+                        currentUser={currentUser}
                     />
                 )}
 
@@ -485,20 +652,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
                 )}
 
-                {activeTab === 'settings' && (
+                {activeTab === 'settings' && currentUserRole === 'admin' && (
                     <AdminSettings 
                         retentionMonths={retentionMonths}
-                        setRetentionMonths={setRetentionMonths}
+                        setRetentionMonths={(months) => onRetentionMonthsChange?.(months)}
                         onSaveSettings={handleSaveSettings}
                         onManualCleanUp={handleManualCleanUp}
                         language={language}
                         transferSettings={transferSettings}
                         onTransferSettingsChange={onTransferSettingsChange}
                         subDetails={subDetails}
+                        onRefreshSubscription={onRefreshSubscription}
+                        settingsAreShared={settingsAreShared}
+                        updatedBy={updatedBy}
                     />
                 )}
 
-                {activeTab === 'catalog' && (
+                {activeTab === 'catalog' && currentUserRole === 'admin' && (
                     <ProductCatalogManagement 
                         catalog={catalog}
                         suppliers={suppliers}
@@ -546,7 +716,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onDeleteAudit={onDeleteAudit}
                     />
                 )}
-            </main>
+            </PageBody>
+
+            <CommandPalette
+                open={commandOpen}
+                onClose={() => setCommandOpen(false)}
+                items={commands}
+                placeholder={isAr ? 'ابحث أو انتقل إلى…' : 'Search or jump to…'}
+                emptyLabel={isAr ? 'لا توجد نتائج' : 'No matches'}
+                recentLabel={isAr ? 'الأخيرة' : 'Recent'}
+            />
 
             <UserModal 
                 isOpen={showUserModal}
@@ -582,6 +761,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onSave={onCreatePO}
                 onEdit={onEditPO}
                 onUpdateStatus={onUpdatePOStatus}
+                // Approval, cancellation and editing write the order's own branch,
+                // so they are withheld unless the viewer may write there.
+                canManage={canWriteLocation(subjectFrom(currentUser), selectedPO?.locationId || 'warehouse')}
                 userName={getUserName(currentUserRole)}
             />
 
@@ -631,7 +813,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 language={language}
                 danger={true}
             />
-        </div>
+        </AppShell>
     );
 };
 

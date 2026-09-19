@@ -31,16 +31,16 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-10 duration-300 w-[95vw] sm:w-[90vw] md:w-auto overflow-x-auto scrollbar-hide">
-      <div className="bg-gray-900 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-2xl shadow-2xl flex items-center justify-between sm:justify-start gap-4 sm:gap-6 border border-gray-700 min-w-max">
-        <div className="flex items-center gap-2 sm:gap-3 border-r border-gray-700 pr-4 sm:pr-6">
-          <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-bold text-sm sm:text-base">
+    <div className="fixed bottom-20 left-1/2 z-modal w-[95vw] -translate-x-1/2 animate-fade-in scrollbar-hide sm:bottom-6 sm:w-auto">
+      <div className="flex min-w-max items-center justify-between gap-3 overflow-x-auto rounded-xl border border-gray-700/60 bg-gray-900 px-3 py-2.5 text-white shadow-pop sm:justify-start sm:gap-4 sm:px-4">
+        <div className="flex items-center gap-2 border-e border-gray-700 pe-3 sm:gap-3 sm:pe-4">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-700 text-xs font-semibold">
             {selectedCount}
           </div>
-          <span className="text-xs sm:text-sm font-bold hidden min-[360px]:inline">{t.itemsSelected || 'Items Selected'}</span>
+          <span className="hidden text-xs font-medium sm:inline">{t.itemsSelected || 'Items selected'}</span>
         </div>
         
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           {canBulkEdit && (
             <>
               <button 

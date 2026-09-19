@@ -58,8 +58,8 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <CalendarPlus className="w-6 h-6 text-brand-500" />
             {language === 'ar' ? 'جدولة جرد' : 'Schedule Audit'}
@@ -80,7 +80,7 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
               placeholder={language === 'ar' ? 'مثال: جرد الربع الأول' : 'e.g., Q1 Inventory Count'}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
+              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
             />
           </div>
 
@@ -92,7 +92,7 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
               required
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
+              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
             >
               <option value="">{language === 'ar' ? 'اختر الموقع...' : 'Select Location...'}</option>
               {locations.map(loc => (
@@ -109,15 +109,15 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
               type="date"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
+              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-700 mt-6">
+          <div className="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">
             <button type="button" onClick={onClose} className="px-6 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium">
               {t.cancel}
             </button>
-            <button type="submit" className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-medium">
+            <button type="submit" className="px-6 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-lg transition-colors font-medium">
               {language === 'ar' ? 'جدولة' : 'Schedule'}
             </button>
           </div>

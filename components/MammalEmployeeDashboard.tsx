@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { InventoryItem, Language, Transaction, TransactionType, AppNotification } from '../types';
+import { InventoryItem, Language, Transaction, TransactionType, AppNotification, Theme } from '../types';
 import { TRANSLATIONS } from '../constants';
 import NotificationCenter from './NotificationCenter';
 import { exportDailyReportPDF } from '../services/exportService';
@@ -20,6 +20,18 @@ import {
     Camera
 } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
+import AppControls from './AppControls';
+import {
+    Badge,
+    Button,
+    EmptyState,
+    ErrorState,
+    FilterBar,
+    Modal,
+    PageBody,
+    PageHeader,
+    StatTile
+} from './ui';
 
 interface MammalEmployeeDashboardProps {
     items: InventoryItem[];
@@ -32,6 +44,9 @@ interface MammalEmployeeDashboardProps {
     alerts?: AppNotification[];
     onMarkNotificationAsRead?: (id: string) => void;
     onMarkAllNotificationsAsRead?: () => void;
+    theme?: Theme;
+    onToggleTheme?: () => void;
+    onToggleLanguage?: () => void;
 }
 
 type LogEntry = {
@@ -50,9 +65,13 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
     transactions,
     alerts = [],
     onMarkNotificationAsRead,
-    onMarkAllNotificationsAsRead
+    onMarkAllNotificationsAsRead,
+    theme,
+    onToggleTheme,
+    onToggleLanguage
 }) => {
     const t = TRANSLATIONS[language];
+    const isAr = language === 'ar';
     const [search, setSearch] = useState('');
     const [showReportModal, setShowReportModal] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
@@ -165,83 +184,100 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
     const usedToday = todayTransactions.filter(t => t.type === 'usage');
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors font-sans pb-24">
-            {/* Header */}
-            <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
-                <div className="px-4 sm:px-6 pt-[max(env(safe-area-inset-top),1rem)] pb-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <div className="p-2 bg-brand-600 rounded-lg text-white flex-shrink-0">
-                            <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6" />
-                        </div>
-                        <div className="min-w-0">
-                            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white font-arabic leading-tight truncate">
-                                {t.logSheet}
-                            </h1>
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                                <span className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-tighter">Live</span>
-                                <span className="text-[10px] text-gray-400 ml-1 truncate">• {t.mammal}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-3">
-                        <NotificationCenter 
+        <div className="min-h-screen bg-gray-50 pb-28 font-sans dark:bg-gray-950">
+            <PageHeader
+                sticky
+                icon={<ClipboardList />}
+                title={t.logSheet}
+                subtitle={`${t.mammal} · ${userName}`}
+                meta={
+                    <>
+                        <Badge tone="success" dot pulse>
+                            {isAr ? 'مباشر' : 'Live'}
+                        </Badge>
+                        {pendingCount > 0 && <Badge tone="brand">{pendingCount} {t.updatesPending}</Badge>}
+                    </>
+                }
+                actions={
+                    <>
+                        <NotificationCenter
                             notifications={alerts}
                             language={language}
                             t={t}
                             onMarkAsRead={onMarkNotificationAsRead || (() => {})}
                             onMarkAllAsRead={onMarkAllNotificationsAsRead || (() => {})}
                         />
-                        <button 
+                        <Button
+                            variant="secondary"
+                            icon={<FileText />}
                             onClick={() => setShowReportModal(true)}
-                            className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors"
+                            hideLabelOnMobile
                         >
-                            <FileText className="w-4 h-4" />
-                            <span className="hidden sm:inline">{t.dailyReport}</span>
-                        </button>
-                        <button 
+                            {t.dailyReport}
+                        </Button>
+                        {theme && onToggleTheme && onToggleLanguage && (
+                            <AppControls
+                                language={language}
+                                theme={theme}
+                                onToggleTheme={onToggleTheme}
+                                onToggleLanguage={onToggleLanguage}
+                            />
+                        )}
+                        <Button
+                            variant="ghost"
+                            icon={<LogOut className="rtl:rotate-180" />}
                             onClick={onLogout}
-                            className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded-lg transition-colors"
+                            hideLabelOnMobile
                         >
-                            <LogOut className="w-5 h-5 rtl:rotate-180" />
-                        </button>
-                    </div>
-                </div>
-            </header>
+                            {t.logout}
+                        </Button>
+                    </>
+                }
+            />
 
-            <main className="p-4 sm:p-6 max-w-5xl mx-auto">
-                {/* Search */}
-                <div className="mb-6 flex gap-2">
-                    <div className="relative flex-1">
-                        <input
-                            type="text"
-                            placeholder={t.searchPlaceholder}
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 rtl:pr-10 rtl:pl-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
-                        />
-                        <Search className="w-5 h-5 text-gray-400 absolute left-3 rtl:right-3 rtl:left-auto top-3.5" />
-                    </div>
-                    <button
-                        onClick={() => setShowScanner(true)}
-                        className="bg-brand-600 hover:bg-brand-700 text-white p-3 rounded-xl transition-colors flex items-center justify-center"
-                        title="Scan Barcode"
-                    >
-                        <Camera className="w-5 h-5" />
-                    </button>
-                </div>
+            <PageBody className="space-y-4">
+                <FilterBar
+                    filtersLabel={isAr ? 'تصفية' : 'Filters'}
+                    clearLabel={isAr ? 'مسح الكل' : 'Clear all'}
+                    moreLabel={isAr ? 'خيارات أخرى' : 'More options'}
+                    search={{
+                        value: search,
+                        onChange: setSearch,
+                        placeholder: t.searchPlaceholder,
+                        trailingSlot: (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                icon={<Camera />}
+                                aria-label={isAr ? 'مسح الباركود' : 'Scan barcode'}
+                                title={isAr ? 'مسح الباركود' : 'Scan barcode'}
+                                onClick={() => setShowScanner(true)}
+                            />
+                        )
+                    }}
+                    primaryAction={
+                        hasPendingChanges ? (
+                            <Button
+                                variant="primary"
+                                icon={<Save />}
+                                loading={isSubmitting}
+                                onClick={handleSubmitAll}
+                            >
+                                {t.submit}
+                            </Button>
+                        ) : undefined
+                    }
+                />
 
                 {/* Messages */}
-                {error && (
-                    <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
-                        <AlertCircle className="w-5 h-5 shrink-0" />
-                        <span className="font-medium">{error}</span>
-                    </div>
-                )}
+                {error && <ErrorState title={error} />}
                 {successMsg && (
-                    <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
-                        <CheckCircle className="w-5 h-5 shrink-0" />
-                        <span className="font-medium">{successMsg}</span>
+                    <div
+                        className="flex items-center gap-3 rounded-lg border border-success-100 bg-success-50 p-3.5 text-sm font-medium text-success-700 dark:border-success-900 dark:bg-success-900/20 dark:text-success-100"
+                        role="status"
+                    >
+                        <CheckCircle className="h-4.5 w-4.5 shrink-0" />
+                        {successMsg}
                     </div>
                 )}
 
@@ -254,26 +290,26 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                         const isLow = projectedStock <= item.minThreshold;
 
                         return (
-                            <div key={item.id} className={`bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-5 border shadow-sm transition-all ${hasEntry ? 'border-brand-300 dark:border-brand-700 ring-1 ring-brand-100 dark:ring-brand-900/30' : 'border-gray-200 dark:border-gray-700'}`}>
+                            <div key={item.id} className={`rounded-xl border bg-white p-4 transition-colors sm:p-5 dark:bg-gray-900 ${hasEntry ? 'border-brand-500 ring-1 ring-brand-500/30' : 'border-gray-200 dark:border-gray-800'}`}>
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h3 className="font-bold text-gray-900 dark:text-white">{language === 'ar' ? item.nameAr : item.nameEn}</h3>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{t.stockLevel}: <span className="font-medium text-gray-900 dark:text-white">{item.quantity} {item.unit}</span></p>
-                                            {isLow && <span className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded uppercase">{t.lowStock}</span>}
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{t.stockLevel}: <span className="tnum font-medium text-gray-900 dark:text-white">{item.quantity} {item.unit}</span></p>
+                                            {isLow && <Badge tone="warning" size="sm">{t.lowStock}</Badge>}
                                         </div>
                                     </div>
                                     {hasEntry && (
-                                        <span className="text-xs font-bold text-brand-600 bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded-lg">
-                                            {projectedStock} {item.unit} (Proj.)
-                                        </span>
+                                        <Badge tone="brand">
+                                            {projectedStock} {item.unit} {isAr ? '(متوقع)' : '(projected)'}
+                                        </Badge>
                                     )}
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     {/* Received Input */}
                                     <div className="relative">
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
+                                        <label className="mb-1.5 flex items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             <ArrowDownCircle className="w-3 h-3 text-green-500" /> {t.enterReceived}
                                         </label>
                                         <input
@@ -281,14 +317,14 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                                             min="0"
                                             value={entry.received}
                                             onChange={(e) => handleInputChange(item.id, 'received', e.target.value)}
-                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white placeholder-gray-400"
+                                            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
                                             placeholder="0"
                                         />
                                     </div>
 
                                     {/* Used Input */}
                                     <div className="relative">
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
+                                        <label className="mb-1.5 flex items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             <ArrowUpCircle className="w-3 h-3 text-red-500" /> {t.enterUsed}
                                         </label>
                                         <input
@@ -296,21 +332,21 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                                             min="0"
                                             value={entry.used}
                                             onChange={(e) => handleInputChange(item.id, 'used', e.target.value)}
-                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white placeholder-gray-400"
+                                            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
                                             placeholder="0"
                                         />
                                     </div>
                                     
                                     {/* Notes Input */}
                                     <div className="md:col-span-1">
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
+                                        <label className="mb-1.5 flex items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             <Edit2 className="w-3 h-3" /> {t.notes}
                                         </label>
                                         <input
                                             type="text"
                                             value={entry.notes}
                                             onChange={(e) => handleInputChange(item.id, 'notes', e.target.value)}
-                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white placeholder-gray-400"
+                                            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
                                             placeholder={t.addNote}
                                         />
                                     </div>
@@ -318,13 +354,30 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                             </div>
                         );
                     })}
+
+                    {filteredItems.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+                            <EmptyState
+                                icon={<Search />}
+                                title={t.noItemsFound || (isAr ? 'لا توجد أصناف' : 'No items found')}
+                                description={t.tryAdjustingFilters}
+                                action={
+                                    search ? (
+                                        <Button variant="secondary" size="sm" onClick={() => setSearch('')}>
+                                            {isAr ? 'مسح البحث' : 'Clear search'}
+                                        </Button>
+                                    ) : undefined
+                                }
+                            />
+                        </div>
+                    )}
                 </div>
-            </main>
+            </PageBody>
 
             {/* Bottom Action Bar */}
             {hasPendingChanges && (
-                <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg animate-in slide-in-from-bottom-5 z-40">
-                    <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+                <div className="fixed inset-x-0 bottom-0 z-sticky border-t border-gray-200 bg-white/95 p-3 pb-safe backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
+                    <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
                         <div className="hidden sm:block">
                             <p className="font-bold text-gray-900 dark:text-white">{pendingCount} {t.updatesPending}</p>
                             <p className="text-xs text-gray-500">{t.saveChanges}</p>
@@ -333,7 +386,7 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                             <button 
                                 onClick={handleClear}
                                 disabled={isSubmitting}
-                                className="flex-1 sm:flex-none px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                                className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60 sm:flex-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
                             >
                                 <RotateCcw className="w-4 h-4" />
                                 <span className="hidden sm:inline">{t.clear}</span>
@@ -341,7 +394,7 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                             <button 
                                 onClick={handleSubmitAll}
                                 disabled={isSubmitting}
-                                className="flex-1 sm:flex-none px-8 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
+                                className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 text-sm font-medium text-white transition-colors hover:bg-brand-800 disabled:cursor-wait disabled:opacity-60 sm:flex-none"
                             >
                                 {isSubmitting ? <span className="animate-spin text-xl">⟳</span> : <Save className="w-4 h-4" />}
                                 {t.submit}
@@ -351,51 +404,50 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                 </div>
             )}
 
-            {/* Report Modal */}
-            {showReportModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t.dailyReport}</h3>
-                            <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                                <X className="w-5 h-5 text-gray-500" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-6">
-                            {/* Summary Stats */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-900/30">
-                                    <p className="text-xs font-bold text-green-600 uppercase mb-1">{t.receivedToday}</p>
-                                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{receivedToday.length}</p>
-                                </div>
-                                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30">
-                                    <p className="text-xs font-bold text-red-600 uppercase mb-1">{t.usedToday}</p>
-                                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{usedToday.length}</p>
-                                </div>
-                            </div>
-
-                            <button 
-                                onClick={() => exportDailyReportPDF(todayTransactions, 'mammal', t.mammal, language, userName)}
-                                className="w-full py-4 bg-gray-900 dark:bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Download className="w-5 h-5" />
-                                {t.downloadReport}
-                            </button>
-
-                            <p className="text-xs text-center text-gray-400">
-                                {t.summary} • {new Date().toLocaleDateString()}
-                            </p>
-                        </div>
+            <Modal
+                open={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                title={t.dailyReport}
+                icon={<FileText />}
+                size="sm"
+                footer={
+                    <Button
+                        variant="primary"
+                        block
+                        icon={<Download />}
+                        onClick={() => exportDailyReportPDF(todayTransactions, 'mammal', t.mammal, language, userName)}
+                    >
+                        {t.downloadReport}
+                    </Button>
+                }
+            >
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <StatTile
+                            label={t.receivedToday}
+                            value={receivedToday.length}
+                            tone="success"
+                            icon={<ArrowDownCircle />}
+                        />
+                        <StatTile
+                            label={t.usedToday}
+                            value={usedToday.length}
+                            tone="danger"
+                            icon={<ArrowUpCircle />}
+                        />
                     </div>
+                    <p className="text-center text-xs text-gray-400">
+                        {t.summary} • {new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US')}
+                    </p>
                 </div>
-            )}
+            </Modal>
 
             {showScanner && (
                 <BarcodeScanner 
                     onScan={handleScan}
                     onClose={() => setShowScanner(false)}
                     language={language}
+                    t={t}
                 />
             )}
         </div>

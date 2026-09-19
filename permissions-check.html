@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Permissions check</title>
+  </head>
+  <body>
+    <pre id="out">running…</pre>
+    <script type="module">
+      // Temporary dev-only check: exercises the real services/permissions.ts
+      // through Vite's module graph, so it tests shipped code, not a copy.
+      import {
+        accessFor,
+        canWriteLocation,
+        canReadLocation,
+        canCreateProduct,
+        canAddCatalogItem,
+        canDeleteItem,
+        canOpenTab,
+      } from '/services/permissions.ts';
+
+      const admin = { role: 'admin' };
+      const jawafaMgr = {
+        role: 'branch_manager',
+        branchCode: 'b01',
+        accessibleBranches: ['b02'],
+        readOnlyBranches: ['b03', 'warehouse', 'mammal'],
+      };
+      const readOnlyB01 = { role: 'branch_manager', branchCode: 'b01', readOnlyBranches: ['b01'] };
+      const whMgr = { role: 'warehouse_manager', accessibleBranches: [], readOnlyBranches: ['b03'] };
+      const mammalStaff = { role: 'mammal_employee' };
+
+      const cases = [
+        ['admin writes any branch', accessFor(admin, 'b03'), 'write'],
+        ['home branch is writable', accessFor(jawafaMgr, 'b01'), 'write'],
+        ['granted full branch is writable', accessFor(jawafaMgr, 'b02'), 'write'],
+        ['read-only grant is not writable', accessFor(jawafaMgr, 'b03'), 'read'],
+        ['central site can be read', accessFor(jawafaMgr, 'warehouse'), 'read'],
+        ['unlisted branch is read-only for a manager', accessFor(jawafaMgr, 'b04'), 'read'],
+        ['read-only wins over home branch', accessFor(readOnlyB01, 'b01'), 'read'],
+        ['warehouse manager writes warehouse', accessFor(whMgr, 'warehouse'), 'write'],
+        ['warehouse manager writes mammal', accessFor(whMgr, 'mammal'), 'write'],
+        ['warehouse manager cannot write a read-only branch', accessFor(whMgr, 'b03'), 'read'],
+        ['warehouse manager may write a granted branch', accessFor({ ...whMgr, accessibleBranches: ['b02'] }, 'b02'), 'write'],
+        ['mammal staff writes mammal', accessFor(mammalStaff, 'mammal'), 'write'],
+        ['mammal staff cannot write a branch', accessFor(mammalStaff, 'b01'), 'none'],
+        ['no user means no access', accessFor(null, 'b01'), 'none'],
+        ['canWrite agrees with accessFor', canWriteLocation(jawafaMgr, 'b02'), true],
+        ['canRead excludes hidden locations', canReadLocation(mammalStaff, 'b01'), false],
+        ['only admin creates products', canCreateProduct(jawafaMgr), false],
+        ['admin creates products', canCreateProduct(admin), true],
+        ['branch may add a catalogue product to its own shelf', canAddCatalogItem(jawafaMgr, 'b01'), true],
+        ['branch may add to a granted branch', canAddCatalogItem(jawafaMgr, 'b02'), true],
+        ['branch may not add to a read-only branch', canAddCatalogItem(jawafaMgr, 'b03'), false],
+        ['branch may delete on its own branch', canDeleteItem(jawafaMgr, 'b01'), true],
+        ['branch may not delete on a read-only branch', canDeleteItem(jawafaMgr, 'b03'), false],
+        ['warehouse manager may delete at warehouse', canDeleteItem(whMgr, 'warehouse'), true],
+        ['warehouse manager may not delete at a read-only branch', canDeleteItem(whMgr, 'b03'), false],
+
+        // Tab access is a permission, not just a hidden button: the active admin
+        // section is also read from window.location.hash.
+        ['admin opens every admin tab', canOpenTab(admin, 'users') && canOpenTab(admin, 'settings') && canOpenTab(admin, 'catalog'), true],
+        ['warehouse manager cannot open #users by URL', canOpenTab(whMgr, 'users'), false],
+        ['warehouse manager cannot open #settings by URL', canOpenTab(whMgr, 'settings'), false],
+        ['warehouse manager cannot open #catalog by URL', canOpenTab(whMgr, 'catalog'), false],
+        ['warehouse manager keeps operational tabs', canOpenTab(whMgr, 'inventory') && canOpenTab(whMgr, 'purchase_orders'), true],
+        ['branch manager cannot open admin-only tabs', canOpenTab(jawafaMgr, 'users'), false],
+        ['anonymous cannot open admin-only tabs', canOpenTab(null, 'settings'), false],
+      ];
+
+      const lines = cases.map(([label, actual, expected]) => {
+        const ok = actual === expected;
+        return `${ok ? 'PASS' : 'FAIL'}  ${label}  (got ${actual}, expected ${expected})`;
+      });
+      const failures = lines.filter((l) => l.startsWith('FAIL')).length;
+      document.getElementById('out').textContent =
+        `${cases.length - failures}/${cases.length} passed\n\n` + lines.join('\n');
+      document.title = failures ? `${failures} FAILED` : 'all passed';
+    </script>
+  </body>
+</html>

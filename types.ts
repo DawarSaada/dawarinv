@@ -170,3 +170,28 @@ export interface TransferSettings {
   enableAutoReject: boolean;
   autoRejectDays: number;
 }
+
+/**
+ * ISO 4217 code for the money shown in the app.
+ *
+ * A union rather than a free string so the admin settings screen offers a list and
+ * the compiler catches a typo. Allowed values are listed in `CURRENCIES`
+ * (constants.ts); the option sets `VITE_CURRENCY` as the deployment default.
+ */
+export type Currency =
+  | 'SAR' | 'AED' | 'OMR' | 'KWD' | 'BHD' | 'QAR' | 'USD' | 'EUR' | 'GBP' | 'EGP' | 'JOD';
+
+/**
+ * Licence state shown to an administrator.
+ *
+ * `state` and `reason` are the enforcement decision (see hooks/useOMSSubscription),
+ * so the settings screen can explain *why* the system is or is not running instead
+ * of inferring it from a status string.
+ */
+export interface SubscriptionDetails {
+  status: string | null;
+  expiry: string | null;
+  state?: 'loading' | 'active' | 'expired' | 'unverifiable';
+  reason?: string;
+  checkedAt?: string | null;
+}

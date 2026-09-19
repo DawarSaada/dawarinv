@@ -43,20 +43,20 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   }, [transactions, inventory, timeframe, availableLocations, language]);
 
   return (
-    <div className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${language === 'ar' ? 'font-arabic' : ''}`}>
+    <div className={`animate-fade-in space-y-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Activity className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-gray-900 sm:text-xl dark:text-white">
+            <Activity className="h-5 w-5 text-brand-600 dark:text-brand-400" />
             {t.analyticsDashboard || 'Analytics Dashboard'}
           </h2>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="mt-0.5 text-xs text-gray-500 sm:text-sm dark:text-gray-400">
             {t.analyticsDesc || 'Advanced insights and historical trends'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center gap-2 bg-white dark:bg-gray-900 p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
           {[
             { value: 7, label: t.last7Days || '7 Days' },
             { value: 30, label: t.last30Days || '30 Days' },
@@ -69,7 +69,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 timeframe === opt.value 
                   ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-400' 
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
               }`}
             >
               {opt.label}
@@ -79,8 +79,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl">
             <Package className="w-6 h-6" />
           </div>
@@ -90,7 +90,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl">
             <AlertTriangle className="w-6 h-6" />
           </div>
@@ -100,7 +100,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl">
             <ArrowRightLeft className="w-6 h-6" />
           </div>
@@ -110,7 +110,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl">
             <MapPin className="w-6 h-6" />
           </div>
@@ -122,10 +122,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       </div>
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
         {/* Consumption Trend */}
-        <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="bg-white dark:bg-gray-900 p-5 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-brand-500" />
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.historicalConsumption || 'Historical Consumption'}</h3>
           </div>
@@ -169,8 +169,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Transfer Volumes */}
-        <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="bg-white dark:bg-gray-900 p-5 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="w-5 h-5 text-indigo-500" />
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.transferVolumes || 'Transfer Volumes (From Warehouse)'}</h3>
           </div>
@@ -197,8 +197,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Category Distribution */}
-        <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="bg-white dark:bg-gray-900 p-5 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
             <PieChartIcon className="w-5 h-5 text-emerald-500" />
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.categoryDistribution || 'Category Distribution'}</h3>
           </div>
@@ -229,8 +229,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Top Depleting Items */}
-        <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="bg-white dark:bg-gray-900 p-5 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
             <Activity className="w-5 h-5 text-red-500" />
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.topDepletingItems || 'Top Depleting Items'}</h3>
           </div>

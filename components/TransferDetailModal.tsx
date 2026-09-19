@@ -291,7 +291,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
       case 'partial': return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800';
       case 'rejected': return 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800';
       case 'extra': return 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800';
-      default: return 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700';
+      default: return 'bg-gray-50 dark:bg-gray-950/50 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-800';
     }
   };
 
@@ -299,10 +299,10 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
 
   return (
     <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-2 sm:p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
-      <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-brand-50 to-white dark:from-brand-900/20 dark:to-gray-800">
+        <div className="p-5 sm:p-6 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-brand-50 to-white dark:from-brand-900/20 dark:to-gray-800">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-brand-100 dark:bg-brand-900/40 rounded-xl">
@@ -351,7 +351,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
               const isActive = transferType === 'approval' ? idx <= 0 : transferType === 'incoming' ? idx <= 2 : idx <= 1;
               return (
                 <React.Fragment key={step}>
-                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${isActive ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${isActive ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-950'}`} />
                 </React.Fragment>
               );
             })}
@@ -381,7 +381,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
             return (
               <div 
                 key={item.transactionId} 
-                className={`rounded-2xl border transition-all ${getStatusColor(item.itemStatus)} overflow-hidden`}
+                className={`rounded-xl border transition-all ${getStatusColor(item.itemStatus)} overflow-hidden`}
               >
                 {/* Item Row */}
                 <div 
@@ -409,7 +409,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                           type="number"
                           value={item.receivedQuantity}
                           onChange={e => updateItemQuantity(item.transactionId, Math.max(0, Number(e.target.value)))}
-                          className="w-16 text-center text-sm font-bold bg-white dark:bg-gray-700 rounded-lg border border-current/20 py-0.5 outline-none focus:ring-2 focus:ring-brand-500"
+                          className="w-16 text-center text-sm font-bold bg-white dark:bg-gray-950 rounded-lg border border-current/20 py-0.5 outline-none focus:ring-2 focus:ring-brand-500"
                         />
                         <button 
                           onClick={() => updateItemQuantity(item.transactionId, item.receivedQuantity + 1)}
@@ -451,7 +451,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                       value={item.receiptNotes}
                       onChange={e => updateItemNotes(item.transactionId, e.target.value)}
                       placeholder={t.receiptNotesPlaceholder}
-                      className="w-full p-2.5 text-xs bg-white dark:bg-gray-700 border border-current/20 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 resize-none text-gray-900 dark:text-white placeholder-gray-400"
+                      className="w-full p-2.5 text-xs bg-white dark:bg-gray-950 border border-current/20 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 resize-none text-gray-900 dark:text-white placeholder-gray-400"
                       rows={2}
                     />
 
@@ -497,7 +497,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
 
         {/* Signature Pad (for incoming only) */}
         {transferType === 'incoming' && settings.enableSignatureCapture && (
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-gray-500 flex items-center gap-1"><Pen className="w-3 h-3" /> {t.signatureCapture}</p>
               {hasSignature && (
@@ -508,7 +508,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
               ref={canvasRef}
               width={500}
               height={120}
-              className={`w-full h-20 rounded-xl border-2 border-dashed ${hasSignature ? 'border-brand-300 dark:border-brand-700' : 'border-gray-200 dark:border-gray-700'} bg-white dark:bg-gray-900 cursor-crosshair touch-none`}
+              className={`w-full h-20 rounded-xl border-2 border-dashed ${hasSignature ? 'border-brand-300 dark:border-brand-700' : 'border-gray-200 dark:border-gray-800'} bg-white dark:bg-gray-900 cursor-crosshair touch-none`}
               onMouseDown={startDrawing}
               onMouseMove={draw}
               onMouseUp={stopDrawing}
@@ -522,7 +522,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
         )}
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
+        <div className="p-4 sm:p-5 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-800">
           {transferType === 'incoming' && (
             <div className="space-y-2">
               {/* Adjustment indicator */}
@@ -535,7 +535,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                 <button 
                   onClick={handleRejectAll}
                   disabled={isSubmitting}
-                  className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50"
+                  className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50"
                 >
                   {t.rejectAll}
                 </button>
@@ -543,7 +543,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                   <button 
                     onClick={handleAcceptWithAdjustments}
                     disabled={isSubmitting || (settings.enableSignatureCapture && !hasSignature)}
-                    className="flex-[2] py-3 bg-brand-600 text-white rounded-2xl font-bold text-sm hover:bg-brand-700 transition-colors shadow-lg shadow-brand-200 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-[2] py-3 bg-brand-600 text-white rounded-xl font-bold text-sm hover:bg-brand-700 transition-colors shadow-lg shadow-brand-200 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                     {t.acceptWithAdjustments}
@@ -552,7 +552,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                   <button 
                     onClick={handleAcceptAll}
                     disabled={isSubmitting || (settings.enableSignatureCapture && !hasSignature)}
-                    className="flex-[2] py-3 bg-green-600 text-white rounded-2xl font-bold text-sm hover:bg-green-700 transition-colors shadow-lg shadow-green-200 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-[2] py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition-colors shadow-lg shadow-green-200 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                     {t.acceptAll}
@@ -567,14 +567,14 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
               <button 
                 onClick={onClose} 
                 disabled={isSubmitting}
-                className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl transition-colors text-sm disabled:opacity-50"
+                className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors text-sm disabled:opacity-50"
               >
                 {t.cancel}
               </button>
               <button 
                 onClick={handleConfirmOutbound}
                 disabled={isSubmitting}
-                className="flex-1 py-3 bg-orange-600 text-white rounded-2xl font-bold text-sm hover:bg-orange-700 transition-colors shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-orange-600 text-white rounded-xl font-bold text-sm hover:bg-orange-700 transition-colors shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                 {t.confirmOutbound}
@@ -585,7 +585,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
           {transferType === 'outgoing' && (
             <button 
               onClick={onClose}
-              className="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="w-full py-3 bg-gray-100 dark:bg-gray-950 text-gray-700 dark:text-gray-200 rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               {t.cancel}
             </button>
@@ -596,7 +596,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
       {/* Rejection Reason Modal */}
       {showRejectModal && (
         <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
-          <div className={`bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl ${language === 'ar' ? 'font-arabic' : ''}`}>
+          <div className={`bg-white dark:bg-gray-900 rounded-xl w-full max-w-sm p-6 shadow-2xl ${language === 'ar' ? 'font-arabic' : ''}`}>
             <div className="flex items-center gap-2 mb-4">
               <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
@@ -606,7 +606,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
             <textarea 
               value={rejectionReason}
               onChange={e => setRejectionReason(e.target.value)}
-              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl mb-4 bg-white dark:bg-gray-950 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-red-500 resize-none"
               placeholder={t.rejectionPlaceholder}
               rows={3}
             />

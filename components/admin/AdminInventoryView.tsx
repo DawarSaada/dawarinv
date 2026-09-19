@@ -1,12 +1,28 @@
-import React from 'react';
-import { 
-  FileSpreadsheet, 
-  FileText, 
-  AlertTriangle, 
+import React, { useMemo, useState } from 'react';
+import {
+  AlertTriangle,
   ExternalLink,
-  Trash2 
+  FileSpreadsheet,
+  FileText,
+  Package,
+  Search,
+  Trash2
 } from 'lucide-react';
-import { InventoryItem, LocationData, Language, LocationId } from '../../types';
+import { InventoryItem, LocationData, Language, LocationId, User } from '../../types';
+import { canWriteLocation, subjectFrom } from '../../services/permissions';
+import {
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  FilterBar,
+  PageHeader,
+  Panel,
+  Segmented,
+  StatTile,
+  cn,
+  type Column
+} from '../ui';
 
 interface AdminInventoryViewProps {
   currentInventory: InventoryItem[];
@@ -19,7 +35,14 @@ interface AdminInventoryViewProps {
   onExportPDF: () => void;
   onManageLocation: (locationId: LocationId) => void;
   onDeleteItem: (item: InventoryItem) => void;
+  /**
+   * Used to decide whether the selected branch is writable. Deleting stock in a
+   * branch this user cannot write to was previously possible from here.
+   */
+  currentUser?: User | null;
 }
+
+type SortKey = 'name' | 'quantity' | 'category';
 
 const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   currentInventory,
@@ -31,95 +54,346 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
   onExportExcel,
   onExportPDF,
   onManageLocation,
-  onDeleteItem
+  onDeleteItem,
+  currentUser
 }) => {
+  const isAr = language === 'ar';
+  const canWriteSelected = canWriteLocation(subjectFrom(currentUser), selectedInventoryLocation);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'ok'>('all');
+  const [sort, setSort] = useState<{ key: SortKey; order: 'asc' | 'desc' }>({
+    key: 'name',
+    order: 'asc'
+  });
+
+  const activeLocation = availableLocations.find((loc) => loc.id === selectedInventoryLocation);
+
+  const locationLabel = (loc: LocationData) =>
+    loc.id === 'warehouse'
+      ? t.warehouse
+      : loc.id === 'mammal'
+        ? t.mammal
+        : isAr
+          ? loc.nameAr || loc.name
+          : loc.name;
+
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    currentInventory.forEach((item) => item.category && seen.add(item.category));
+    return Array.from(seen).sort();
+  }, [currentInventory]);
+
+  const stats = useMemo(() => {
+    const low = currentInventory.filter((item) => item.quantity <= item.minThreshold);
+    const units = currentInventory.reduce((total, item) => total + (Number(item.quantity) || 0), 0);
+    return { low: low.length, units, total: currentInventory.length };
+  }, [currentInventory]);
+
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const rows = currentInventory.filter((item) => {
+      const matchesSearch =
+        !term ||
+        (item.nameEn || '').toLowerCase().includes(term) ||
+        (item.nameAr || '').toLowerCase().includes(term) ||
+        (item.category || '').toLowerCase().includes(term) ||
+        (item.barcode || '').toLowerCase().includes(term);
+      const matchesCategory = category === 'all' || item.category === category;
+      const isLow = item.quantity <= item.minThreshold;
+      const matchesStock =
+        stockFilter === 'all' || (stockFilter === 'low' ? isLow : !isLow);
+      return matchesSearch && matchesCategory && matchesStock;
+    });
+
+    const direction = sort.order === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      if (sort.key === 'quantity') return (a.quantity - b.quantity) * direction;
+      if (sort.key === 'category')
+        return (a.category || '').localeCompare(b.category || '') * direction;
+      const aName = isAr ? a.nameAr || a.nameEn : a.nameEn || a.nameAr;
+      const bName = isAr ? b.nameAr || b.nameEn : b.nameEn || b.nameAr;
+      return (aName || '').localeCompare(bName || '') * direction;
+    });
+  }, [currentInventory, search, category, stockFilter, sort, isAr]);
+
+  const onSortChange = (key: string) =>
+    setSort((current) => ({
+      key: key as SortKey,
+      order: current.key === key && current.order === 'asc' ? 'desc' : 'asc'
+    }));
+
+  const activeFilters =
+    (category !== 'all' ? 1 : 0) + (stockFilter !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0);
+
+  const columns: Column<InventoryItem>[] = [
+    {
+      key: 'name',
+      header: t.itemName,
+      sortable: true,
+      cell: (item) => (
+        <div className="min-w-0">
+          <p className="truncate font-medium text-gray-900 dark:text-white">
+            {isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr}
+          </p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
+            <span className="sm:hidden">{item.category}</span>
+            {item.barcode && (
+              <span className="hidden font-mono sm:inline">{item.barcode}</span>
+            )}
+          </p>
+        </div>
+      )
+    },
+    {
+      key: 'category',
+      header: t.category,
+      sortable: true,
+      hideBelow: 'sm',
+      cell: (item) => <span className="text-gray-500 dark:text-gray-400">{item.category}</span>
+    },
+    {
+      key: 'quantity',
+      header: t.stockLevel,
+      sortable: true,
+      align: 'end',
+      cell: (item) => (
+        <span className="tnum font-semibold text-gray-900 dark:text-white">
+          {item.quantity}
+          <span className="ms-1 text-2xs font-normal text-gray-400">{item.unit}</span>
+        </span>
+      )
+    },
+    {
+      key: 'status',
+      header: t.status,
+      hideBelow: 'md',
+      cell: (item) =>
+        item.quantity <= item.minThreshold ? (
+          <Badge tone="warning" icon={<AlertTriangle />} dot>
+            {t.lowStock}
+          </Badge>
+        ) : (
+          <Badge tone="success" dot>
+            {t.inStock}
+          </Badge>
+        )
+    },
+    {
+      key: 'actions',
+      header: <span className="sr-only">{t.actions}</span>,
+      align: 'end',
+      width: 'w-24',
+      cell: (item) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<ExternalLink />}
+            aria-label={t.manageLocation}
+            title={t.manageLocation}
+            onClick={() => onManageLocation(selectedInventoryLocation as LocationId)}
+          />
+          {canWriteSelected ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Trash2 />}
+              aria-label={t.delete}
+              title={t.delete}
+              className="text-danger-600 hover:bg-danger-50 dark:text-danger-500 dark:hover:bg-danger-900/25"
+              onClick={() => onDeleteItem(item)}
+            />
+          ) : (
+            <Badge tone="neutral">
+              {language === 'ar' ? 'قراءة فقط' : 'Read-only'}
+            </Badge>
+          )}
+        </div>
+      )
+    }
+  ];
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{t.inventory}</h2>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t.selectLocationSub}</p>
-        </div>
-        <div className="flex gap-2 w-full xl:w-auto overflow-x-auto scrollbar-hide pb-2 sm:pb-0">
-          <button onClick={onExportExcel} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-xs sm:text-sm whitespace-nowrap">
-            <FileSpreadsheet className="w-4 h-4" /> {t.exportExcel}
-          </button>
-          <button onClick={onExportPDF} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-xs sm:text-sm whitespace-nowrap">
-            <FileText className="w-4 h-4" /> {t.exportPDF}
-          </button>
-        </div>
+    <div className="animate-fade-in space-y-4">
+      <PageHeader
+        sticky={false}
+        title={t.inventory}
+        subtitle={t.selectLocationSub}
+        icon={<Package />}
+        actions={
+          <>
+            <Button icon={<FileSpreadsheet />} onClick={onExportExcel} hideLabelOnMobile>
+              {t.exportExcel}
+            </Button>
+            <Button icon={<FileText />} onClick={onExportPDF} hideLabelOnMobile>
+              {t.exportPDF}
+            </Button>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          label={t.itemName}
+          value={stats.total}
+          icon={<Package />}
+          tone="brand"
+          size="sm"
+        />
+        <StatTile
+          label={isAr ? 'إجمالي الوحدات' : 'Total units'}
+          value={stats.units.toLocaleString(isAr ? 'ar-EG' : 'en-US')}
+          icon={<FileSpreadsheet />}
+          tone="info"
+          size="sm"
+        />
+        <StatTile
+          label={t.lowStock}
+          value={stats.low}
+          tone={stats.low > 0 ? 'warning' : 'success'}
+          icon={<AlertTriangle />}
+          size="sm"
+          active={stockFilter === 'low'}
+          onClick={() => setStockFilter((current) => (current === 'low' ? 'all' : 'low'))}
+        />
+        <StatTile
+          label={isAr ? 'الموقع' : 'Location'}
+          value={
+            <span className="text-base">{activeLocation ? locationLabel(activeLocation) : '—'}</span>
+          }
+          icon={<ExternalLink />}
+          size="sm"
+        />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm mb-8 overflow-hidden">
-        <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 overflow-x-auto scrollbar-hide">
-          {availableLocations.map(loc => (
-            <button
-              key={loc.id}
-              onClick={() => setSelectedInventoryLocation(loc.id)}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${selectedInventoryLocation === loc.id ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
-            >
-              {loc.id === 'warehouse' ? t.warehouse : loc.id === 'mammal' ? t.mammal : (language === 'ar' ? (loc.nameAr || loc.name) : loc.name)}
-            </button>
-          ))}
+      <Panel className="overflow-hidden">
+        <div className="border-b border-gray-200 p-3 dark:border-gray-800">
+          <Segmented
+            aria-label={t.selectLocation}
+            value={selectedInventoryLocation}
+            onChange={setSelectedInventoryLocation}
+            className="max-w-full overflow-x-auto scrollbar-hide"
+            items={availableLocations.map((loc) => ({
+              id: loc.id,
+              label: locationLabel(loc)
+            }))}
+          />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left rtl:text-right text-xs sm:text-sm">
-            <thead>
-              <tr className="bg-gray-50/30 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-700">
-                <th className="px-4 sm:px-6 py-3 sm:py-4 font-bold text-gray-400 uppercase tracking-tighter sm:tracking-normal">{t.itemName}</th>
-                <th className="hidden sm:table-cell px-6 py-4 font-bold text-gray-400 uppercase">{t.category}</th>
-                <th className="px-4 sm:px-6 py-3 sm:py-4 font-bold text-gray-400 uppercase">{t.stockLevel}</th>
-                <th className="hidden md:table-cell px-6 py-4 font-bold text-gray-400 uppercase">{t.status}</th>
-                <th className="px-4 sm:px-6 py-3 sm:py-4 font-bold text-gray-400 uppercase text-right rtl:text-left">{t.actions}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {currentInventory.map(item => (
-                <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
-                  <td className="px-4 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white truncate max-w-[120px] sm:max-w-none">
-                    {language === 'ar' ? item.nameAr : item.nameEn}
-                    <div className="text-[9px] text-gray-400 font-normal mt-1 block sm:hidden">
-                      {item.category}
-                    </div>
-                  </td>
-                  <td className="hidden sm:table-cell px-6 py-4 text-gray-500">{item.category}</td>
-                  <td className="px-4 sm:px-6 py-3 sm:py-4 font-bold">{item.quantity} <span className="text-[10px] font-medium text-gray-400">{item.unit}</span></td>
-                  <td className="hidden md:table-cell px-6 py-4">
-                    {item.quantity <= item.minThreshold ? (
-                      <span className="text-red-600 flex items-center gap-1 text-xs font-bold"><AlertTriangle className="w-3 h-3" /> {t.lowStock}</span>
-                    ) : (
-                      <span className="text-green-600 text-xs font-bold">{t.inStock}</span>
-                    )}
-                  </td>
-                  <td className="px-4 sm:px-6 py-3 sm:py-4 text-right rtl:text-left">
-                    <div className="flex items-center gap-1 justify-end">
-                      <button 
-                        onClick={() => onManageLocation(selectedInventoryLocation as LocationId)}
-                        className="text-brand-600 p-2 hover:bg-brand-50 rounded-lg transition-colors"
-                        title={t.manageLocation}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => onDeleteItem(item)}
-                        className="text-red-400 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                        title={t.delete}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {currentInventory.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400 italic">{t.noItemsInList}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+
+        <div className="p-3 sm:p-4">
+          <FilterBar
+            filtersLabel={isAr ? 'تصفية' : 'Filters'}
+            clearLabel={isAr ? 'مسح الكل' : 'Clear all'}
+            doneLabel={isAr ? 'تم' : 'Done'}
+            moreLabel={isAr ? 'خيارات أخرى' : 'More options'}
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: t.searchPlaceholder,
+              trailingSlot: undefined
+            }}
+            inlineControls={
+              <Segmented<'all' | 'low' | 'ok'>
+                aria-label={t.status}
+                value={stockFilter}
+                onChange={setStockFilter}
+                items={[
+                  { id: 'all', label: isAr ? 'الكل' : 'All' },
+                  { id: 'low', label: t.lowStock, icon: <AlertTriangle /> },
+                  { id: 'ok', label: t.inStock }
+                ]}
+              />
+            }
+            filterCount={activeFilters}
+            onClearFilters={() => {
+              setSearch('');
+              setCategory('all');
+              setStockFilter('all');
+            }}
+            filters={
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {t.category}
+                  </p>
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                    className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                  >
+                    <option value="all">{isAr ? 'كل الفئات' : 'All categories'}</option>
+                    {categories.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {t.status}
+                  </p>
+                  <Segmented<'all' | 'low' | 'ok'>
+                    value={stockFilter}
+                    onChange={setStockFilter}
+                    items={[
+                      { id: 'all', label: isAr ? 'الكل' : 'All' },
+                      { id: 'low', label: t.lowStock },
+                      { id: 'ok', label: t.inStock }
+                    ]}
+                  />
+                </div>
+              </div>
+            }
+          />
         </div>
-      </div>
+
+        <DataTable
+          columns={columns}
+          rows={visible}
+          rowKey={(item) => item.id}
+          sort={sort}
+          onSortChange={onSortChange}
+          selectAllLabel={isAr ? 'تحديد الكل' : 'Select all'}
+          summary={
+            <span className={cn('tnum')}>
+              {isAr
+                ? `${visible.length} من ${currentInventory.length} صنف`
+                : `${visible.length} of ${currentInventory.length} items`}
+            </span>
+          }
+          empty={
+            <EmptyState
+              size="sm"
+              icon={<Search />}
+              title={t.noItemsInList}
+              description={
+                activeFilters > 0
+                  ? isAr
+                    ? 'جرّب توسيع نطاق البحث أو مسح عوامل التصفية.'
+                    : 'Try a broader search or clear the filters.'
+                  : undefined
+              }
+              action={
+                activeFilters > 0 ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setSearch('');
+                      setCategory('all');
+                      setStockFilter('all');
+                    }}
+                  >
+                    {isAr ? 'مسح كل عوامل التصفية' : 'Clear filters'}
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+        />
+      </Panel>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { InventoryItem, ChatMessage, Language } from '../types';
-import { analyzeInventory } from '../services/geminiService';
+import { analyzeInventory } from '../services/aiService';
 import { TRANSLATIONS } from '../constants';
 import { Sparkles, Send, Bot, User as UserIcon, Loader2, X } from 'lucide-react';
 
@@ -80,11 +80,11 @@ const SmartAssistant: React.FC<SmartAssistantProps> = ({ locationName, items, is
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 rtl:right-auto rtl:left-0 w-full sm:w-96 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 ease-in-out z-50 flex flex-col border-l rtl:border-r rtl:border-l-0 border-gray-100 dark:border-gray-700">
+    <div className="fixed inset-y-0 right-0 rtl:right-auto rtl:left-0 w-full border-s border-gray-200 dark:border-gray-800 sm:w-96 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-50 flex flex-col border-l rtl:border-r rtl:border-l-0 border-gray-200 dark:border-gray-800">
       {/* Header */}
-      <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-brand-50 dark:bg-gray-900">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-brand-50 dark:bg-gray-900">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="p-2 bg-white dark:bg-gray-900 rounded-lg shadow-sm">
             <Sparkles className="w-5 h-5 text-brand-600 dark:text-brand-500" />
           </div>
           <div>
@@ -116,8 +116,8 @@ const SmartAssistant: React.FC<SmartAssistantProps> = ({ locationName, items, is
             
             <div className={`max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed ${
               msg.role === 'user' 
-                ? 'bg-gray-800 dark:bg-gray-700 text-white rounded-tr-sm rtl:rounded-tr-2xl rtl:rounded-tl-sm' 
-                : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm text-gray-700 dark:text-gray-200 rounded-tl-sm rtl:rounded-tl-2xl rtl:rounded-tr-sm'
+                ? 'bg-gray-800 dark:bg-gray-800 text-white rounded-tr-sm rtl:rounded-tr-2xl rtl:rounded-tl-sm' 
+                : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm text-gray-700 dark:text-gray-200 rounded-tl-sm rtl:rounded-tl-2xl rtl:rounded-tr-sm'
             }`}>
               {msg.text.split('\n').map((line, i) => (
                 <React.Fragment key={i}>
@@ -133,7 +133,7 @@ const SmartAssistant: React.FC<SmartAssistantProps> = ({ locationName, items, is
             <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4 text-brand-700 dark:text-brand-300" />
             </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl rounded-tl-sm p-4">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm rounded-xl rounded-ts-sm p-4">
               <Loader2 className="w-5 h-5 text-brand-500 animate-spin" />
             </div>
           </div>
@@ -142,7 +142,7 @@ const SmartAssistant: React.FC<SmartAssistantProps> = ({ locationName, items, is
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="relative flex items-center">
           <input
             type="text"
@@ -150,7 +150,7 @@ const SmartAssistant: React.FC<SmartAssistantProps> = ({ locationName, items, is
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={t.askPlaceholder}
-            className="w-full pl-4 pr-12 rtl:pr-4 rtl:pl-12 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+            className="w-full pl-4 pr-12 rtl:pr-4 rtl:pl-12 py-3 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
           />
           <button
             onClick={handleSend}

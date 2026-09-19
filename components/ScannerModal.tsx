@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Camera, RefreshCcw, AlertTriangle } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
+// `html5-qrcode` (~500KB) is loaded on demand, when the scanner is opened.
+import type { Html5Qrcode } from 'html5-qrcode';
 import { Language } from '../types';
 
 interface ScannerModalProps {
@@ -14,17 +15,19 @@ interface ScannerModalProps {
 const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, language, t }) => {
   const [error, setError] = useState<string>('');
   const [hasCameras, setHasCameras] = useState<boolean>(true);
-  const [scanner, setScanner] = useState<Html5Qrcode | null>(null);
+  // A ref (not state) so the effect cleanup always sees the active instance.
+  const scannerRef = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const initScanner = async () => {
       try {
+        const { Html5Qrcode } = await import('html5-qrcode');
         const cameras = await Html5Qrcode.getCameras();
         if (cameras && cameras.length > 0) {
           const newScanner = new Html5Qrcode("reader");
-          setScanner(newScanner);
+          scannerRef.current = newScanner;
 
           await newScanner.start(
             { facingMode: "environment" }, // Default to rear camera
@@ -56,14 +59,18 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, la
     setTimeout(initScanner, 100);
 
     return () => {
-      if (scanner && scanner.isScanning) {
-        scanner.stop().catch(console.error);
+      const active = scannerRef.current;
+      scannerRef.current = null;
+      if (active && active.isScanning) {
+        active.stop().catch(console.error);
       }
     };
   }, [isOpen]);
 
   // Clean up scanner on close
   const handleClose = async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
     if (scanner && scanner.isScanning) {
       try {
         await scanner.stop();
@@ -78,7 +85,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, la
 
   return (
     <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex flex-col items-center justify-center p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
-      <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden relative">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden relative">
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           <button 
             onClick={handleClose}
@@ -88,7 +95,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, la
           </button>
         </div>
 
-        <div className="p-6 text-center border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="p-6 text-center border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
           <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center mx-auto mb-3">
             <Camera className="w-6 h-6" />
           </div>
@@ -98,7 +105,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, la
 
         <div className="p-6">
           {!hasCameras || error ? (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-2xl flex flex-col items-center gap-3 text-center">
+            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex flex-col items-center gap-3 text-center">
               <AlertTriangle className="w-8 h-8" />
               <div>
                 <p className="font-bold">{t.scannerError || 'Scanner Error'}</p>
@@ -106,7 +113,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, la
               </div>
             </div>
           ) : (
-            <div className="relative rounded-2xl overflow-hidden bg-black aspect-square max-w-[300px] mx-auto border-4 border-gray-100 dark:border-gray-700">
+            <div className="relative rounded-xl overflow-hidden bg-black aspect-square max-w-[300px] mx-auto border-4 border-gray-200 dark:border-gray-800">
               <div id="reader" className="w-full h-full"></div>
               {/* Scan target overlay */}
               <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">

@@ -2,18 +2,20 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Login from './components/Login';
 import LocationSelection from './components/LocationSelection';
 import InventoryDashboard from './components/InventoryDashboard';
+import { useSubscription } from './components/SubscriptionGate';
+import { useAppSettingsContext } from './components/AppSettingsProvider';
 import AdminDashboard from './components/AdminDashboard';
 import MammalEmployeeDashboard from './components/MammalEmployeeDashboard';
-import ThemeLanguageControls from './components/ThemeLanguageControls';
 import { LocationId, Language, Theme, User, InventoryItem, Transaction, TransactionType, LocationData, TransactionStatus, UserRole, TransferSettings } from './types';
-import { LOCATIONS as STATIC_LOCATIONS, TRANSLATIONS, INITIAL_INVENTORY, INITIAL_USERS, generateId } from './constants';
+import { LOCATIONS as STATIC_LOCATIONS, TRANSLATIONS, generateId } from './constants';
 import { supabase } from './services/supabase';
 import { useToast } from './components/Toast';
 import { useAuth } from './hooks/useAuth';
 import { useInventoryData } from './hooks/useInventoryData';
 import { useLocationsQuery, useUsersQuery, useRealtimeSubscriptions, useTransactionsQuery, useCatalogQuery, useNotificationsQuery, useSuppliersQuery, usePurchaseOrdersQuery, useAuditsQuery } from './hooks/useQueries';
 import { useNotifications } from './hooks/useNotifications';
-import { useOMSSubscription } from './hooks/useOMSSubscription';
+import { usePwaStatus } from './hooks/usePwaStatus';
+import { logger } from './utils/logger';
 
 
 const App: React.FC = () => {
@@ -49,7 +51,7 @@ const App: React.FC = () => {
     if (Notification.permission === 'default') {
       try {
         const permission = await Notification.requestPermission();
-        console.log('Notification permission:', permission);
+        logger.info('Notification permission:', permission);
       } catch (e) {
         console.warn("Notification permission request failed", e);
       }
@@ -68,7 +70,19 @@ const App: React.FC = () => {
     handleDeleteUser
   } = useAuth(requestNotificationPermission, fetchedUsers);
 
-  const { isSubscriptionLocked, isLoading: isSubLoading, subDetails } = useOMSSubscription();
+  // The subscription decision is enforced by SubscriptionGate, above this component,
+  // so it is only read here to report the licence in the admin settings screen.
+  const subscription = useSubscription();
+  const subDetails = useMemo(
+    () => ({
+      status: subscription.status,
+      expiry: subscription.expiresAt,
+      state: subscription.state,
+      reason: subscription.reason,
+      checkedAt: subscription.checkedAt,
+    }),
+    [subscription.status, subscription.expiresAt, subscription.state, subscription.reason, subscription.checkedAt]
+  );
 
   const [selectedLocation, setSelectedLocation] = useState<LocationId | null>(() => {
     try {
@@ -99,6 +113,9 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('dawar_language');
     return (saved === 'ar' || saved === 'en') ? saved : 'en';
   });
+
+  // Surfaces "ready offline" / "new version downloaded" states to the user.
+  usePwaStatus(language);
 
   const {
     inventory,
@@ -138,21 +155,27 @@ const App: React.FC = () => {
     handleDeleteAudit
   } = useInventoryData({ currentUser, selectedLocation, language, alerts, addToast });
 
-  // Transfer Settings (admin-configurable)
-  const [transferSettings, setTransferSettings] = useState<TransferSettings>(() => {
-    try {
-      const saved = localStorage.getItem('dawar_transfer_settings');
-      if (saved) return JSON.parse(saved);
-    } catch (e) { /* ignore */ }
-    return { enableSignatureCapture: false, enablePhotoEvidence: false, enableAutoReject: false, autoRejectDays: 7 };
-  });
+  // Business settings (currency, transfer rules, retention) come from the shared
+  // settings context, which reads the central store and tells the administrator when
+  // it is only saving locally. See components/AppSettingsProvider.tsx.
+  const {
+    settings,
+    save: saveSettings,
+    centralStoreAvailable,
+    centralValues,
+    isLoading: settingsLoading,
+  } = useAppSettingsContext();
+  const transferSettings = settings.transfer;
 
-  // Auto-reject expired transfers on app load
+  // Auto-reject expired transfers on app load. Waits for the settings to arrive: with
+  // a central store the rule may differ from this browser's last known value, and
+  // running the sweep on a stale rule would reject the wrong transfers.
   useEffect(() => {
+    if (settingsLoading) return;
     if (transferSettings.enableAutoReject && transferSettings.autoRejectDays > 0 && currentUser?.role === 'admin') {
       handleAutoRejectExpired(transferSettings.autoRejectDays);
     }
-  }, [currentUser?.role]); // Only run once on login
+  }, [currentUser?.role, settingsLoading]); // Only run once on login
 
 
 
@@ -186,17 +209,22 @@ const App: React.FC = () => {
       requestNotificationPermission();
     }
 
-    // Auto cleanup transactions if admin
-    if (currentUser?.role === 'admin') {
-      const retentionStr = localStorage.getItem('dawar_retention_months');
-      if (retentionStr) {
-        const months = parseInt(retentionStr, 10);
-        if (!isNaN(months) && months > 0) {
-          handleCleanUpTransactions(months);
-        }
+    // Auto cleanup transactions if admin, using the administrator's retention setting.
+    // 0 means keep everything, which is why nothing is deleted until it is set.
+    //
+    // Deliberately requires the value to come from the central store. This deletes
+    // history permanently, and a number left behind in one browser's localStorage is
+    // not a decision anyone made — the old screen wrote exactly such values. Without
+    // this, opening the app on a machine where a retention period was once tried would
+    // run a delete nobody asked for. An administrator who wants it either sets it in
+    // Settings (which stores it centrally) or presses "Clean up now", which confirms.
+    if (currentUser?.role === 'admin' && centralValues.retentionMonths !== undefined) {
+      const months = centralValues.retentionMonths;
+      if (months > 0) {
+        handleCleanUpTransactions(months);
       }
     }
-  }, [currentUser]);
+  }, [currentUser, centralValues.retentionMonths]);
 
   // Dynamically calculate available locations based on state and permissions
   const availableLocations = useMemo<LocationData[]>(() => {
@@ -216,36 +244,6 @@ const App: React.FC = () => {
     }
     return locations;
   }, [locations, currentUser]);
-
-  // Subscription Blocking Logic
-  if (isSubscriptionLocked && currentUser?.role !== 'admin') {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-8 text-center border border-gray-100 dark:border-gray-700">
-          <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Subscription Expired</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-8">
-            The OMS subscription has expired or is inactive. This inventory management application has been temporarily locked.
-          </p>
-          <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800/30">
-            <p className="text-sm font-medium text-brand-800 dark:text-brand-300">
-              Please contact the Admin to renew the subscription.
-            </p>
-          </div>
-          <button 
-            onClick={() => handleLogout(setSelectedLocation, () => { })}
-            className="mt-8 px-6 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-          >
-            Sign Out
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const toggleLanguage = () => {
     setLanguage(prev => {
@@ -325,8 +323,15 @@ const App: React.FC = () => {
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
           </div>
         )}
-        <ThemeLanguageControls language={language} theme={theme} onToggleLanguage={toggleLanguage} onToggleTheme={toggleTheme} />
-        <Login onLogin={(user, rememberMe) => handleLogin(user, rememberMe, setSelectedLocation)} language={language} users={users} />
+        <Login
+          onLogin={(user, rememberMe) => handleLogin(user, rememberMe, setSelectedLocation)}
+          language={language}
+          users={users}
+          isLoading={isLoadingUsers}
+          theme={theme}
+          onToggleLanguage={toggleLanguage}
+          onToggleTheme={toggleTheme}
+        />
       </div>
     );
   }
@@ -340,9 +345,9 @@ const App: React.FC = () => {
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
           </div>
         )}
-        <ThemeLanguageControls language={language} theme={theme} onToggleLanguage={toggleLanguage} onToggleTheme={toggleTheme} />
         <AdminDashboard
           currentUserRole={currentUser.role}
+          currentUser={currentUser}
           users={users}
           transactions={transactions}
           inventory={inventory}
@@ -358,11 +363,18 @@ const App: React.FC = () => {
           onCleanUpTransactions={handleCleanUpTransactions}
           getUserName={getUserName}
           subDetails={subDetails}
+          onRefreshSubscription={subscription.refresh}
           transferSettings={transferSettings}
-          onTransferSettingsChange={(settings) => {
-            setTransferSettings(settings);
-            localStorage.setItem('dawar_transfer_settings', JSON.stringify(settings));
+          onTransferSettingsChange={(next) => {
+            // Saved to the central store when phase10 is applied; otherwise the hook
+            // falls back to this browser and says so in the settings screen.
+            void saveSettings({ transfer: next }, { updatedBy: getUserName(currentUser.role) });
           }}
+          retentionMonths={settings.retentionMonths}
+          onRetentionMonthsChange={(months) =>
+            saveSettings({ retentionMonths: months }, { updatedBy: getUserName(currentUser.role) })
+          }
+          settingsAreShared={centralStoreAvailable}
           suppliers={suppliers}
           purchaseOrders={purchaseOrders}
           onAddSupplier={handleAddSupplier}
@@ -381,6 +393,9 @@ const App: React.FC = () => {
           alerts={alerts}
           onMarkNotificationAsRead={handleMarkNotificationAsRead}
           onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onToggleLanguage={toggleLanguage}
         />
       </div>
     );
@@ -394,7 +409,6 @@ const App: React.FC = () => {
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
           </div>
         )}
-        <ThemeLanguageControls language={language} theme={theme} onToggleLanguage={toggleLanguage} onToggleTheme={toggleTheme} />
         <MammalEmployeeDashboard
           items={inventory['mammal'] || []}
           onLogout={() => handleLogout(setSelectedLocation, () => { })}
@@ -403,6 +417,12 @@ const App: React.FC = () => {
           onBulkLogTransaction={handleBulkLog}
           userName={language === 'ar' ? (currentUser.nameAr || currentUser.name) : currentUser.name}
           transactions={transactions}
+          alerts={alerts}
+          onMarkNotificationAsRead={handleMarkNotificationAsRead}
+          onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onToggleLanguage={toggleLanguage}
         />
       </div>
     );
@@ -416,13 +436,15 @@ const App: React.FC = () => {
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
           </div>
         )}
-        <ThemeLanguageControls language={language} theme={theme} onToggleLanguage={toggleLanguage} onToggleTheme={toggleTheme} />
         <LocationSelection
           onSelect={setSelectedLocation}
           onLogout={() => handleLogout(setSelectedLocation, () => { })}
           language={language}
           availableLocations={availableLocations}
           currentUserRole={currentUser.role}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onToggleLanguage={toggleLanguage}
         />
       </div>
     );
@@ -450,7 +472,6 @@ const App: React.FC = () => {
           {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
         </div>
       )}
-      <ThemeLanguageControls language={language} theme={theme} onToggleLanguage={toggleLanguage} onToggleTheme={toggleTheme} />
       <InventoryDashboard
         key={selectedLocation || 'global'}
         locationId={selectedLocation}
@@ -459,6 +480,9 @@ const App: React.FC = () => {
         onBack={() => setSelectedLocation(null)}
         onLogout={() => handleLogout(setSelectedLocation, () => { })}
         language={language}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onToggleLanguage={toggleLanguage}
         onTransfer={handleTransfer}
         onAddItem={handleAddItem}
         onEditItem={handleEditItem}

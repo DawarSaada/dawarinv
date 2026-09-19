@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Camera, AlertTriangle } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
+// `html5-qrcode` (~500KB) is loaded on demand, when the scanner is opened.
+import type { Html5Qrcode } from 'html5-qrcode';
 import { Language } from '../types';
 
 interface BarcodeScannerProps {
@@ -13,15 +14,17 @@ interface BarcodeScannerProps {
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose, language, t }) => {
   const [error, setError] = useState<string>('');
   const [hasCameras, setHasCameras] = useState<boolean>(true);
-  const [scanner, setScanner] = useState<Html5Qrcode | null>(null);
+  // A ref (not state) so the effect cleanup always sees the active instance.
+  const scannerRef = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     const initScanner = async () => {
       try {
+        const { Html5Qrcode } = await import('html5-qrcode');
         const cameras = await Html5Qrcode.getCameras();
         if (cameras && cameras.length > 0) {
           const newScanner = new Html5Qrcode("reader");
-          setScanner(newScanner);
+          scannerRef.current = newScanner;
 
           await newScanner.start(
             { facingMode: "environment" }, // Default to rear camera
@@ -52,13 +55,17 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose, langua
     setTimeout(initScanner, 100);
 
     return () => {
-      if (scanner && scanner.isScanning) {
-        scanner.stop().catch(console.error);
+      const active = scannerRef.current;
+      scannerRef.current = null;
+      if (active && active.isScanning) {
+        active.stop().catch(console.error);
       }
     };
   }, []);
 
   const handleClose = async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
     if (scanner && scanner.isScanning) {
       try {
         await scanner.stop();
@@ -71,7 +78,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose, langua
 
   return (
     <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex flex-col items-center justify-center p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
-      <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden relative">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md shadow-2xl overflow-hidden relative">
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           <button 
             onClick={handleClose}

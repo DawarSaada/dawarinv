@@ -12,9 +12,15 @@ interface AddItemModalProps {
     initialData?: InventoryItem | null;
     existingItems: InventoryItem[];
     catalog: CatalogItem[];
+    /**
+     * Creating a *new product* is admin-only; branches place catalogue products on
+     * their shelves. The name fields are read-only in create mode either way, so
+     * this only controls the explanation shown when the catalogue is empty.
+     */
+    canCreateProduct?: boolean;
 }
 
-const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, language, initialData, existingItems, catalog }) => {
+const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, language, initialData, existingItems, catalog, canCreateProduct = false }) => {
     const t = TRANSLATIONS[language];
     
     const [newItem, setNewItem] = useState({
@@ -135,7 +141,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
 
     return (
         <div className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
@@ -151,6 +157,21 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {!isEditMode && (!catalog || catalog.length === 0) && (
+                        <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>
+                                {canCreateProduct
+                                    ? language === 'ar'
+                                        ? 'دليل المنتجات فارغ. أضف منتجاً من شاشة دليل المنتجات أولاً.'
+                                        : 'The product catalogue is empty. Add the product from the Catalog screen first.'
+                                    : language === 'ar'
+                                        ? 'لا يمكن إضافة أصناف من الفرع. تتم إضافة المنتجات الجديدة من قبل المدير في دليل المنتجات.'
+                                        : 'Branch users cannot add new products. New products are created by an administrator in the Catalog screen.'}
+                            </span>
+                        </div>
+                    )}
+
                     {!isEditMode && catalog && catalog.length > 0 && (
                         <div>
                             <label className="block text-sm font-medium text-brand-600 dark:text-brand-400 mb-1 flex items-center gap-1">
@@ -179,7 +200,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                         setNewItem({...newItem, catalogId: ''});
                                     }
                                 }}
-                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
                             >
                                 <option value="">{language === 'ar' ? '-- اختر منتج --' : '-- Select Product --'}</option>
                                 {catalog.map(c => (
@@ -204,7 +225,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setError('');
                                 }}
                                 placeholder={t.itemNameEnPlaceholder}
-                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
 
@@ -220,7 +241,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setError('');
                                 }}
                                 placeholder={t.itemNameArPlaceholder}
-                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-arabic ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-arabic ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 dir="rtl"
                             />
                         </div>
@@ -239,7 +260,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                 setError('');
                             }}
                             placeholder={t.descriptionPlaceholder}
-                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none resize-none h-20 text-sm ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none resize-none h-20 text-sm ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                         />
                     </div>
 
@@ -256,7 +277,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                 setError('');
                             }}
                             placeholder={t.category}
-                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                         />
                         <datalist id="category-suggestions">
                             {Array.from(new Set(existingItems.map(i => i.category))).sort().map(cat => (
@@ -278,23 +299,32 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setNewItem({...newItem, quantity: e.target.value});
                                     setError('');
                                 }}
-                                className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                                className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.unit}</label>
+                            {/* Free text caused 54 spellings for ~6 units (45 "Peace" for
+                                "Piece"). The datalist suggests the canonical set while still
+                                allowing measured units such as "KG10". */}
                             <input
                                 required
                                 readOnly={!isEditMode || !!newItem.catalogId}
                                 type="text"
+                                list="inventory-unit-options"
                                 value={newItem.unit}
                                 onChange={e => {
-                                    setNewItem({...newItem, unit: e.target.value});
+                                    setNewItem({...newItem, unit: e.target.value.trimStart()});
                                     setError('');
                                 }}
                                 placeholder={t.unitPlaceholder}
-                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
+                            <datalist id="inventory-unit-options">
+                                {['Piece', 'Pieces', 'Box', 'Carton', 'Pack', 'Packet', 'Bag', 'Bottle', 'Tin', 'Roll', 'Tray', 'KG', 'Liter'].map((unit) => (
+                                    <option key={unit} value={unit} />
+                                ))}
+                            </datalist>
                         </div>
                     </div>
 
@@ -310,7 +340,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                 setNewItem({...newItem, minThreshold: e.target.value});
                                 setError('');
                             }}
-                            className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                            className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t.thresholdDesc}</p>
                     </div>
@@ -324,7 +354,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                 setNewItem({...newItem, expirationDate: e.target.value});
                                 setError('');
                             }}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
                         />
                     </div>
 
@@ -339,7 +369,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                     setError('');
                                 }}
                                 placeholder={t.scanOrEnterBarcode}
-                                className="w-full px-4 pr-12 rtl:pr-4 rtl:pl-12 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                                className="w-full px-4 pr-12 rtl:pr-4 rtl:pl-12 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
                             />
                             <button
                                 type="button"
@@ -358,7 +388,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                         </div>
                     )}
 
-                    <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
                         <button
                             type="button"
                             onClick={onClose}
@@ -368,7 +398,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                         </button>
                         <button
                             type="submit"
-                            className="flex-1 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                         >
                             {isEditMode ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                             {isEditMode ? t.saveUser : t.addItem}

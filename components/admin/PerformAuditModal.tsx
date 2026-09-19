@@ -75,9 +75,9 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <Play className="w-6 h-6 text-brand-500" />
@@ -91,10 +91,10 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+                <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400">
                   <th className="p-4 font-medium">{language === 'ar' ? 'العنصر' : 'Item'}</th>
                   <th className="p-4 font-medium">{language === 'ar' ? 'الكمية المتوقعة' : 'Expected'}</th>
                   <th className="p-4 font-medium w-40">{language === 'ar' ? 'الكمية الفعلية' : 'Counted'}</th>
@@ -129,7 +129,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                           className={`w-full px-3 py-2 bg-white dark:bg-gray-900 border rounded-lg focus:ring-2 focus:ring-brand-500 font-bold ${
                             isCounted && variance !== 0 ? 'border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-500/30 dark:bg-orange-900/20 dark:text-orange-400' 
                             : isCounted && variance === 0 ? 'border-green-300 text-green-700 bg-green-50 dark:border-green-500/30 dark:bg-green-900/20 dark:text-green-400' 
-                            : 'border-gray-200 dark:border-gray-700'
+                            : 'border-gray-200 dark:border-gray-800'
                           }`}
                         />
                       </td>
@@ -139,7 +139,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                           value={counts[item.id]?.notes || ''}
                           onChange={(e) => handleNotesChange(item.id, e.target.value)}
                           placeholder={language === 'ar' ? 'سبب التباين...' : 'Reason for variance...'}
-                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm"
                         />
                       </td>
                     </tr>
@@ -150,7 +150,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
           <div className="text-sm text-gray-500">
             {language === 'ar' ? 'تم جرد' : 'Counted'}: {Object.values(counts).filter(c => c.count !== '').length} / {audit.items?.length || 0}
           </div>
@@ -167,7 +167,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
             </button>
             <button 
               onClick={handleSubmit}
-              className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-bold flex items-center gap-2 shadow-sm"
+              className="px-6 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-lg transition-colors font-bold flex items-center gap-2 shadow-sm"
             >
               <CheckCircle className="w-5 h-5" />
               {language === 'ar' ? 'إرسال للمراجعة' : 'Submit for Review'}

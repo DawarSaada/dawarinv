@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Subscription check</title>
+  </head>
+  <body>
+    <pre id="out">running…</pre>
+    <script type="module">
+      // Dev-only harness: exercises the real decision logic through Vite's module
+      // graph, so it tests shipped code rather than a copy of it.
+      // Open /subscription-check.html with the dev server running.
+      import { decideSubscription, parsePeriodEnd } from '/hooks/useOMSSubscription.ts';
+
+      const now = new Date('2026-09-19T12:00:00Z');
+      const base = {
+        simulateFailure: false,
+        status: 'active',
+        periodEnd: '2026-10-15T23:59:59Z',
+        lastPaidMonth: null,
+        checkoutUrl: null,
+      };
+      const decide = (over = {}, enabled = true) =>
+        decideSubscription({ ...base, ...over }, now, enabled);
+
+      const cases = [
+        // parsePeriodEnd
+        ['date-only expires at the end of that local day', parsePeriodEnd('2026-10-15').getDate(), 15],
+        ['date-only keeps the whole day usable', parsePeriodEnd('2026-10-15').getHours(), 23],
+        ['full timestamp is taken literally', parsePeriodEnd('2026-10-15T23:59:59Z').toISOString(), '2026-10-15T23:59:59.000Z'],
+        ['empty value is no expiry', parsePeriodEnd('  '), null],
+        ['garbage is no expiry', parsePeriodEnd('not-a-date'), null],
+
+        // active licence
+        ['active and in period runs', decide().state, 'active'],
+        ['active past its period end is locked', decide({ periodEnd: '2026-09-01T00:00:00Z' }).state, 'expired'],
+        ['expired for the right reason', decide({ periodEnd: '2026-09-01T00:00:00Z' }).reason, 'expired'],
+        ['active with no period end runs', decide({ periodEnd: null }).state, 'active'],
+
+        // status-based
+        ['past_due is locked', decide({ status: 'past_due' }).state, 'expired'],
+        ['canceled is locked', decide({ status: 'canceled' }).state, 'expired'],
+        ['status match is case-insensitive', decide({ status: 'Active' }).state, 'active'],
+        ['status reason is reported', decide({ status: 'past_due' }).reason, 'status'],
+
+        // operator controls
+        ['simulate flag locks the app', decide({ simulateFailure: true }).state, 'expired'],
+        ['simulate flag is its own reason', decide({ simulateFailure: true }).reason, 'simulated'],
+        ['simulate flag wins over an active status', decide({ simulateFailure: true, status: 'active' }).reason, 'simulated'],
+
+        // legacy month-based fallback
+        ['legacy paid month keeps the app running', decideSubscription({ ...base, status: null, periodEnd: null, lastPaidMonth: '2026-09' }, now, true).state, 'active'],
+        ['legacy unpaid month locks the app', decideSubscription({ ...base, status: null, periodEnd: null, lastPaidMonth: '2026-08' }, now, true).state, 'expired'],
+        ['legacy lock reports why', decideSubscription({ ...base, status: null, periodEnd: null, lastPaidMonth: '2026-08' }, now, true).reason, 'legacy-unpaid'],
+
+        // fail closed / not configured
+        ['nothing fetched yet is unverified', decideSubscription(null, now, true).state, 'unverifiable'],
+        ['unverified reason is reported', decideSubscription(null, now, true).reason, 'unverified'],
+        ['without OMS credentials the check is off', decideSubscription(null, now, false).state, 'active'],
+        ['and says so', decideSubscription(null, now, false).reason, 'unconfigured'],
+
+        // details surfaced to the UI
+        ['period end is exposed for display', decide().expiresAt, '2026-10-15T23:59:59Z'],
+        ['checkout url is exposed for renewal', decide({ checkoutUrl: 'https://buy.polar.sh/x' }).checkoutUrl, 'https://buy.polar.sh/x'],
+      ];
+
+      const lines = cases.map(([label, actual, expected]) => {
+        const ok = actual === expected;
+        return `${ok ? 'PASS' : 'FAIL'}  ${label}  (got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)})`;
+      });
+      const failures = lines.filter((l) => l.startsWith('FAIL')).length;
+      document.getElementById('out').textContent =
+        `${cases.length - failures}/${cases.length} passed\n\n` + lines.join('\n');
+      document.title = failures ? `${failures} FAILED` : 'all passed';
+    </script>
+  </body>
+</html>

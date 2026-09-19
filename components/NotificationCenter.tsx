@@ -77,8 +77,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       </button>
 
       {isOpen && (
-        <div className={`absolute ${align ? (align === 'left' ? 'left-0' : 'right-0') : (language === 'ar' ? 'left-0' : 'right-0')} mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden flex flex-col max-h-[80vh]`}>
-          <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50">
+        <div className={`absolute ${align ? (align === 'left' ? 'left-0' : 'right-0') : (language === 'ar' ? 'left-0' : 'right-0')} mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-xl shadow-pop border border-gray-200 dark:border-gray-800 z-50 overflow-hidden flex flex-col max-h-[80vh]`}>
+          <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50">
             <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Bell className="w-4 h-4" />
               {t.notifications || 'Notifications'}
@@ -111,7 +111,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     key={notification.id}
                     className={`p-3 rounded-xl flex gap-3 transition-colors ${notification.isRead ? 'opacity-70 hover:bg-gray-50 dark:hover:bg-gray-700/50' : 'bg-brand-50/50 dark:bg-brand-900/10 hover:bg-brand-50 dark:hover:bg-brand-900/20'}`}
                   >
-                    <div className={`mt-0.5 p-2 rounded-full h-fit shrink-0 ${notification.isRead ? 'bg-gray-100 dark:bg-gray-700' : 'bg-white dark:bg-gray-800 shadow-sm'}`}>
+                    <div className={`mt-0.5 p-2 rounded-full h-fit shrink-0 ${notification.isRead ? 'bg-gray-100 dark:bg-gray-800' : 'bg-white dark:bg-gray-900 shadow-sm'}`}>
                       {getIcon(notification.type)}
                     </div>
                     <div className="flex-1 min-w-0">

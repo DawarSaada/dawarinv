@@ -1,9 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
+import { config } from '../config';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-console.log("Supabase URL:", supabaseUrl);
-console.log("Supabase Key exists:", !!supabaseKey);
-
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Values come from build-time env vars and are validated in config.ts.
+export const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+  realtime: {
+    params: {
+      // Cap realtime throughput; this app only needs change notifications.
+      eventsPerSecond: 10,
+    },
+  },
+});

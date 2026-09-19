@@ -1,55 +1,108 @@
 import * as pdfjsLib from 'pdfjs-dist';
-// Use correct imports as per @google/genai guidelines
-import { GoogleGenAI, Type } from "@google/genai";
+// Bundle the worker locally so PDF parsing keeps working offline and does not
+// depend on a third-party CDN at runtime.
+import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { InventoryItem, LocationData } from '../types';
+import { AiUnavailableError, callAiForJson } from './aiClient';
+import { logger } from '../utils/logger';
 
 // Use the namespace directly as it's correctly handled by the environment
 const pdfjs: any = pdfjsLib;
 
-// Set worker source for PDF.js using the specific CDN path matching the main library version
 if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@5.4.624/build/pdf.worker.min.js`;
+    pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 }
+
+/** Character budget for the document text handed to the model. */
+const MAX_DOCUMENT_CHARS = 60_000;
+/** Give up on absurdly long documents instead of burning the whole context. */
+const MAX_PAGES = 40;
 
 export const extractTextFromPDF = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   let fullText = '';
 
-  for (let i = 1; i <= pdf.numPages; i++) {
+  const pageCount = Math.min(pdf.numPages, MAX_PAGES);
+  for (let i = 1; i <= pageCount; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     const pageText = textContent.items.map((item: any) => item.str).join(' ');
     fullText += pageText + '\n';
+    if (fullText.length > MAX_DOCUMENT_CHARS) break;
   }
 
-  return fullText;
+  if (pdf.numPages > pageCount) {
+    logger.warn('PDF truncated for AI parsing', { pages: pdf.numPages, used: pageCount });
+  }
+
+  return fullText.slice(0, MAX_DOCUMENT_CHARS);
 };
 
-interface ExtractedTransfer {
+export interface ExtractedTransfer {
   targetLocationId: string | null;
   items: { itemId: string; quantity: number }[];
+  /** Raw names found in the document that could not be matched to an item. */
+  unmatched?: string[];
 }
+
+/** Standard JSON Schema — the edge function relays it as the JSON output contract. */
+const RESPONSE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['targetLocationId', 'items', 'unmatched'],
+  properties: {
+    targetLocationId: {
+      type: ['string', 'null'],
+      description: 'ID of the location the stock is moving TO, or null when unclear',
+    },
+    items: {
+      type: 'array',
+      description: 'Every document line that matched an item in the database',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['itemId', 'quantity'],
+        properties: {
+          itemId: { type: 'string', description: 'Exact ID from the inventory database' },
+          quantity: { type: 'number', description: 'Quantity to transfer (positive)' },
+        },
+      },
+    },
+    unmatched: {
+      type: 'array',
+      description: 'Item names from the document that are not in the database',
+      items: { type: 'string' },
+    },
+  },
+};
 
 export const parseTransferDocument = async (
   text: string, 
   inventoryItems: InventoryItem[], 
   availableLocations: LocationData[]
 ): Promise<ExtractedTransfer> => {
-  // Always use new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) inside the function
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  if (!text.trim()) {
+    throw new AiUnavailableError('The document contained no readable text.', 'invalid_response');
+  }
 
   // Prepare context for the AI
   const itemsContext = inventoryItems.map(i => `ID: "${i.id}", Name EN: "${i.nameEn}", Name AR: "${i.nameAr}", Unit: "${i.unit}"`).join('\n');
-  const locationContext = availableLocations.map(l => `ID: "${l.id}", Name: "${l.name}"`).join('\n');
+  const locationContext = availableLocations.map(l => `ID: "${l.id}", Name: "${l.name}", Name AR: "${l.nameAr || ''}"`).join('\n');
+
+  const system = [
+    'You convert transfer request documents into structured data for an inventory system.',
+    'You only use IDs that exist in the provided database. You never invent IDs.',
+    'Reply with a single JSON object and nothing else.',
+  ].join('\n');
 
   const prompt = `
-    You are a document processing assistant for an inventory system.
-    Analyze the following text extracted from a transfer request document (PDF).
-    
-    Your goal is to extract:
-    1. The destination location ID (where items are going TO).
-    2. A list of items to transfer, matching them to the provided Inventory Database.
+    Analyze the text extracted from a transfer request document (PDF).
+
+    Extract:
+    1. targetLocationId — the destination location (where items are going TO).
+    2. items — lines that match the inventory database, with their IDs and quantities.
+    3. unmatched — raw item names in the document that do not exist in the database.
 
     **Inventory Database:**
     ${itemsContext}
@@ -61,47 +114,51 @@ export const parseTransferDocument = async (
     ${text}
 
     **Rules:**
-    - Match item names in the text to either Name EN or Name AR in the Inventory Database. Return the corresponding ID.
-    - If an item in the text does not exist in the database, ignore it.
-    - Match the destination location name to the Location ID.
-    - Extract quantities as numbers.
-    - Return JSON only.
+    - Match item names to either Name EN or Name AR exactly; ignore fuzzy or partial matches.
+    - Return the corresponding ID only — never a name — in "items".
+    - Quantities must be positive numbers; if a quantity is missing or unreadable, skip that line.
+    - Match the destination location by name (either language) to its Location ID.
+    - If the destination is ambiguous or absent, set targetLocationId to null.
+    - List every unrecognised item name in "unmatched" so a human can review it.
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            targetLocationId: { type: Type.STRING, description: "The ID of the location the stock is moving TO" },
-            items: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  itemId: { type: Type.STRING, description: "The ID of the inventory item found in the database" },
-                  quantity: { type: Type.NUMBER, description: "The quantity to transfer" }
-                },
-                propertyOrdering: ["itemId", "quantity"]
-              }
-            }
-          },
-          propertyOrdering: ["targetLocationId", "items"]
-        }
-      }
+    const raw = await callAiForJson<ExtractedTransfer>({
+      prompt,
+      system,
+      responseSchema: RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+      temperature: 0,
     });
 
-    // Access response text via the .text property (not a method)
-    if (response.text) {
-      return JSON.parse(response.text) as ExtractedTransfer;
-    }
-    throw new Error("No response from AI");
+    const knownIds = new Set(inventoryItems.map((item) => item.id));
+    const knownLocationIds = new Set(availableLocations.map((location) => location.id));
+
+    // Never trust the model with inventory math: drop unknown IDs and non-positive amounts.
+    const items = (Array.isArray(raw?.items) ? raw.items : [])
+      .filter(
+        (item) =>
+          item &&
+          typeof item.itemId === 'string' &&
+          knownIds.has(item.itemId) &&
+          Number.isFinite(Number(item.quantity)) &&
+          Number(item.quantity) > 0
+      )
+      .map((item) => ({ itemId: item.itemId, quantity: Math.floor(Number(item.quantity)) }));
+
+    const targetLocationId =
+      typeof raw?.targetLocationId === 'string' && knownLocationIds.has(raw.targetLocationId)
+        ? raw.targetLocationId
+        : null;
+
+    return {
+      targetLocationId,
+      items,
+      unmatched: (Array.isArray(raw?.unmatched) ? raw.unmatched : []).filter(
+        (name): name is string => typeof name === 'string' && name.trim().length > 0
+      ),
+    };
   } catch (error) {
-    console.error("Error parsing transfer document:", error);
+    logger.error("Error parsing transfer document", error);
     throw error;
   }
 };

@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
+import { config, omsConfigured } from '../config';
+import { logger } from '../utils/logger';
 
-const omsSupabaseUrl = import.meta.env.VITE_OMS_SUPABASE_URL;
-const omsSupabaseKey = import.meta.env.VITE_OMS_SUPABASE_ANON_KEY;
-
-if (!omsSupabaseUrl || !omsSupabaseKey) {
-  console.warn("Missing OMS Supabase credentials in environment variables. Subscription checks will be bypassed.");
-}
-
-export const omsSupabase = (omsSupabaseUrl && omsSupabaseKey) 
-  ? createClient(omsSupabaseUrl, omsSupabaseKey) 
+/**
+ * Optional client for the OMS project, used only to read subscription status.
+ * When the credentials are absent the subscription check is bypassed instead of
+ * locking the whole application.
+ */
+export const omsSupabase = omsConfigured
+  ? createClient(config.omsSupabaseUrl, config.omsSupabaseAnonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
   : null;
+
+if (!omsSupabase) {
+  logger.info('OMS credentials not configured; subscription checks are bypassed.');
+}

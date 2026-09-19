@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>UI review harness</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0f19;
+        --panel: #111827;
+        --line: #1f2937;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --accent: #f97316;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 12px/1.5 ui-sans-serif, system-ui, sans-serif;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(11, 15, 25, 0.94);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(6px);
+      }
+      header strong { color: var(--accent); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+      header a, header span.tag {
+        color: var(--text);
+        text-decoration: none;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 999px;
+        padding: 3px 9px;
+        white-space: nowrap;
+      }
+      header a.active { border-color: var(--accent); color: #fff; background: #7c2d12; }
+      header .sep { color: var(--muted); }
+      main { padding: 12px; display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+      .device { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+      .device > .label {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 4px 8px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--line);
+      }
+      .viewport { position: relative; overflow: hidden; }
+      .viewport > iframe { display: block; border: 0; background: #fff; transform-origin: top left; }
+    </style>
+  </head>
+  <body>
+    <header id="bar"></header>
+    <main id="stage"></main>
+    <script>
+      const DEVICES = {
+        mobile: { w: 390, h: 844, label: 'Mobile · 390' },
+        tablet: { w: 834, h: 1112, label: 'Tablet · 834' },
+        desktop: { w: 1440, h: 900, label: 'Desktop · 1440' },
+        wide: { w: 1920, h: 1080, label: 'Wide · 1920' },
+      };
+      // Routes are hash routes of the real app (see AdminDashboard tab handling).
+      const ROUTES = ['', '#users', '#inventory', '#catalog', '#reports', '#analytics', '#audits', '#suppliers', '#purchase_orders', '#transactions', '#settings'];
+
+      const params = new URLSearchParams(location.search);
+      const route = params.get('route') ?? '';
+      const device = params.get('device') ?? 'mobile';
+      // `fit` (default) scales the frame to the pane width; a number pins the scale.
+      const scaleParam = params.get('scale') ?? 'fit';
+      const board = params.get('board') === '1';
+      const panX = Number(params.get('panx') ?? 0);
+      const panY = Number(params.get('pany') ?? 0);
+      const theme = params.get('theme');
+      const lang = params.get('lang');
+
+      // Keep the app's own preferences in sync so screenshots are deterministic.
+      if (theme === 'dark' || theme === 'light') localStorage.setItem('dawar_theme', theme);
+      if (lang === 'ar' || lang === 'en') localStorage.setItem('dawar_language', lang);
+
+      const paneWidth = Math.min(window.innerWidth - 24, 620);
+
+      const frame = (key, routeHash) => {
+        const d = DEVICES[key];
+        const scale = scaleParam === 'fit' ? Math.min(1, paneWidth / d.w) : Number(scaleParam);
+        const el = document.createElement('section');
+        el.className = 'device';
+        el.innerHTML =
+          '<div class="label"><span>' + d.label + '</span><span>#' + (routeHash.replace('#', '') || 'root') +
+          ' · ' + Math.round(scale * 100) + '%</span></div>' +
+          '<div class="viewport" style="width:' + Math.round(d.w * scale) + 'px;height:' + Math.round(d.h * scale) + 'px">' +
+          '<iframe src="/' + routeHash + '" title="' + d.label + '" ' +
+          'style="width:' + d.w + 'px;height:' + d.h + 'px;transform:scale(' + scale + ');margin-left:' + (-panX * scale) + 'px;margin-top:' + (-panY * scale) + 'px"></iframe>' +
+          '</div>';
+        return el;
+      };
+
+      const bar = document.getElementById('bar');
+      bar.innerHTML =
+        '<strong>UI review</strong>' +
+        ROUTES.map((r) => {
+          const label = r.replace('#', '') || 'root';
+          return '<a class="' + (r === route ? 'active' : '') + '" href="?device=' + device + '&route=' + encodeURIComponent(r) +
+            (scaleParam !== 'fit' ? '&scale=' + scaleParam : '') + '">' + label + '</a>';
+        }).join('') +
+        '<span class="sep">|</span>' +
+        Object.keys(DEVICES).map((k) => {
+          const label = k + (device === k ? ' ●' : '');
+          return '<a class="' + (device === k ? 'active' : '') + '" href="?device=' + k + '&route=' + encodeURIComponent(route) + '">' + label + '</a>';
+        }).join('') +
+        '<span class="sep">|</span>' +
+        '<a href="?device=' + device + '&board=1&route=' + encodeURIComponent(route) + '">board</a>' +
+        '<a href="?device=mobile&route=' + encodeURIComponent(route) + '&scale=1">100%</a>' +
+        '<a href="?device=' + device + '&route=' + encodeURIComponent(route) + '&theme=' + (theme === 'dark' ? 'light' : 'dark') + '">' +
+        (theme === 'dark' ? 'light' : 'dark') + '</a>';
+
+      const stage = document.getElementById('stage');
+      if (board) {
+        ['mobile', 'tablet', 'desktop'].forEach((k) => stage.appendChild(frame(k, route)));
+      } else {
+        stage.appendChild(frame(device, route));
+      }
+    </script>
+  </body>
+</html>

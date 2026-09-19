@@ -1,4 +1,31 @@
-import { InventoryItem, LocationData, User } from './types';
+import { Currency, InventoryItem, LocationData, User } from './types';
+
+/**
+ * Currencies an administrator can choose from in Settings.
+ *
+ * Money here is single-currency: there is no conversion and no exchange rate, so this
+ * sets the label and the locale used to format amounts, nothing more. Storing cost in
+ * one currency and reporting in another is a roadmap item, not something this list
+ * pretends to solve.
+ */
+export const CURRENCIES: { code: Currency; nameEn: string; nameAr: string }[] = [
+  { code: 'SAR', nameEn: 'Saudi Riyal', nameAr: 'ريال سعودي' },
+  { code: 'AED', nameEn: 'UAE Dirham', nameAr: 'درهم إماراتي' },
+  { code: 'OMR', nameEn: 'Omani Rial', nameAr: 'ريال عماني' },
+  { code: 'KWD', nameEn: 'Kuwaiti Dinar', nameAr: 'دينار كويتي' },
+  { code: 'BHD', nameEn: 'Bahraini Dinar', nameAr: 'دينار بحريني' },
+  { code: 'QAR', nameEn: 'Qatari Riyal', nameAr: 'ريال قطري' },
+  { code: 'EGP', nameEn: 'Egyptian Pound', nameAr: 'جنيه مصري' },
+  { code: 'JOD', nameEn: 'Jordanian Dinar', nameAr: 'دينار أردني' },
+  { code: 'USD', nameEn: 'US Dollar', nameAr: 'دولار أمريكي' },
+  { code: 'EUR', nameEn: 'Euro', nameAr: 'يورو' },
+  { code: 'GBP', nameEn: 'Pound Sterling', nameAr: 'جنيه إسترليني' },
+];
+
+export const CURRENCY_CODES: Currency[] = CURRENCIES.map((c) => c.code);
+
+export const isCurrency = (value: unknown): value is Currency =>
+  typeof value === 'string' && (CURRENCY_CODES as string[]).includes(value);
 
 export const LOCATIONS: LocationData[] = [
   {
@@ -177,6 +204,12 @@ export const TRANSLATIONS = {
     noOtherLocations: "No other locations available",
     qtyGreaterZero: "Quantity must be greater than 0",
     matchError: "Could not match items from document",
+    aiUnavailable: "Document import is unavailable: the AI assistant is not configured.",
+    loginFeatureOffline: "Keeps working when the network drops",
+    loginFeatureBilingual: "English & Arabic with full RTL support",
+    loginFeatureBarcode: "Barcode and QR scanning built in",
+    loginDirectoryUnavailable: "User directory unavailable. Check your connection and reload.",
+    version: "Version",
     userAssignedBranch: "User will be assigned as Branch Manager",
     leaveBlankKeep: "Leave blank to keep current",
     noInventoryData: "No inventory data for this location.",
@@ -466,6 +499,12 @@ export const TRANSLATIONS = {
     noOtherLocations: "لا توجد مواقع أخرى متاحة",
     qtyGreaterZero: "يجب أن تكون الكمية أكبر من 0",
     matchError: "تعذر مطابقة العناصر من المستند",
+    aiUnavailable: "استيراد المستندات غير متاح: مساعد الذكاء الاصطناعي غير مُهيأ.",
+    loginFeatureOffline: "يواصل العمل عند انقطاع الشبكة",
+    loginFeatureBilingual: "العربية والإنجليزية مع دعم كامل للكتابة من اليمين",
+    loginFeatureBarcode: "قراءة الباركود ورموز QR مدمجة",
+    loginDirectoryUnavailable: "تعذر تحميل قائمة المستخدمين. تحقق من الاتصال ثم أعد التحميل.",
+    version: "الإصدار",
     userAssignedBranch: "سيتم تعيين المستخدم كمدير فرع",
     leaveBlankKeep: "اتركه فارغاً للاحتفاظ بكلمة المرور الحالية",
     noInventoryData: "لا توجد بيانات مخزون لهذا الموقع.",

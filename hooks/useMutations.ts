@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabase';
 import { InventoryItem, Transaction, TransactionType, LocationId, Language, Supplier, PurchaseOrder, PurchaseOrderItem, Audit, AuditItem } from '../types';
 import { generateId } from '../constants';
+import { logger } from '../utils/logger';
 
 interface MutationProps {
   language: Language;
@@ -117,7 +118,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       isManagerOfSource: boolean
     }) => {
       // Use the newly created RPC
-      console.log('Attempting transfer RPC with:', { fromLocation, toLocation, performedBy, isManagerOfSource, items });
+      logger.debug('Attempting transfer RPC', { fromLocation, toLocation, performedBy, isManagerOfSource });
       const { data, error } = await supabase.rpc('execute_transfer', {
         p_from_location: fromLocation,
         p_to_location: toLocation,
@@ -125,7 +126,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
         p_is_manager_of_source: isManagerOfSource,
         p_items: items
       });
-      console.log('Transfer RPC response:', { data, error });
+      logger.debug('Transfer RPC response', { hasData: !!data, error });
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
@@ -216,7 +217,17 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error("Log failed", error);
-      addToast('error', language === 'ar' ? 'حدث خطأ أثناء تسجيل العملية' : 'An error occurred while recording log');
+      // The server guard now rejects over-issuing with a specific message naming the
+      // item and the available quantity — surface it instead of a generic failure.
+      const detail: string | undefined = error?.message;
+      addToast(
+        'error',
+        detail
+          ? detail
+          : language === 'ar'
+            ? 'حدث خطأ أثناء تسجيل العملية'
+            : 'An error occurred while recording log'
+      );
     }
   });
 
@@ -338,11 +349,14 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     }
   });
 
+  // Alerts are *marked* read, not deleted: the low-stock triggers own these rows
+  // and deleting them destroyed the alert history (and re-created them on the next
+  // stock change, so the same alert kept reappearing as "new").
   const markNotificationAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
       const { error } = await supabase
         .from('notifications')
-        .delete()
+        .update({ is_read: true })
         .eq('id', notificationId);
       if (error) throw error;
     },
@@ -354,12 +368,12 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
   const markAllNotificationsAsReadMutation = useMutation({
     mutationFn: async (notificationIds: string[]) => {
       if (!notificationIds || notificationIds.length === 0) return;
-      
+
       const { error } = await supabase
         .from('notifications')
-        .delete()
+        .update({ is_read: true })
         .in('id', notificationIds);
-        
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -436,33 +450,46 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     }
   });
 
-  const createPurchaseOrderMutation = useMutation({
-    mutationFn: async (params: { po: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'poNumber' | 'status'> & { status?: string }, items: Omit<PurchaseOrderItem, 'id' | 'poId' | 'totalPrice'>[] }) => {
-      // 1. Create PO
-      const poNumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      
-      const { data: poData, error: poError } = await supabase
+  /**
+   * Retries the insert when the generated PO number collides.
+   *
+   * `po_number` is UNIQUE and the number is random, so a clash used to surface as
+   * a raw "duplicate key value" error instead of a new order.
+   */
+  const insertPurchaseOrder = async (row: Record<string, unknown>) => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const year = new Date().getFullYear();
+      const poNumber = `PO-${year}-${String(Math.floor(1000 + Math.random() * 9000))}`;
+      const { data, error } = await supabase
         .from('purchase_orders')
-        .insert({
-          po_number: poNumber,
-          supplier_id: params.po.supplierId,
-          location_id: params.po.locationId || 'warehouse',
-          status: params.po.status || 'draft',
-          expected_delivery: params.po.expectedDelivery || null,
-          notes: params.po.notes,
-          created_by: params.po.createdBy
-        })
+        .insert({ ...row, po_number: poNumber })
         .select()
         .single();
-        
-      if (poError) throw poError;
 
-      // 2. Insert Items
+      if (!error) return data;
+      // 23505 = unique_violation on po_number; anything else is a real failure.
+      if ((error as any).code !== '23505') throw error;
+    }
+    throw new Error('Could not allocate a unique purchase order number.');
+  };
+
+  const createPurchaseOrderMutation = useMutation({
+    mutationFn: async (params: { po: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'poNumber' | 'status'> & { status?: string }, items: Omit<PurchaseOrderItem, 'id' | 'poId' | 'totalPrice'>[] }) => {
+      const poData = await insertPurchaseOrder({
+        supplier_id: params.po.supplierId,
+        location_id: params.po.locationId || 'warehouse',
+        status: params.po.status || 'draft',
+        expected_delivery: params.po.expectedDelivery || null,
+        notes: params.po.notes,
+        created_by: params.po.createdBy
+      });
+
       const itemsToInsert = params.items.map(item => ({
         po_id: poData.id,
         item_name_en: item.itemNameEn,
         item_name_ar: item.itemNameAr,
         quantity: item.quantity,
+        received_quantity: 0,
         unit_price: item.unitPrice,
         total_price: item.quantity * item.unitPrice
       }));
@@ -471,8 +498,12 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
         .from('purchase_order_items')
         .insert(itemsToInsert);
 
-      if (itemsError) throw itemsError;
-      
+      if (itemsError) {
+        // Do not leave a header with no lines behind.
+        await supabase.from('purchase_orders').delete().eq('id', poData.id);
+        throw itemsError;
+      }
+
       return poData;
     },
     onSuccess: () => {
@@ -498,21 +529,39 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       
       if (poError) throw poError;
 
-      // 2. Delete existing items
+      // 2. Read the lines first: editing a PO used to delete and re-insert every
+      //    line, which reset `received_quantity` to whatever the caller sent (0 for
+      //    anything already partially received) and handed the lines new ids.
+      const { data: existingItems, error: fetchError } = await supabase
+        .from('purchase_order_items')
+        .select('item_name_en, received_quantity')
+        .eq('po_id', params.id);
+
+      if (fetchError) throw fetchError;
+
+      const receivedByName = new Map<string, number>();
+      (existingItems || []).forEach((row: any) => {
+        receivedByName.set(row.item_name_en, Number(row.received_quantity) || 0);
+      });
+
+      // 3. Delete existing items
       const { error: deleteError } = await supabase
         .from('purchase_order_items')
         .delete()
         .eq('po_id', params.id);
-      
+
       if (deleteError) throw deleteError;
 
-      // 3. Insert new items
+      // 4. Insert new items, carrying forward any quantity already received.
       const newItems = params.items.map(item => ({
         po_id: params.id,
         item_name_en: item.itemNameEn,
         item_name_ar: item.itemNameAr,
         quantity: item.quantity,
-        received_quantity: item.receivedQuantity || 0,
+        received_quantity: Math.min(
+          Number(item.receivedQuantity ?? 0) || receivedByName.get(item.itemNameEn) || 0,
+          item.quantity
+        ),
         unit_price: item.unitPrice,
         total_price: item.quantity * item.unitPrice
       }));
@@ -549,135 +598,47 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     }
   });
 
+  /**
+   * Receiving a purchase order runs entirely inside the `receive_purchase_order`
+   * RPC, so it is one transaction on the server.
+   *
+   * It used to be re-implemented here as a loop of round-trips, which lost stock:
+   * a failure halfway left PO rows updated but inventory untouched, a retry then
+   * double-counted, `quantity = quantity + x` was applied client-side from a stale
+   * read, and the resulting `transactions` insert named columns that do not exist
+   * (`item_id`, `location_id`) and never checked the error — so receipts of an
+   * existing item silently produced no ledger entry at all. The RPC also credits
+   * the PO's own location instead of always 'warehouse'.
+   */
   const receivePurchaseOrderMutation = useMutation({
     mutationFn: async ({ poId, items, performedBy }: { poId: string, items: { id: string, received_quantity: number }[], performedBy: string }) => {
-      const { data: poRecord, error: poError } = await supabase
-        .from('purchase_orders')
-        .select('location_id')
-        .eq('id', poId)
-        .single();
-      
-      if (poError) throw poError;
-      const poLocationId = poRecord.location_id || 'warehouse';
-
-      // 1. Fetch the current PO items to know their names
-      const { data: poItems, error: fetchError } = await supabase
-        .from('purchase_order_items')
-        .select('*')
-        .eq('po_id', poId);
-      
-      if (fetchError) throw fetchError;
-
-      // 2. Process each received item
-      for (const receiveItem of items) {
-        const poItem = poItems.find((i: any) => i.id === receiveItem.id);
-        if (!poItem) continue;
-
-        const newReceivedQty = poItem.received_quantity + receiveItem.received_quantity;
-
-        // Update purchase_order_items
-        const { error: updatePoItemError } = await supabase
-          .from('purchase_order_items')
-          .update({ received_quantity: newReceivedQty })
-          .eq('id', receiveItem.id);
-        
-        if (updatePoItemError) throw updatePoItemError;
-
-        // Find item in target inventory
-        const { data: invItems, error: invFetchError } = await supabase
-          .from('inventory_items')
-          .select('*')
-          .eq('location_id', poLocationId)
-          .ilike('name_en', poItem.item_name_en);
-        
-        if (invFetchError) throw invFetchError;
-        
-        const existingInvItem = invItems && invItems.length > 0 ? invItems[0] : null;
-
-        if (existingInvItem) {
-          // Update existing inventory
-          const { error: invUpdateError } = await supabase
-            .from('inventory_items')
-            .update({ 
-              quantity: existingInvItem.quantity + receiveItem.received_quantity,
-              last_updated: new Date().toISOString()
-            })
-            .eq('id', existingInvItem.id);
-          
-          if (invUpdateError) throw invUpdateError;
-
-          // Record transaction
-          await supabase.from('transactions').insert({
-            item_id: existingInvItem.id,
-            type: 'receive',
-            quantity: receiveItem.received_quantity,
-            performed_by: performedBy,
-            location_id: poLocationId,
-            notes: `Received from PO #${poId}`
-          });
-        } else {
-          // Fetch from catalog to get category/unit
-          const { data: catalogItems } = await supabase
-            .from('product_catalog')
-            .select('*')
-            .ilike('name_en', poItem.item_name_en);
-          
-          const catItem = catalogItems && catalogItems.length > 0 ? catalogItems[0] : null;
-
-          // Insert new inventory item
-          // Insert new inventory item
-          const { data: newInv, error: invInsertError } = await supabase
-            .from('inventory_items')
-            .insert({
-              name_en: poItem.item_name_en,
-              name_ar: poItem.item_name_ar || poItem.item_name_en,
-              category: catItem ? catItem.category : 'General',
-              quantity: receiveItem.received_quantity,
-              unit: catItem ? catItem.unit : 'Piece',
-              min_threshold: catItem ? catItem.min_threshold : 0,
-              location_id: poLocationId
-            })
-            .select()
-            .single();
-            
-          if (invInsertError) throw invInsertError;
-
-          // Record transaction
-          await supabase.from('transactions').insert({
-            item_id: newInv.id,
-            type: 'receive',
-            quantity: receiveItem.received_quantity,
-            performed_by: performedBy,
-            location_id: 'warehouse',
-            notes: `Received from PO #${poId}`
-          });
-        }
+      const received = items.filter((item) => Number(item.received_quantity) > 0);
+      if (received.length === 0) {
+        throw new Error(language === 'ar' ? 'لم يتم إدخال كميات للاستلام' : 'No quantities were entered to receive');
       }
 
-      // 3. Check if all items are fully received to update PO status
-      const { data: finalPoItems } = await supabase
-        .from('purchase_order_items')
-        .select('quantity, received_quantity')
-        .eq('po_id', poId);
-      
-      if (finalPoItems) {
-        const allReceived = finalPoItems.every((i: any) => i.received_quantity >= i.quantity);
-        if (allReceived) {
-          await supabase
-            .from('purchase_orders')
-            .update({ status: 'received' })
-            .eq('id', poId);
-        }
-      }
+      const { data, error } = await supabase.rpc('receive_purchase_order', {
+        p_po_id: poId,
+        p_items: received.map((item) => ({ id: item.id, received_quantity: Number(item.received_quantity) })),
+        p_performed_by: performedBy
+      });
+      if (error) throw error;
+      return data as { status?: string; received?: number; fully_received?: boolean } | null;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['purchase_orders'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      addToast('success', language === 'ar' ? 'تم استلام أمر الشراء بنجاح' : 'Purchase order received successfully');
+      const fullyReceived = result?.fully_received ?? true;
+      if (language === 'ar') {
+        addToast('success', fullyReceived ? 'تم استلام أمر الشراء بالكامل' : 'تم استلام الكميات — الطلب ما زال مفتوحاً للباقي');
+      } else {
+        addToast('success', fullyReceived ? 'Purchase order received in full' : 'Quantities received — the order stays open for the rest');
+      }
     },
     onError: (error: any) => {
-      addToast('error', error.message);
+      console.error('Receive purchase order failed', error);
+      addToast('error', error?.message || (language === 'ar' ? 'فشل استلام أمر الشراء' : 'Failed to receive the purchase order'));
     }
   });
 

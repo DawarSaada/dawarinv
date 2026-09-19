@@ -155,8 +155,8 @@ const TransferModal: React.FC<TransferModalProps> = ({
 
     return (
         <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-2 sm:p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+                <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-800">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-brand-50 dark:bg-brand-900/30 rounded-lg"><ArrowRightLeft className="w-5 h-5 text-brand-600" /></div>
                         <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{t.transferStock}</h2>
@@ -169,17 +169,17 @@ const TransferModal: React.FC<TransferModalProps> = ({
                         <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">{t.from}</label>
                             {isGlobal ? (
-                                <select value={sourceLocation} onChange={(e) => { setSourceLocation(e.target.value); setTransferList([]); }} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                                <select value={sourceLocation} onChange={(e) => { setSourceLocation(e.target.value); setTransferList([]); }} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500">
                                     <option value="">{t.selectLocation}...</option>
                                     {sources.map(loc => <option key={loc.id} value={loc.id}>{loc.id === 'warehouse' ? t.warehouse : loc.id === 'mammal' ? t.mammal : (language === 'ar' ? (loc.nameAr || loc.name) : loc.name)}</option>)}
                                 </select>
                             ) : (
-                                <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-900 rounded-xl text-sm font-bold border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-300">{sourceLocation === 'warehouse' ? t.warehouse : sourceLocation === 'mammal' ? t.mammal : sourceLocation}</div>
+                                <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-900 rounded-xl text-sm font-bold border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300">{sourceLocation === 'warehouse' ? t.warehouse : sourceLocation === 'mammal' ? t.mammal : sourceLocation}</div>
                             )}
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">{t.to}</label>
-                            <select value={targetLocation} onChange={(e) => setTargetLocation(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <select value={targetLocation} onChange={(e) => setTargetLocation(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500">
                                 <option value="">{t.selectLocation}...</option>
                                 {destinations.map(loc => <option key={loc.id} value={loc.id}>{loc.id === 'warehouse' ? t.warehouse : loc.id === 'mammal' ? t.mammal : (language === 'ar' ? (loc.nameAr || loc.name) : loc.name)}</option>)}
                             </select>
@@ -187,15 +187,15 @@ const TransferModal: React.FC<TransferModalProps> = ({
                     </div>
 
                     {sourceLocation && (
-                        <div className="p-4 bg-brand-50 dark:bg-brand-900/10 rounded-2xl border border-brand-100 dark:border-brand-900/30">
+                        <div className="p-4 bg-brand-50 dark:bg-brand-900/10 rounded-xl border border-brand-100 dark:border-brand-900/30">
                             <div className="space-y-3">
                                 <label className="block text-xs font-bold text-brand-700 dark:text-brand-300 uppercase">{t.selectItem}</label>
-                                <select value={selectedItemId} onChange={(e) => { setSelectedItemId(e.target.value); setError(''); }} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                                <select value={selectedItemId} onChange={(e) => { setSelectedItemId(e.target.value); setError(''); }} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500">
                                     <option value="">{t.selectItem}...</option>
                                     {availableItemsForSource.map(item => <option key={item.id} value={item.id}>{(language === 'ar' ? item.nameAr : item.nameEn)} ({item.quantity} {item.unit})</option>)}
                                 </select>
                                 <div className="flex gap-2">
-                                    <input type="number" value={quantity} onChange={(e) => { setQuantity(e.target.value); setError(''); }} className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500" placeholder={t.quantity} />
+                                    <input type="number" value={quantity} onChange={(e) => { setQuantity(e.target.value); setError(''); }} className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500" placeholder={t.quantity} />
                                     <button type="button" onClick={handleAddItem} className="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-transform">{t.addToTransfer}</button>
                                 </div>
                                 {error && <div className="text-red-500 text-[10px] font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</div>}
@@ -225,20 +225,20 @@ const TransferModal: React.FC<TransferModalProps> = ({
                                     type="number" 
                                     value={bulkQuantity} 
                                     onChange={(e) => setBulkQuantity(e.target.value)}
-                                    className="flex-1 px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-brand-500" 
+                                    className="flex-1 px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-brand-500" 
                                     placeholder={t.setAllToQty} 
                                 />
                                 <button 
                                     type="button" 
                                     onClick={handleApplyBulkQuantity}
-                                    className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                    className="px-3 py-1.5 bg-gray-100 dark:bg-gray-950 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                                 >
                                     {t.applyToAll}
                                 </button>
                             </div>
                         )}
 
-                        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl bg-gray-50/50 dark:bg-gray-900/50 min-h-[100px] overflow-hidden">
+                        <div className="border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/50 min-h-[100px] overflow-hidden">
                             {transferList.length === 0 ? (
                                 <div className="py-12 text-center text-gray-400 text-xs italic">{t.noItemsInList}</div>
                             ) : (
@@ -249,7 +249,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                                         const itemName = language === 'ar' ? item.itemNameAr : item.itemNameEn;
                                         
                                         return (
-                                            <div key={item.itemId} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 gap-4">
+                                            <div key={item.itemId} className="flex justify-between items-center p-3 bg-white dark:bg-gray-900 gap-4">
                                                 <div className="overflow-hidden flex-1">
                                                     <p className="font-bold text-xs sm:text-sm truncate text-gray-900 dark:text-white">{itemName}</p>
                                                     <p className="text-[10px] text-gray-400">{maxQty} {item.unit} {t.available || 'available'}</p>
@@ -264,7 +264,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                                                                 setTransferList(prev => prev.map(i => i.itemId === item.itemId ? { ...i, quantity: val } : i));
                                                             }
                                                         }}
-                                                        className={`w-20 px-2 py-1 border rounded-lg text-sm text-center outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-white ${item.quantity > maxQty ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-600'}`}
+                                                        className={`w-20 px-2 py-1 border rounded-lg text-sm text-center outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-950 dark:text-white ${item.quantity > maxQty ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-600'}`}
                                                     />
                                                     <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{item.unit}</span>
                                                 </div>
@@ -280,9 +280,9 @@ const TransferModal: React.FC<TransferModalProps> = ({
                     </div>
                 </div>
 
-                <div className="p-5 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-                    <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 px-4 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-2xl transition-all text-sm disabled:opacity-50">{t.cancel}</button>
-                    <button onClick={handleSubmit} disabled={transferList.length === 0 || !targetLocation || isSubmitting} className="flex-1 px-4 py-3 bg-brand-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-2xl font-bold transition-all shadow-lg text-sm flex items-center justify-center gap-2">
+                <div className="p-5 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-800 flex gap-3">
+                    <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 px-4 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-all text-sm disabled:opacity-50">{t.cancel}</button>
+                    <button onClick={handleSubmit} disabled={transferList.length === 0 || !targetLocation || isSubmitting} className="flex-1 px-4 py-3 bg-brand-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl font-bold transition-all shadow-lg text-sm flex items-center justify-center gap-2">
                         {isSubmitting ? (
                             <>
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

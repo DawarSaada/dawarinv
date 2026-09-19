@@ -1,22 +1,24 @@
-import React from 'react';
-import { 
-  Bell, 
-  ArrowDownCircle, 
-  ArrowUpCircle, 
-  Download, 
-  Eye, 
-  CheckCircle, 
-  XCircle,
+import React, { useState } from 'react';
+import {
   AlertTriangle,
-  Check,
-  Package,
+  ArrowDownCircle,
   ArrowRight,
-  MapPin,
-  Clock
+  ArrowUpCircle,
+  Bell,
+  Check,
+  CheckCircle,
+  ChevronDown,
+  Clock,
+  Download,
+  Eye,
+  Package,
+  XCircle
 } from 'lucide-react';
 import { Transaction, AppNotification, LocationData, Language } from '../../types';
 import { supabase } from '../../services/supabase';
 import { TRANSLATIONS } from '../../constants';
+import { logger } from '../../utils/logger';
+import { Badge, Button, Panel, cn } from '../ui';
 
 interface InventoryNotificationsProps {
   t: any;
@@ -31,7 +33,13 @@ interface InventoryNotificationsProps {
   language?: Language;
   availableLocations?: LocationData[];
   onOpenTransferDetail?: (groupId: string, type: 'incoming' | 'outgoing' | 'approval') => void;
+  /** Preferred way to clear an alert; falls back to a direct write. */
+  onMarkAsRead?: (id: string) => void;
 }
+
+/** How many rows of each list are rendered before "show all". */
+const PREVIEW_COUNT = 3;
+const ALERT_PREVIEW_COUNT = 20;
 
 const InventoryNotifications: React.FC<InventoryNotificationsProps> = ({
   t,
@@ -45,28 +53,43 @@ const InventoryNotifications: React.FC<InventoryNotificationsProps> = ({
   alerts = [],
   language = 'en',
   availableLocations = [],
-  onOpenTransferDetail
+  onOpenTransferDetail,
+  onMarkAsRead
 }) => {
-  if (groupedIncoming.length === 0 && groupedApprovals.length === 0 && alerts.length === 0) {
+  const hasActions = groupedIncoming.length > 0 || groupedApprovals.length > 0;
+  const [open, setOpen] = useState(hasActions);
+  const [showAllIncoming, setShowAllIncoming] = useState(false);
+  const [showAllApprovals, setShowAllApprovals] = useState(false);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
+
+  const isAr = language === 'ar';
+  const unreadAlerts = alerts.filter((alert) => !alert.isRead);
+
+  // Nothing to act on: the bell in the top bar already holds the alert history,
+  // so an all-zero summary panel would just push the inventory down.
+  if (!hasActions && unreadAlerts.length === 0) {
     return null;
   }
 
   const handleMarkAsRead = async (id: string) => {
+    if (onMarkAsRead) {
+      onMarkAsRead(id);
+      return;
+    }
     try {
       await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      logger.error('Failed to mark notification as read', error);
     }
   };
 
-  // Helper to resolve location name
   const getLocationName = (locationId: string | undefined) => {
     if (!locationId) return '';
     if (locationId === 'warehouse') return t.warehouse;
     if (locationId === 'mammal') return t.mammal;
-    const loc = availableLocations.find(l => l.id === locationId);
+    const loc = availableLocations.find((item) => item.id === locationId);
     if (!loc) return locationId;
-    return language === 'ar' ? (loc.nameAr || loc.name) : loc.name;
+    return isAr ? loc.nameAr || loc.name : loc.name;
   };
 
   const handleViewTransfer = (groupId: string, type: 'incoming' | 'outgoing' | 'approval') => {
@@ -77,171 +100,330 @@ const InventoryNotifications: React.FC<InventoryNotificationsProps> = ({
     }
   };
 
-  return (
-    <div className="mb-8 space-y-6">
-       <div className="flex items-center gap-2 mb-4">
-          <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600" />
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{t.notificationCenter}</h2>
-       </div>
+  const formatDate = (value?: string) =>
+    value
+      ? new Date(value).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
+          month: 'short',
+          day: 'numeric'
+        })
+      : '';
 
-       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {/* Incoming Section */}
-          <div className="space-y-4">
-             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <ArrowDownCircle className="w-4 h-4 text-blue-500" /> {t.incomingRequests}
-             </h3>
-             <div className="space-y-3">
-                {groupedIncoming.map(([groupId, items]) => {
-                  const fromName = getLocationName(items[0]?.fromLocation);
-                  const toName = getLocationName(items[0]?.toLocation);
-                  const date = items[0]?.date ? new Date(items[0].date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' }) : '';
-                  
-                  return (
-                   <div key={groupId} className="bg-white dark:bg-gray-800 rounded-2xl border border-blue-100 dark:border-blue-900/30 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                      {/* Route Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 text-sm">
-                          <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                            <Package className="w-4 h-4 text-blue-500" />
-                          </div>
-                          <span className="font-bold text-gray-900 dark:text-white">{fromName}</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-gray-300" />
-                          <span className="font-bold text-gray-900 dark:text-white">{toName}</span>
-                        </div>
-                        <button onClick={() => handleDownloadTransfer(groupId, 'incoming')} className="p-1.5 text-gray-300 hover:text-brand-600 transition-colors rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20" title={t.exportPDF}>
-                           <Download className="w-4 h-4" />
-                        </button>
-                      </div>
+  const renderGroup = (
+    groupId: string,
+    items: Transaction[],
+    kind: 'incoming' | 'approval',
+    showAll: boolean,
+    toggleShowAll?: () => void,
+    index?: number
+  ) => {
+    if (!showAll && toggleShowAll && (index ?? 0) >= PREVIEW_COUNT) return null;
 
-                      {/* Meta */}
-                      <div className="flex items-center gap-3 mb-4 text-xs text-gray-400">
-                        <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {items.length} {t.items}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {date}</span>
-                        <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full font-bold text-[10px]">{t.awaitingReview}</span>
-                      </div>
+    const fromName = getLocationName(items[0]?.fromLocation);
+    const toName = getLocationName(items[0]?.toLocation);
+    const isIncoming = kind === 'incoming';
 
-                      {/* Action */}
-                      <button 
-                        onClick={() => handleViewTransfer(groupId, 'incoming')} 
-                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-blue-600 to-brand-600 text-white rounded-xl text-xs font-bold hover:from-blue-700 hover:to-brand-700 transition-all shadow-md shadow-blue-200 dark:shadow-none"
-                      >
-                        <Eye className="w-4 h-4" /> {t.reviewTransfer}
-                      </button>
-                   </div>
-                  );
-                })}
-                {groupedIncoming.length === 0 && <p className="text-sm text-gray-400 italic">{t.noItemsInList}</p>}
-             </div>
+    return (
+      <div
+        key={groupId}
+        className="rounded-lg border border-gray-200 p-3 transition-colors hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+            <span className="font-medium text-gray-900 dark:text-white">{fromName}</span>
+            <ArrowRight className="h-3.5 w-3.5 text-gray-400 rtl:rotate-180" />
+            <span className="font-medium text-gray-900 dark:text-white">{toName}</span>
           </div>
-
-          {/* Outgoing Section */}
-          <div className="space-y-4">
-             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <ArrowUpCircle className="w-4 h-4 text-orange-500" /> {t.outgoingApprovals}
-             </h3>
-             <div className="space-y-3">
-                {groupedApprovals.map(([groupId, items]) => {
-                  const fromName = getLocationName(items[0]?.fromLocation);
-                  const toName = getLocationName(items[0]?.toLocation);
-                  const date = items[0]?.date ? new Date(items[0].date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' }) : '';
-
-                  return (
-                   <div key={groupId} className="bg-white dark:bg-gray-800 rounded-2xl border border-orange-100 dark:border-orange-900/30 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                      {/* Route Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 text-sm">
-                          <div className="p-1.5 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
-                            <Package className="w-4 h-4 text-orange-500" />
-                          </div>
-                          <span className="font-bold text-gray-900 dark:text-white">{fromName}</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-gray-300" />
-                          <span className="font-bold text-gray-900 dark:text-white">{toName}</span>
-                        </div>
-                        <button onClick={() => handleDownloadTransfer(groupId, 'outgoing')} className="p-1.5 text-gray-300 hover:text-orange-600 transition-colors rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20">
-                           <Download className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Meta */}
-                      <div className="flex items-center gap-3 mb-4 text-xs text-gray-400">
-                        <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {items.length} {t.items}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {date}</span>
-                        <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full font-bold text-[10px]">{t.waitingForSource}</span>
-                      </div>
-
-                      {/* Action */}
-                      <button 
-                        onClick={() => handleViewTransfer(groupId, 'approval')} 
-                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-bold hover:from-orange-600 hover:to-amber-600 transition-all shadow-md shadow-orange-200 dark:shadow-none"
-                      >
-                        <Eye className="w-4 h-4" /> {t.reviewTransfer}
-                      </button>
-                   </div>
-                  );
-                })}
-                {groupedApprovals.length === 0 && <p className="text-sm text-gray-400 italic">{t.noTransactionsFound}</p>}
-              </div>
-           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Download />}
+            aria-label={t.exportPDF}
+            title={t.exportPDF}
+            onClick={() => handleDownloadTransfer(groupId, isIncoming ? 'incoming' : 'outgoing')}
+          />
         </div>
 
-        {/* System Alerts Section */}
-        {alerts.length > 0 && (
-           <div className="space-y-4 mt-6">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                 <AlertTriangle className="w-4 h-4 text-red-500" /> {language === 'ar' ? 'تنبيهات النظام' : 'System Alerts'}
-              </h3>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-900/30 shadow-sm overflow-hidden flex flex-col">
-                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-red-50/50 dark:bg-red-900/10">
-                    <div className="flex items-center gap-2">
-                       <AlertTriangle className="w-5 h-5 text-red-500" />
-                       <span className="font-bold text-red-600 dark:text-red-400">
-                          {language === 'ar' ? 'تنبيهات المخزون' : 'Stock Alerts'} ({alerts.length})
-                       </span>
-                    </div>
-                    {alerts.some(a => !a.isRead) && (
-                       <button 
-                          onClick={async () => {
-                             for (const a of alerts.filter(al => !al.isRead)) {
-                                await handleMarkAsRead(a.id);
-                             }
-                          }}
-                          className="px-3 py-1.5 bg-brand-50 hover:bg-brand-100 dark:bg-brand-900/30 dark:hover:bg-brand-900/50 text-xs font-bold text-brand-600 dark:text-brand-400 rounded-lg flex items-center gap-1.5 transition-colors"
-                       >
-                          <Check className="w-3.5 h-3.5" /> {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark All as Read'}
-                       </button>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <Badge tone={isIncoming ? 'info' : 'warning'} size="sm">
+            {isIncoming ? t.awaitingReview : t.waitingForSource}
+          </Badge>
+          <span className="inline-flex items-center gap-1">
+            <Package className="h-3 w-3" />
+            {items.length} {t.items}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatDate(items[0]?.date)}
+          </span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button
+            variant={isIncoming ? 'primary' : 'secondary'}
+            size="sm"
+            icon={<Eye />}
+            onClick={() => handleViewTransfer(groupId, isIncoming ? 'incoming' : 'approval')}
+          >
+            {t.reviewTransfer}
+          </Button>
+          {isIncoming ? (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<CheckCircle />}
+                onClick={() => handleBulkAccept(groupId)}
+              >
+                {t.receive}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<XCircle />}
+                className="text-danger-600 hover:bg-danger-50 dark:text-danger-500 dark:hover:bg-danger-900/25"
+                onClick={() => setRejectionTarget(items)}
+              >
+                {t.reject}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<CheckCircle />}
+              onClick={() => items.forEach((tx) => onConfirmOutbound(tx))}
+            >
+              {t.confirm}
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const summary = [
+    {
+      id: 'incoming',
+      label: t.incomingRequests,
+      value: groupedIncoming.length,
+      tone: 'info' as const,
+      icon: <ArrowDownCircle />
+    },
+    {
+      id: 'approvals',
+      label: t.outgoingApprovals,
+      value: groupedApprovals.length,
+      tone: 'warning' as const,
+      icon: <ArrowUpCircle />
+    },
+    {
+      id: 'alerts',
+      label: isAr ? 'تنبيهات المخزون' : 'Stock alerts',
+      value: unreadAlerts.length,
+      tone: 'danger' as const,
+      icon: <AlertTriangle />
+    }
+  ];
+
+  const visibleAlerts = showAllAlerts ? alerts : alerts.slice(0, ALERT_PREVIEW_COUNT);
+
+  return (
+    <Panel className="overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-3.5 py-3 text-start transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+      >
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-400 [&>svg]:h-4 [&>svg]:w-4">
+          <Bell />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">
+            {t.notificationCenter}
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+            {summary.map((entry) => (
+              <span key={entry.id} className="inline-flex items-center gap-1">
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    entry.value > 0 ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-700'
+                  )}
+                  aria-hidden
+                />
+                <span className="tnum font-medium text-gray-700 dark:text-gray-200">
+                  {entry.value}
+                </span>
+                {entry.label}
+              </span>
+            ))}
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 flex-shrink-0 text-gray-400 transition-transform',
+            open && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-gray-200 p-3.5 dark:border-gray-800">
+          {hasActions && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section className="space-y-2.5">
+                <h3 className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <ArrowDownCircle className="h-3.5 w-3.5 text-info-500" />
+                  {t.incomingRequests}
+                  <Badge tone="info" size="sm">
+                    {groupedIncoming.length}
+                  </Badge>
+                </h3>
+                {groupedIncoming.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    {t.noItemsInList}
+                  </p>
+                ) : (
+                  <>
+                    {groupedIncoming.map(([groupId, items], index) =>
+                      renderGroup(groupId, items, 'incoming', showAllIncoming, () =>
+                        setShowAllIncoming(true), index
+                      )
                     )}
-                 </div>
-                 
-                 <div className="p-0 max-h-[400px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-                    {alerts.map(alert => (
-                       <div key={alert.id} className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${alert.isRead ? 'bg-gray-50/50 dark:bg-gray-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
-                          <div>
-                             <p className={`text-sm ${alert.isRead ? 'text-gray-500' : 'text-gray-900 dark:text-white font-medium'}`}>
-                                {language === 'ar' ? alert.messageAr : alert.messageEn}
-                             </p>
-                             <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(alert.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US', {
-                                  year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                                })}
-                             </p>
-                          </div>
-                          {!alert.isRead && (
-                             <button 
-                                onClick={() => handleMarkAsRead(alert.id)}
-                                className="text-xs font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400 flex items-center gap-1 shrink-0"
-                             >
-                                <CheckCircle className="w-3.5 h-3.5" /> {language === 'ar' ? 'تحديد كمقروء' : 'Mark as Read'}
-                             </button>
-                          )}
-                       </div>
-                    ))}
-                 </div>
+                    {groupedIncoming.length > PREVIEW_COUNT && !showAllIncoming && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => setShowAllIncoming(true)}
+                      >
+                        {isAr
+                          ? `عرض كل الطلبات (${groupedIncoming.length})`
+                          : `Show all ${groupedIncoming.length} requests`}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </section>
+
+              <section className="space-y-2.5">
+                <h3 className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <ArrowUpCircle className="h-3.5 w-3.5 text-warning-500" />
+                  {t.outgoingApprovals}
+                  <Badge tone="warning" size="sm">
+                    {groupedApprovals.length}
+                  </Badge>
+                </h3>
+                {groupedApprovals.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    {t.noTransactionsFound}
+                  </p>
+                ) : (
+                  <>
+                    {groupedApprovals.map(([groupId, items], index) =>
+                      renderGroup(groupId, items, 'approval', showAllApprovals, () =>
+                        setShowAllApprovals(true), index
+                      )
+                    )}
+                    {groupedApprovals.length > PREVIEW_COUNT && !showAllApprovals && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => setShowAllApprovals(true)}
+                      >
+                        {isAr
+                          ? `عرض الكل (${groupedApprovals.length})`
+                          : `Show all ${groupedApprovals.length}`}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </section>
+            </div>
+          )}
+
+          {alerts.length > 0 && (
+            <section className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <h3 className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <AlertTriangle className="h-3.5 w-3.5 text-danger-500" />
+                  {isAr ? 'تنبيهات النظام' : 'System alerts'}
+                  <Badge tone="danger" size="sm">
+                    {alerts.length}
+                  </Badge>
+                </h3>
+                {unreadAlerts.length > 0 && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    icon={<Check />}
+                    className="ms-auto"
+                    onClick={() => unreadAlerts.forEach((alert) => handleMarkAsRead(alert.id))}
+                  >
+                    {isAr ? 'تحديد الكل كمقروء' : 'Mark all as read'}
+                  </Button>
+                )}
               </div>
-           </div>
-        )}
-    </div>
+
+              <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                {visibleAlerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={cn(
+                      'flex flex-col gap-2 p-3 sm:flex-row sm:items-center',
+                      alert.isRead
+                        ? 'bg-gray-50/60 dark:bg-gray-950/40'
+                        : 'bg-white dark:bg-gray-900'
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          'text-sm',
+                          alert.isRead
+                            ? 'text-gray-500 dark:text-gray-400'
+                            : 'font-medium text-gray-900 dark:text-white'
+                        )}
+                      >
+                        {isAr ? alert.messageAr : alert.messageEn}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1 text-2xs text-gray-400">
+                        <Clock className="h-3 w-3" />
+                        {new Date(alert.createdAt).toLocaleString(isAr ? 'ar-SA' : 'en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                    {!alert.isRead && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<CheckCircle />}
+                        onClick={() => handleMarkAsRead(alert.id)}
+                      >
+                        {isAr ? 'تحديد كمقروء' : 'Mark read'}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {alerts.length > ALERT_PREVIEW_COUNT && !showAllAlerts && (
+                <Button variant="link" size="sm" onClick={() => setShowAllAlerts(true)}>
+                  {isAr
+                    ? `عرض كل التنبيهات (${alerts.length})`
+                    : `Show all ${alerts.length} alerts`}
+                </Button>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+    </Panel>
   );
 };
 

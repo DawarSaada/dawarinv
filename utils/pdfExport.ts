@@ -2,10 +2,26 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 import { PurchaseOrder, Audit, Language, CatalogItem, Supplier } from '../types';
-import { amiriBase64 } from './amiriFont';
+// The Arabic font is ~600KB of base64, so it is loaded on demand (separate chunk)
+// rather than shipped with the initial bundle.
+let amiriBase64Cache: string | null = null;
+
+const loadAmiriFont = async (): Promise<string | null> => {
+  if (amiriBase64Cache) return amiriBase64Cache;
+  try {
+    const module = await import('./amiriFont');
+    amiriBase64Cache = module.amiriBase64;
+    return amiriBase64Cache;
+  } catch (error) {
+    console.error('Could not load the Amiri font; falling back to the default font.', error);
+    return null;
+  }
+};
 
 // Helper to initialize custom font
-const initCustomFont = (doc: jsPDF) => {
+const initCustomFont = async (doc: jsPDF) => {
+  const amiriBase64 = await loadAmiriFont();
+  if (!amiriBase64) return;
   doc.addFileToVFS("Amiri-Regular.ttf", amiriBase64);
   doc.addFont("Amiri-Regular.ttf", "Amiri", "normal", "Identity-H");
   doc.addFont("Amiri-Regular.ttf", "Amiri", "bold", "Identity-H");
@@ -36,9 +52,19 @@ const drawWatermark = (doc: jsPDF) => {
   }
 };
 
-export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catalog: CatalogItem[], suppliers: Supplier[]) => {
+export const exportPOToPDF = async (
+  po: PurchaseOrder,
+  language: Language,
+  catalog: CatalogItem[],
+  suppliers: Supplier[],
+  /** ISO 4217 code from the administrator's settings. */
+  currency: string = 'SAR'
+) => {
   const doc = new jsPDF();
-  initCustomFont(doc);
+  await initCustomFont(doc);
+
+     // (font is initialised right after the document is created)
+
   const isAr = language === 'ar';
   
   // -- Visual Header --
@@ -58,7 +84,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   doc.text(formatText(doc, isAr ? "نظام إدارة المخزون" : "Inventory Management System"), 105, 26, { align: "center" });
 
   // Generate and insert QR Code (Offline Text Summary)
-  const qrText = `Dawar Saada PO #${po.poNumber}\nStatus: ${po.status.toUpperCase()}\nTotal: ${po.totalAmount.toFixed(2)} SAR\nDate: ${new Date(po.createdAt).toLocaleDateString('en-US')}`;
+  const qrText = `Dawar Saada PO #${po.poNumber}\nStatus: ${po.status.toUpperCase()}\nTotal: ${po.totalAmount.toFixed(2)} ${currency}\nDate: ${new Date(po.createdAt).toLocaleDateString('en-US')}`;
   try {
     const qrDataUrl = await QRCode.toDataURL(qrText, { width: 50, margin: 1 });
     doc.addImage(qrDataUrl, 'PNG', 160, 8, 30, 30);
@@ -134,8 +160,8 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
     formatText(doc, isAr ? 'العنصر' : 'Item'),
     formatText(doc, isAr ? 'الوحدة' : 'Unit'),
     formatText(doc, isAr ? 'الكمية' : 'Qty'),
-    formatText(doc, isAr ? 'سعر الوحدة (ريال)' : 'Unit Price (SAR)'),
-    formatText(doc, isAr ? 'المجموع (ريال)' : 'Total (SAR)')
+    formatText(doc, isAr ? `سعر الوحدة (${currency})` : `Unit Price (${currency})`),
+    formatText(doc, isAr ? `المجموع (${currency})` : `Total (${currency})`)
   ];
   
   let tableRows = po.items?.map(item => {
@@ -151,7 +177,7 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
   }) || [];
 
   let grandTotalRow = [
-      { content: formatText(doc, isAr ? 'الإجمالي الكلي (ريال)' : `Grand Total (SAR)`), colSpan: 4, styles: { halign: isAr ? 'left' : 'right', fontStyle: 'bold' } },
+      { content: formatText(doc, isAr ? `الإجمالي الكلي (${currency})` : `Grand Total (${currency})`), colSpan: 4, styles: { halign: isAr ? 'left' : 'right', fontStyle: 'bold' } },
       { content: po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2}), styles: { halign: isAr ? 'left' : 'right', fontStyle: 'bold' } }
   ] as any[];
 
@@ -226,7 +252,9 @@ export const exportPOToPDF = async (po: PurchaseOrder, language: Language, catal
 
 export const exportAuditToPDF = async (audit: Audit, language: Language) => {
   const doc = new jsPDF();
-  initCustomFont(doc);
+  await initCustomFont(doc);
+     // (font is initialised right after the document is created)
+
   const isAr = language === 'ar';
 
   // -- Visual Header --

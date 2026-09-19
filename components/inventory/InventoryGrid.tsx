@@ -1,16 +1,17 @@
 import React from 'react';
-import { 
-  Package, 
-  CheckCircle, 
-  MoreVertical, 
-  Pencil, 
-  ArrowUpCircle, 
-  ArrowDownCircle, 
-  Clock, 
-  Trash2, 
-  MapPin
+import {
+  AlertTriangle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Clock,
+  MapPin,
+  MoreVertical,
+  Package,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { InventoryItem, Language } from '../../types';
+import { Badge, Button, Checkbox, DataTable, Menu, cn, type Column, type MenuItem } from '../ui';
 
 interface InventoryGridProps {
   filteredItems: InventoryItem[];
@@ -33,6 +34,13 @@ interface InventoryGridProps {
   isExpired: (date?: string) => boolean;
 }
 
+/**
+ * Item list in three densities.
+ *
+ * Grid renders scannable cards, list and compact render the shared data table
+ * so sorting, selection and the action menu behave the same everywhere. The
+ * empty state lives in the parent so it can offer the filters/reset actions.
+ */
 const InventoryGrid: React.FC<InventoryGridProps> = ({
   filteredItems,
   viewMode,
@@ -42,8 +50,6 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
   toggleItemSelection,
   canEditItem,
   canRecordUsage,
-  activeActionId,
-  setActiveActionId,
   t,
   onEditItem,
   onRecordUsage,
@@ -53,256 +59,397 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
   isExpiringSoon,
   isExpired
 }) => {
-  if (filteredItems.length === 0) {
+  const isAr = language === 'ar';
+  if (filteredItems.length === 0) return null;
+
+  const itemName = (item: InventoryItem) => (isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr);
+
+  const rowActions = (item: InventoryItem): MenuItem[] => {
+    const actions: MenuItem[] = [];
+
+    if (canEditItem) {
+      actions.push({
+        id: 'edit',
+        label: t.edit,
+        icon: <Pencil />,
+        onSelect: () => onEditItem(item)
+      });
+    }
+    if (canEditItem || canRecordUsage) {
+      actions.push({
+        id: 'receive',
+        label: isAr ? 'تسجيل وارد' : 'Record receive',
+        icon: <ArrowUpCircle />,
+        onSelect: () => onRecordReceive(item)
+      });
+      actions.push({
+        id: 'usage',
+        label: isAr ? 'تسجيل صرف' : 'Record usage',
+        icon: <ArrowDownCircle />,
+        onSelect: () => onRecordUsage(item)
+      });
+    }
+    actions.push({
+      id: 'history',
+      label: isAr ? 'سجل الحركة' : 'Item history',
+      icon: <Clock />,
+      onSelect: () => onViewHistory(item)
+    });
+    if (canEditItem) {
+      actions.push({ id: '__separator__' });
+      actions.push({
+        id: 'delete',
+        label: t.delete,
+        icon: <Trash2 />,
+        danger: true,
+        onSelect: () => onDeleteItem(item)
+      });
+    }
+
+    return actions;
+  };
+
+  const statusBadges = (item: InventoryItem) => {
+    const isLowStock = item.quantity <= item.minThreshold;
+    const expired = isExpired(item.expirationDate);
+    const expiringSoon = isExpiringSoon(item.expirationDate);
+
     return (
-      <div className="text-center py-20">
-        <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Package className="w-10 h-10 text-gray-400" />
-        </div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.noItemsFound}</h3>
-        <p className="text-gray-500 dark:text-gray-400">{t.tryAdjustingFilters}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {isLowStock ? (
+          <Badge tone="warning" size="sm" icon={<AlertTriangle />}>
+            {t.lowStock}
+          </Badge>
+        ) : (
+          <Badge tone="neutral" size="sm">
+            {t.inStock}
+          </Badge>
+        )}
+        {expired && (
+          <Badge tone="danger" size="sm">
+            {isAr ? 'منتهي' : 'Expired'}
+          </Badge>
+        )}
+        {expiringSoon && !expired && (
+          <Badge tone="warning" size="sm">
+            {isAr ? 'قارب الانتهاء' : 'Expiring soon'}
+          </Badge>
+        )}
+      </div>
+    );
+  };
+
+  const quantity = (item: InventoryItem, size: 'sm' | 'md' = 'md') => {
+    const isLowStock = item.quantity <= item.minThreshold;
+    return (
+      <span
+        className={cn(
+          'tnum font-semibold',
+          size === 'md' ? 'text-lg' : 'text-sm',
+          isLowStock ? 'text-danger-600 dark:text-danger-500' : 'text-gray-900 dark:text-white'
+        )}
+      >
+        {item.quantity}
+        <span className="ms-1 text-2xs font-normal text-gray-400">{item.unit}</span>
+      </span>
+    );
+  };
+
+  /* ---------------------------------------------------------------- grid view */
+  if (viewMode === 'grid') {
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {filteredItems.map((item) => {
+          const isSelected = selectedItemIds.has(item.id);
+          const isLowStock = item.quantity <= item.minThreshold;
+
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                'group relative flex flex-col rounded-xl border bg-white p-3.5 transition-colors dark:bg-gray-900',
+                isSelected
+                  ? 'border-brand-500 ring-1 ring-brand-500/40'
+                  : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <Checkbox
+                  checked={isSelected}
+                  aria-label={`${isAr ? 'تحديد' : 'Select'} ${itemName(item)}`}
+                  onChange={() => toggleItemSelection(item.id)}
+                />
+                <Menu
+                  items={rowActions(item)}
+                  width="w-52"
+                  trigger={({ toggle, ref, open }) => (
+                    <Button
+                      ref={ref}
+                      variant="ghost"
+                      size="sm"
+                      icon={<MoreVertical />}
+                      aria-haspopup="menu"
+                      aria-expanded={open}
+                      aria-label={t.actions}
+                      onClick={toggle}
+                    />
+                  )}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => toggleItemSelection(item.id)}
+                className="flex flex-1 flex-col items-start gap-2 text-start"
+              >
+                <span
+                  className={cn(
+                    'flex h-9 w-9 items-center justify-center rounded-lg [&>svg]:h-4 [&>svg]:w-4',
+                    isLowStock
+                      ? 'bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-100'
+                      : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                  )}
+                  aria-hidden
+                >
+                  <Package />
+                </span>
+
+                <span className="w-full">
+                  <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">
+                    {itemName(item)}
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+                      {item.category}
+                    </span>
+                    {isGlobalView && item.locationId && (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {item.locationId}
+                      </span>
+                    )}
+                  </span>
+                </span>
+
+                <span className="mt-auto flex w-full items-end justify-between gap-2">
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-2xs font-semibold uppercase tracking-wider text-gray-400">
+                      {t.stockLevel}
+                    </span>
+                    {quantity(item)}
+                  </span>
+                  <span className="mb-0.5">{statusBadges(item)}</span>
+                </span>
+              </button>
+
+              {!isGlobalView && (canEditItem || canRecordUsage) && (
+                <div className="mt-3 flex items-center gap-1.5 border-t border-gray-100 pt-2.5 dark:border-gray-800">
+                  {canRecordUsage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<ArrowUpCircle />}
+                      className="flex-1"
+                      onClick={() => onRecordReceive(item)}
+                    >
+                      {isAr ? 'وارد' : 'Receive'}
+                    </Button>
+                  )}
+                  {canRecordUsage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<ArrowDownCircle />}
+                      className="flex-1"
+                      onClick={() => onRecordUsage(item)}
+                    >
+                      {isAr ? 'صرف' : 'Usage'}
+                    </Button>
+                  )}
+                  {!canRecordUsage && canEditItem && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Pencil />}
+                      className="flex-1"
+                      onClick={() => onEditItem(item)}
+                    >
+                      {t.edit}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   }
 
+  /* -------------------------------------------------- list and compact tables */
+  const columns: Column<InventoryItem>[] =
+    viewMode === 'list'
+      ? [
+          {
+            key: 'item',
+            header: t.itemName,
+            cell: (item) => (
+              <div className="min-w-0">
+                <p className="truncate font-medium text-gray-900 dark:text-white">
+                  {itemName(item)}
+                </p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+                    {item.category}
+                  </span>
+                  {isGlobalView && item.locationId && (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {item.locationId}
+                    </span>
+                  )}
+                  {item.barcode && <span className="font-mono">{item.barcode}</span>}
+                </p>
+              </div>
+            )
+          },
+          {
+            key: 'quantity',
+            header: t.stockLevel,
+            align: 'end',
+            cell: (item) => quantity(item)
+          },
+          { key: 'status', header: t.status, cell: (item) => statusBadges(item) },
+          {
+            key: 'expiry',
+            header: isAr ? 'الانتهاء' : 'Expiry',
+            hideBelow: 'lg',
+            cell: (item) => (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {item.expirationDate || '—'}
+              </span>
+            )
+          },
+          {
+            key: 'actions',
+            header: <span className="sr-only">{t.actions}</span>,
+            align: 'end',
+            width: 'w-12',
+            cell: (item) => (
+              <Menu
+                items={rowActions(item)}
+                width="w-52"
+                trigger={({ toggle, ref, open }) => (
+                  <Button
+                    ref={ref}
+                    variant="ghost"
+                    size="sm"
+                    icon={<MoreVertical />}
+                    aria-haspopup="menu"
+                    aria-expanded={open}
+                    aria-label={t.actions}
+                    onClick={toggle}
+                  />
+                )}
+              />
+            )
+          }
+        ]
+      : [
+          {
+            key: 'item',
+            header: t.itemName,
+            cell: (item) => (
+              <span className="truncate font-medium text-gray-900 dark:text-white">
+                {itemName(item)}
+              </span>
+            )
+          },
+          {
+            key: 'quantity',
+            header: t.stockLevel,
+            align: 'end',
+            cell: (item) => quantity(item, 'sm')
+          },
+          {
+            key: 'status',
+            header: t.status,
+            hideBelow: 'md',
+            cell: (item) => statusBadges(item)
+          },
+          {
+            key: 'actions',
+            header: <span className="sr-only">{t.actions}</span>,
+            align: 'end',
+            width: 'w-12',
+            cell: (item) => (
+              <Menu
+                items={rowActions(item)}
+                width="w-52"
+                trigger={({ toggle, ref, open }) => (
+                  <Button
+                    ref={ref}
+                    variant="ghost"
+                    size="sm"
+                    icon={<MoreVertical />}
+                    aria-haspopup="menu"
+                    aria-expanded={open}
+                    aria-label={t.actions}
+                    onClick={toggle}
+                  />
+                )}
+              />
+            )
+          }
+        ];
+
   return (
-    <div className={
-        viewMode === 'list' ? 'flex flex-col gap-3' : 
-        viewMode === 'compact' ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' : 
-        'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'
-    }>
-      {filteredItems.map(item => {
-        const isLowStock = item.quantity <= item.minThreshold;
-        const isSelected = selectedItemIds.has(item.id);
-
-        // --- COMPACT BOX VIEW ---
-        if (viewMode === 'compact') {
-            const expiringSoon = isExpiringSoon(item.expirationDate);
-            const expired = isExpired(item.expirationDate);
-            return (
-              <div 
-                key={item.id} 
-                onClick={() => toggleItemSelection(item.id)}
-                className={`bg-white dark:bg-gray-800 rounded-xl p-3 border hover:border-brand-300 dark:hover:border-brand-700 shadow-sm hover:shadow-md transition-all relative flex flex-col items-center text-center cursor-pointer ${isSelected ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 dark:border-gray-700'} ${expired ? 'border-red-500' : expiringSoon ? 'border-yellow-500' : ''}`}
-              >
-                  {isSelected && (
-                    <div className="absolute top-2 left-2 z-10">
-                      <CheckCircle className="w-4 h-4 text-brand-600 fill-white" />
-                    </div>
-                  )}
-                  {isLowStock && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>}
-                  {(expired || expiringSoon) && (
-                      <div className={`absolute top-2 right-[${isLowStock ? '16px' : '8px'}] w-2 h-2 rounded-full ${expired ? 'bg-red-600' : 'bg-yellow-500'}`} title={expired ? 'Expired' : 'Expiring Soon'}></div>
-                  )}
-                  <div className={`p-2 rounded-full mb-2 ${isLowStock ? 'bg-red-50 dark:bg-red-900/20 text-red-600' : 'bg-brand-50 dark:bg-brand-900/20 text-brand-600'}`}>
-                     <Package className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1 line-clamp-1 w-full">{language === 'ar' ? item.nameAr : item.nameEn}</h3>
-                  <p className={`text-lg font-bold mb-2 ${isLowStock ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>{item.quantity} <span className="text-[10px] text-gray-500">{item.unit}</span></p>
-                  
-                  {!isGlobalView && (
-                       <div className="flex gap-1 w-full mt-auto" onClick={e => e.stopPropagation()}>
-                          {canEditItem ? (
-                              <>
-                                 <button onClick={() => onEditItem(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><Pencil className="w-3 h-3 mx-auto" /></button>
-                                 <button onClick={() => onRecordReceive(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><ArrowUpCircle className="w-3 h-3 mx-auto text-green-500" /></button>
-                                 <button onClick={() => onRecordUsage(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><ArrowDownCircle className="w-3 h-3 mx-auto" /></button>
-                                 <button onClick={() => onViewHistory(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><Clock className="w-3 h-3 mx-auto" /></button>
-                              </>
-                          ) : canRecordUsage ? (
-                              <>
-                                 <button onClick={() => onRecordReceive(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><ArrowUpCircle className="w-3 h-3 mx-auto text-green-500" /></button>
-                                 <button onClick={() => onRecordUsage(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><ArrowDownCircle className="w-3 h-3 mx-auto" /></button>
-                                 <button onClick={() => onViewHistory(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><Clock className="w-3 h-3 mx-auto" /></button>
-                              </>
-                          ) : (
-                              <button onClick={() => onViewHistory(item)} className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"><Clock className="w-3 h-3 mx-auto" /></button>
-                          )}
-                       </div>
-                  )}
-              </div>
-            );
+    <DataTable
+      columns={columns}
+      rows={filteredItems}
+      rowKey={(item) => item.id}
+      density={viewMode === 'compact' ? 'compact' : 'comfortable'}
+      selection={{
+        selectedIds: selectedItemIds,
+        onToggle: (id) => toggleItemSelection(id),
+        onToggleAll: (next) => {
+          filteredItems.forEach((item) => {
+            if (next !== selectedItemIds.has(item.id)) toggleItemSelection(item.id);
+          });
         }
-
-        // --- LIST VIEW ---
-        if (viewMode === 'list') {
-            const expiringSoon = isExpiringSoon(item.expirationDate);
-            const expired = isExpired(item.expirationDate);
-            return (
-                <div 
-                  key={item.id} 
-                  onClick={() => toggleItemSelection(item.id)}
-                  className={`bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 border hover:border-brand-300 dark:hover:border-brand-700 shadow-sm flex items-center gap-4 cursor-pointer ${isSelected ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 dark:border-gray-700'} ${expired ? 'border-red-500' : expiringSoon ? 'border-yellow-500' : ''}`}
-                >
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-brand-600 border-brand-600' : 'border-gray-300 dark:border-gray-600'}`}>
-                        {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
-                      </div>
-                    <div className={`p-3 rounded-lg hidden sm:block ${isLowStock ? 'bg-red-50 dark:bg-red-900/20 text-red-600' : 'bg-brand-50 dark:bg-brand-900/20 text-brand-600'}`}>
-                        <Package className="w-6 h-6" />
-                    </div>
-                    
-                    <div className="flex-1 min-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">{language === 'ar' ? item.nameAr : item.nameEn}</h3>
-                            {isLowStock && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 uppercase">{t.lowStock}</span>}
-                            {expired && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 uppercase">Expired</span>}
-                            {expiringSoon && !expired && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400 uppercase">Expiring Soon</span>}
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-2">
-                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-300">{item.category}</span>
-                            {isGlobalView && item.locationId && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {item.locationId}</span>}
-                            {item.expirationDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {item.expirationDate}</span>}
-                        </p>
-                    </div>
-
-                    <div className="text-right whitespace-nowrap px-4">
-                        <p className={`text-xl font-bold ${isLowStock ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
-                            {item.quantity} <span className="text-sm text-gray-500 font-medium">{item.unit}</span>
-                        </p>
-                    </div>
-
-                    {!isGlobalView && (
-                       <div className="relative" onClick={e => e.stopPropagation()}>
-                          <button onClick={(e) => { e.stopPropagation(); setActiveActionId(activeActionId === item.id ? null : item.id); }} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors">
-                             <MoreVertical className="w-5 h-5" />
-                          </button>
-                          {activeActionId === item.id && (
-                             <div className="absolute right-0 rtl:right-auto rtl:left-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1 z-30">
-                                 {canEditItem ? (
-                                     <>
-                                        <button onClick={() => { onEditItem(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2"><Pencil className="w-4 h-4" /> {t.edit}</button>
-                                        <button onClick={() => { onRecordUsage(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2"><ArrowDownCircle className="w-4 h-4 text-red-500" /> {t.recordUsage}</button>
-                                        <button onClick={() => { onViewHistory(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" /> {t.history}</button>
-                                        <button onClick={() => { onDeleteItem(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2"><Trash2 className="w-4 h-4" /> {t.delete}</button>
-                                     </>
-                                 ) : canRecordUsage ? (
-                                     <>
-                                        <button onClick={() => { onRecordUsage(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2"><ArrowDownCircle className="w-4 h-4 text-red-500" /> {t.recordUsage}</button>
-                                        <button onClick={() => { onViewHistory(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" /> {t.history}</button>
-                                     </>
-                                 ) : (
-                                     <button onClick={() => { onViewHistory(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" /> {t.history}</button>
-                                 )}
-                             </div>
-                          )}
-                       </div>
-                    )}
-                </div>
-            );
-        }
-
-        // --- GRID VIEW (DEFAULT) ---
-        const expiringSoon = isExpiringSoon(item.expirationDate);
-        const expired = isExpired(item.expirationDate);
-        return (
-          <div 
-            key={item.id} 
-            onClick={() => toggleItemSelection(item.id)}
-            className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border hover:border-brand-300 dark:hover:border-brand-700 shadow-sm hover:shadow-md transition-all group relative cursor-pointer ${isSelected ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 dark:border-gray-700'} ${expired ? 'border-red-500' : expiringSoon ? 'border-yellow-500' : ''}`}
-          >
-              <div className={`absolute top-4 left-4 z-10 w-6 h-6 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'bg-brand-600 border-brand-600 scale-110' : 'bg-white/80 dark:bg-gray-800/80 border-gray-300 dark:border-gray-600 opacity-0 group-hover:opacity-100'}`}>
-                {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
-              </div>
-            
-            {isLowStock && (
-              <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-10">
-                <span className="flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                </span>
-              </div>
+      }}
+      selectAllLabel={isAr ? 'تحديد كل الأصناف' : 'Select all items'}
+      mobileCard={(item) => (
+        <div
+          className={cn(
+            'flex items-center gap-3 rounded-xl border bg-white p-3 dark:bg-gray-900',
+            selectedItemIds.has(item.id)
+              ? 'border-brand-500 ring-1 ring-brand-500/40'
+              : 'border-gray-200 dark:border-gray-800'
+          )}
+        >
+          <Checkbox
+            checked={selectedItemIds.has(item.id)}
+            aria-label={`${isAr ? 'تحديد' : 'Select'} ${itemName(item)}`}
+            onChange={() => toggleItemSelection(item.id)}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium text-gray-900 dark:text-white">{itemName(item)}</p>
+            <p className="mt-0.5 truncate text-2xs text-gray-500 dark:text-gray-400">
+              {item.category}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            {quantity(item, 'sm')}
+            {item.quantity <= item.minThreshold && (
+              <Badge tone="warning" size="sm">
+                {t.lowStock}
+              </Badge>
             )}
-
-            {(expired || expiringSoon) && (
-              <div className={`absolute top-4 right-[${isLowStock ? '32px' : '16px'}] z-10`} title={expired ? 'Expired' : 'Expiring Soon'}>
-                <span className="flex h-3 w-3">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${expired ? 'bg-red-400' : 'bg-yellow-400'} opacity-75`}></span>
-                  <span className={`relative inline-flex rounded-full h-3 w-3 ${expired ? 'bg-red-600' : 'bg-yellow-500'}`}></span>
-                </span>
-              </div>
-            )}
-
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-xl ${isLowStock ? 'bg-red-50 dark:bg-red-900/20 text-red-600' : 'bg-brand-50 dark:bg-brand-900/20 text-brand-600'}`}>
-                <Package className="w-6 h-6" />
-              </div>
-              
-              {!isGlobalView && (
-                  <div className="relative" onClick={e => e.stopPropagation()}>
-                    <button onClick={(e) => { e.stopPropagation(); setActiveActionId(activeActionId === item.id ? null : item.id); }} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors">
-                       <MoreVertical className="w-5 h-5" />
-                    </button>
-                    
-                    {activeActionId === item.id && (
-                       <div className="absolute right-0 rtl:right-auto rtl:left-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1 z-[30] animate-in fade-in zoom-in-95 duration-100">
-                          {canEditItem ? (
-                              <>
-                                  <button onClick={() => { onEditItem(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                      <Pencil className="w-4 h-4" /> {t.edit}
-                                  </button>
-                                  <button onClick={() => { onRecordReceive(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                      <ArrowUpCircle className="w-4 h-4 text-green-500" /> {language === 'ar' ? 'تسجيل استلام' : 'Record Receive'}
-                                  </button>
-                                  <button onClick={() => { onRecordUsage(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                      <ArrowDownCircle className="w-4 h-4 text-red-500" /> {t.recordUsage}
-                                  </button>
-                                  <button onClick={() => { onViewHistory(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                      <Clock className="w-4 h-4 text-blue-500" /> {t.history}
-                                  </button>
-                                  <button onClick={() => { onDeleteItem(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2">
-                                      <Trash2 className="w-4 h-4" /> {t.delete}
-                                  </button>
-                              </>
-                          ) : canRecordUsage ? (
-                              <>
-                                  <button onClick={() => { onRecordReceive(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                      <ArrowUpCircle className="w-4 h-4 text-green-500" /> {language === 'ar' ? 'تسجيل استلام' : 'Record Receive'}
-                                  </button>
-                                  <button onClick={() => { onRecordUsage(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                      <ArrowDownCircle className="w-4 h-4 text-red-500" /> {t.recordUsage}
-                                  </button>
-                                  <button onClick={() => { onViewHistory(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                      <Clock className="w-4 h-4 text-blue-500" /> {t.history}
-                                  </button>
-                              </>
-                          ) : (
-                              <button onClick={() => { onViewHistory(item); setActiveActionId(null); }} className="w-full text-left rtl:text-right px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                  <Clock className="w-4 h-4 text-blue-500" /> {t.history}
-                              </button>
-                          )}
-                       </div>
-                    )}
-                  </div>
-              )}
-            </div>
-
-                <div className="flex flex-col flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 line-clamp-1">{language === 'ar' ? item.nameAr : item.nameEn}</h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
-                     <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-xs font-medium">{item.category}</span>
-                     {isGlobalView && item.locationId && (
-                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-medium"><MapPin className="w-3 h-3" /> {item.locationId}</span>
-                     )}
-                  </div>
-                  
-                  <div className="flex items-end justify-between mt-auto">
-                     <div>
-                        <p className="text-xs text-gray-400 uppercase font-bold mb-0.5">{t.stockLevel}</p>
-                        <p className={`text-2xl font-bold ${isLowStock ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
-                           {item.quantity} <span className="text-sm text-gray-500 font-medium">{item.unit}</span>
-                        </p>
-                     </div>
-                     {isLowStock && (
-                        <div className="text-right">
-                           <p className="text-[10px] text-red-500 font-bold uppercase bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full">{t.lowStockAlert}</p>
-                        </div>
-                     )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          </div>
         </div>
+      )}
+    />
   );
 };
 

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local data backups written by scripts/catalog-doctor.mjs
+scripts/backups/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

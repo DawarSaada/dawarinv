@@ -33,11 +33,19 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
 
   if (!isOpen || !purchaseOrder) return null;
 
-  const handleQuantityChange = (id: string, value: string) => {
-    setReceivedItems({
-      ...receivedItems,
-      [id]: value === '' ? '' : Number(value)
-    });
+  /** Ordered minus already received: the most this line can still take. */
+  const outstanding = (item: { quantity: number; receivedQuantity: number }) =>
+    Math.max(0, Number(item.quantity || 0) - Number(item.receivedQuantity || 0));
+
+  const handleQuantityChange = (id: string, value: string, max: number) => {
+    if (value === '') {
+      setReceivedItems({ ...receivedItems, [id]: '' });
+      return;
+    }
+    // The server clamps at the ordered quantity, but silently: the user would type
+    // 500, get 5, and never be told. Clamp here so the field agrees with the result.
+    const next = Math.max(0, Math.min(Number(value) || 0, max));
+    setReceivedItems({ ...receivedItems, [id]: next });
   };
 
   const handleSubmit = () => {
@@ -50,7 +58,8 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
       return;
     }
 
-    if (window.confirm(language === 'ar' ? 'هل أنت متأكد من استلام هذه العناصر؟ سيتم إضافتها إلى المستودع الرئيسي.' : 'Are you sure you want to receive these items? They will be added to the Warehouse inventory.')) {
+    // The receipt is credited to the purchase order's own location, not always the warehouse.
+    if (window.confirm(language === 'ar' ? 'هل أنت متأكد من استلام هذه العناصر؟ سيتم إضافتها إلى مخزون الموقع الخاص بأمر الشراء.' : "Are you sure you want to receive these items? They will be added to the purchase order's location inventory.")) {
       onReceive(purchaseOrder.id, itemsToReceive, userName);
       onClose();
     }
@@ -58,9 +67,9 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
         
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <Package className="w-6 h-6 text-brand-500" />
             {language === 'ar' ? 'استلام أمر الشراء' : 'Receive Purchase Order'} #{purchaseOrder.poNumber}
@@ -72,14 +81,14 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
 
         <div className="p-6 overflow-y-auto max-h-[60vh]">
           <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-xl text-sm leading-relaxed">
-            {language === 'ar' 
-              ? 'أدخل الكميات المستلمة الفعلية لكل عنصر. سيتم إضافة هذه الكميات تلقائيًا إلى مخزون "المستودع الرئيسي".'
-              : 'Enter the actual received quantities for each item. These quantities will be automatically added to the "Warehouse" inventory.'}
+            {language === 'ar'
+              ? `أدخل الكميات المستلمة الفعلية لكل عنصر. سيتم إضافتها إلى مخزون الموقع الخاص بأمر الشراء (${purchaseOrder.locationId || 'warehouse'}).`
+              : `Enter the actual received quantities for each item. They are added to this order's own location (${purchaseOrder.locationId || 'warehouse'}), not always the warehouse.`}
           </div>
 
           <div className="space-y-4">
             {purchaseOrder.items?.map(item => (
-              <div key={item.id} className="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl">
+              <div key={item.id} className="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-800 rounded-xl">
                 <div className="flex-1">
                   <h4 className="font-bold text-gray-900 dark:text-white">
                     {language === 'ar' ? item.itemNameAr : item.itemNameEn}
@@ -94,17 +103,24 @@ const ReceivePOModal: React.FC<ReceivePOModalProps> = ({
                   <input 
                     type="number"
                     min="0"
+                    max={outstanding(item)}
+                    disabled={outstanding(item) === 0}
                     value={receivedItems[item.id] === undefined ? 0 : receivedItems[item.id]}
-                    onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 font-bold"
+                    onChange={(e) => handleQuantityChange(item.id, e.target.value, outstanding(item))}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 font-bold disabled:opacity-50"
                   />
+                  <p className="mt-1 text-2xs text-gray-400">
+                    {outstanding(item) === 0
+                      ? language === 'ar' ? 'مكتمل' : 'Complete'
+                      : language === 'ar' ? `حد أقصى ${outstanding(item)}` : `max ${outstanding(item)}`}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
           <button onClick={onClose} className="px-6 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium">
             {t.cancel}
           </button>

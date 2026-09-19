@@ -67,19 +67,19 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header & Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <Building2 className="w-8 h-8 text-brand-500" />
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl dark:text-white">
+            <Building2 className="h-5 w-5 text-brand-600 dark:text-brand-400" />
             {language === 'ar' ? 'إدارة الموردين' : 'Supplier Management'}
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+          <p className="mt-0.5 text-xs text-gray-500 sm:text-sm dark:text-gray-400">
             {language === 'ar' ? 'إدارة بيانات الموردين وجهات الاتصال' : 'Manage supplier details and contacts'}
           </p>
         </div>
         <button 
           onClick={openAddModal}
-          className="w-full sm:w-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-sm shadow-brand-500/20"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-800"
         >
           <Plus className="w-5 h-5" />
           {language === 'ar' ? 'إضافة مورد' : 'Add Supplier'}
@@ -87,7 +87,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
       </div>
 
       {/* Search Filter */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="border-b border-gray-200 pb-4 dark:border-gray-800">
         <div className="relative max-w-md">
           <Search className={`absolute ${language === 'ar' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5`} />
           <input
@@ -95,7 +95,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
             placeholder={language === 'ar' ? 'ابحث عن مورد...' : 'Search suppliers...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={`w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white ${language === 'ar' ? 'pr-10 pl-4' : ''}`}
+            className={`w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white ${language === 'ar' ? 'pr-10 pl-4' : ''}`}
           />
         </div>
       </div>
@@ -103,7 +103,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
       {/* Grid of Suppliers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredSuppliers.map(supplier => (
-          <div key={supplier.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col group">
+          <div key={supplier.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col group">
             <div className="p-6 flex-1">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -166,7 +166,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
           </div>
         ))}
         {filteredSuppliers.length === 0 && (
-          <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+          <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
             <Building2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
             <p className="text-lg">{language === 'ar' ? 'لم يتم العثور على موردين.' : 'No suppliers found.'}</p>
           </div>
@@ -176,8 +176,8 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 {editingSupplier 
                   ? (language === 'ar' ? 'تعديل بيانات المورد' : 'Edit Supplier') 
@@ -188,11 +188,11 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name (English) *</label>
-                  <input required type="text" value={formData.nameEn} onChange={e => setFormData({...formData, nameEn: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" />
+                  <input required type="text" value={formData.nameEn} onChange={e => setFormData({...formData, nameEn: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name (Arabic) *</label>
-                  <input required type="text" value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-right dark:text-white" dir="rtl" />
+                  <input required type="text" value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-right dark:text-white" dir="rtl" />
                 </div>
               </div>
               
@@ -200,7 +200,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {language === 'ar' ? 'اسم جهة الاتصال' : 'Contact Person'}
                 </label>
-                <input type="text" value={formData.contactPerson} onChange={e => setFormData({...formData, contactPerson: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" />
+                <input type="text" value={formData.contactPerson} onChange={e => setFormData({...formData, contactPerson: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg dark:text-white" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -208,13 +208,13 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
                   </label>
-                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" dir="ltr" />
+                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg dark:text-white" dir="ltr" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {language === 'ar' ? 'رقم الهاتف' : 'Phone'}
                   </label>
-                  <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg dark:text-white" dir="ltr" />
+                  <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg dark:text-white" dir="ltr" />
                 </div>
               </div>
 
@@ -222,14 +222,14 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {language === 'ar' ? 'العنوان' : 'Address'}
                 </label>
-                <textarea rows={3} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg resize-none dark:text-white" />
+                <textarea rows={3} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg resize-none dark:text-white" />
               </div>
 
               <div className="pt-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {language === 'ar' ? 'العناصر الموردة (اختر من الفهرس)' : 'Supplied Items (Select from Catalog)'}
                 </label>
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-48 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="border border-gray-200 dark:border-gray-800 rounded-lg max-h-48 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {catalog.map(item => (
                     <label key={item.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors">
                       <input 
@@ -257,8 +257,8 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-700 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 rounded-lg transition-colors">
                   {t.cancel}
                 </button>
                 <button type="submit" className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-medium">

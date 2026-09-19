@@ -35,9 +35,9 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <AlertCircle className={`w-6 h-6 ${isPending ? 'text-yellow-500' : 'text-green-500'}`} />
@@ -66,7 +66,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           
           {itemsWithVariance.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-orange-200 dark:border-orange-900/50 overflow-hidden">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-orange-200 dark:border-orange-900/50 overflow-hidden">
               <div className="bg-orange-50 dark:bg-orange-900/20 p-4 border-b border-orange-200 dark:border-orange-900/50 flex justify-between items-center">
                 <h3 className="font-bold text-orange-800 dark:text-orange-400">
                   {language === 'ar' ? 'عناصر غير متطابقة (تباين)' : 'Items with Variances'}
@@ -113,7 +113,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
           )}
 
           {itemsMatched.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-900/30 overflow-hidden">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-green-200 dark:border-green-900/30 overflow-hidden">
               <div className="bg-green-50 dark:bg-green-900/10 p-4 border-b border-green-200 dark:border-green-900/30 flex justify-between items-center">
                 <h3 className="font-bold text-green-800 dark:text-green-400 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4" />
@@ -125,7 +125,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
               </div>
               <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {itemsMatched.map(item => (
-                  <div key={item.id} className="text-sm border border-gray-100 dark:border-gray-700 rounded-lg p-3">
+                  <div key={item.id} className="text-sm border border-gray-200 dark:border-gray-800 rounded-lg p-3">
                     <div className="font-bold text-gray-900 dark:text-white truncate" title={language === 'ar' ? item.itemNameAr : item.itemNameEn}>
                       {language === 'ar' ? item.itemNameAr : item.itemNameEn}
                     </div>
@@ -138,7 +138,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
 
         </div>
 
-        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
           <button onClick={onClose} className="px-6 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium">
             {isPending ? t.cancel : (language === 'ar' ? 'إغلاق' : 'Close')}
           </button>
@@ -146,7 +146,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
           {isPending && isAdmin && (
             <button 
               onClick={handleApply}
-              className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-bold flex items-center gap-2 shadow-sm"
+              className="px-6 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-lg transition-colors font-bold flex items-center gap-2 shadow-sm"
             >
               <CheckCircle className="w-5 h-5" />
               {language === 'ar' ? 'تطبيق التسويات (تحديث المخزون)' : 'Apply Adjustments'}

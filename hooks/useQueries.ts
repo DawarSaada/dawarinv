@@ -1,23 +1,39 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabase';
+import { fetchAllRows } from '../services/pagedFetch';
 import { InventoryItem, Transaction, LocationData, User, UserRole, TransactionType, TransactionStatus, CatalogItem, AppNotification, Supplier, PurchaseOrder, PurchaseOrderItem, Audit, AuditItem } from '../types';
-import { INITIAL_USERS, INITIAL_INVENTORY, LOCATIONS as STATIC_LOCATIONS } from '../constants';
-import { useEffect } from 'react';
+import { LOCATIONS as STATIC_LOCATIONS } from '../constants';
+import { useCallback, useEffect, useRef } from 'react';
+import { logger } from '../utils/logger';
+
+/**
+ * Every table read below is paged.
+ *
+ * Supabase caps a single response at `db-max-rows` (1000 by default) and says
+ * nothing about it, so an unpaginated `.select('*')` used to hand the app a
+ * silent subset of the data — 85 inventory items and most of the transaction
+ * history never reached the UI. `fetchAllRows` walks the table with `.range()`
+ * instead. Keep the `.order()` inside each paged query: paging over an unstable
+ * order can repeat or skip rows.
+ */
 
 export const useNotificationsQuery = (locationId: string | null) => {
   return useQuery({
     queryKey: ['notifications', locationId],
     queryFn: async () => {
       if (!locationId) return [];
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('location_id', locationId)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      if (!data) return [];
-      
+      const data = await fetchAllRows<any>(
+        (from, to) =>
+          supabase
+            .from('notifications')
+            .select('*')
+            .eq('location_id', locationId)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to),
+        'notifications'
+      );
+
       return data.map((n: any) => ({
         id: n.id,
         locationId: n.location_id,
@@ -37,9 +53,10 @@ export const useCatalogQuery = () => {
   return useQuery({
     queryKey: ['catalog'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('product_catalog').select('*');
-      if (error) throw error;
-      if (!data) return [];
+      const data = await fetchAllRows<any>(
+        (from, to) => supabase.from('product_catalog').select('*').order('name_en').order('id').range(from, to),
+        'product_catalog'
+      );
       return data.map((c: any) => ({
         id: c.id,
         nameEn: c.name_en,
@@ -60,11 +77,10 @@ export const useSuppliersQuery = () => {
   return useQuery({
     queryKey: ['suppliers'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('suppliers').select('*').order('name_en');
-      console.log("Suppliers Query Data:", data);
-      console.log("Suppliers Query Error:", error);
-      if (error) throw error;
-      if (!data) return [];
+      const data = await fetchAllRows<any>(
+        (from, to) => supabase.from('suppliers').select('*').order('name_en').order('id').range(from, to),
+        'suppliers'
+      );
       return data.map((s: any) => ({
         id: s.id,
         nameEn: s.name_en,
@@ -86,17 +102,20 @@ export const usePurchaseOrdersQuery = () => {
     queryKey: ['purchase_orders'],
     queryFn: async () => {
       // Fetch POs with their items and suppliers
-      const { data, error } = await supabase
-        .from('purchase_orders')
-        .select(`
-          *,
-          supplier:suppliers(*),
-          items:purchase_order_items(*)
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      if (!data) return [];
+      const data = await fetchAllRows<any>(
+        (from, to) =>
+          supabase
+            .from('purchase_orders')
+            .select(`
+              *,
+              supplier:suppliers(*),
+              items:purchase_order_items(*)
+            `)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to),
+        'purchase_orders'
+      );
 
       return data.map((po: any) => ({
         id: po.id,
@@ -140,16 +159,19 @@ export const useAuditsQuery = () => {
   return useQuery({
     queryKey: ['audits'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('audits')
-        .select(`
-          *,
-          items:audit_items(*)
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      if (!data) return [];
+      const data = await fetchAllRows<any>(
+        (from, to) =>
+          supabase
+            .from('audits')
+            .select(`
+              *,
+              items:audit_items(*)
+            `)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to),
+        'audits'
+      );
 
       return data.map((a: any) => ({
         id: a.id,
@@ -184,9 +206,13 @@ export const useLocationsQuery = () => {
   return useQuery({
     queryKey: ['locations'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('locations').select('*');
-      if (error) throw error;
-      if (!data || data.length === 0) return STATIC_LOCATIONS;
+      const data = await fetchAllRows<any>(
+        (from, to) => supabase.from('locations').select('*').order('id').range(from, to),
+        'locations'
+      );
+      // An empty table genuinely means "fall back to the built-in location list":
+      // locations are configuration, not user data.
+      if (data.length === 0) return STATIC_LOCATIONS;
       return data.map((l: any) => ({
         id: l.id,
         name: l.name,
@@ -205,9 +231,12 @@ export const useUsersQuery = () => {
   return useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('app_users').select('*');
-      if (error) throw error;
-      if (!data || data.length === 0) return INITIAL_USERS;
+      const data = await fetchAllRows<any>(
+        (from, to) => supabase.from('app_users').select('*').order('username').order('id').range(from, to),
+        'app_users'
+      );
+      // No demo-user fallback: seeding the directory from constants meant an empty
+      // (or not-yet-migrated) project accepted the hardcoded sample logins.
       return data.map((u: any) => {
         const rawBranches = u.accessible_branches || [];
         const accessibleBranches = rawBranches.filter((b: string) => !b.endsWith(':read'));
@@ -235,8 +264,11 @@ export const useInventoryQuery = () => {
   return useQuery({
     queryKey: ['inventory'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('inventory_items').select('*');
-      if (error) throw error;
+      const data = await fetchAllRows<any>(
+        (from, to) =>
+          supabase.from('inventory_items').select('*').order('location_id').order('id').range(from, to),
+        'inventory_items'
+      );
       const newInventory: Record<string, InventoryItem[]> = {};
       if (data) {
         data.forEach((i: any) => {
@@ -258,9 +290,10 @@ export const useInventoryQuery = () => {
           newInventory[i.location_id].push(item);
         });
       }
-      return Object.keys(newInventory).length > 0 ? newInventory : INITIAL_INVENTORY;
+      // An empty result means the location really has no stock; showing seed
+      // inventory here made phantom stock look real.
+      return newInventory;
     },
-    placeholderData: INITIAL_INVENTORY,
   });
 };
 
@@ -268,12 +301,11 @@ export const useTransactionsQuery = () => {
   return useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
-      if (error) throw error;
-      if (!data) return [];
+      const data = await fetchAllRows<any>(
+        (from, to) =>
+          supabase.from('transactions').select('*').order('date', { ascending: false }).order('id').range(from, to),
+        'transactions'
+      );
       return data.map((t: any) => ({
         id: t.id,
         transferGroupId: t.transfer_group_id,
@@ -300,45 +332,61 @@ export const useTransactionsQuery = () => {
   });
 };
 
+/**
+ * Coalesces realtime bursts before invalidating.
+ *
+ * A single daily log or PO receipt writes many rows, and one broadcast per row
+ * used to trigger one full refetch per row on every connected client. Merging
+ * them into a trailing edge keeps the data fresh but collapses the storm.
+ */
+const useInvalidationCoalescer = () => {
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const client = useQueryClient();
+
+  useEffect(
+    () => () => {
+      timers.current.forEach((timer) => clearTimeout(timer));
+      timers.current.clear();
+    },
+    []
+  );
+
+  return useCallback(
+    (queryKey: string) => {
+      const existing = timers.current.get(queryKey);
+      if (existing) clearTimeout(existing);
+      timers.current.set(
+        queryKey,
+        setTimeout(() => {
+          timers.current.delete(queryKey);
+          client.invalidateQueries({ queryKey: [queryKey] });
+        }, 600)
+      );
+    },
+    [client]
+  );
+};
+
 export const useRealtimeSubscriptions = () => {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidationCoalescer();
 
   useEffect(() => {
-    // Set up real-time subscriptions
-    const txSubscription = supabase
-      .channel('transactions-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
-        // Invalidate queries to trigger a refetch
-        queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      })
-      .subscribe();
+    const tables: { table: string; key: string }[] = [
+      { table: 'transactions', key: 'transactions' },
+      { table: 'inventory_items', key: 'inventory' },
+      { table: 'app_users', key: 'users' },
+      { table: 'notifications', key: 'notifications' },
+    ];
 
-    const invSubscription = supabase
-      .channel('inventory-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      })
-      .subscribe();
-
-    const usersSubscription = supabase
-      .channel('users-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-      })
-      .subscribe();
-
-    const notifSubscription = supabase
-      .channel('notifications-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      })
-      .subscribe();
+    const channels = tables.map(({ table, key }) =>
+      supabase
+        .channel(`${table}-changes`)
+        .on('postgres_changes', { event: '*', schema: 'public', table }, () => invalidate(key))
+        .subscribe()
+    );
 
     return () => {
-      supabase.removeChannel(txSubscription);
-      supabase.removeChannel(invSubscription);
-      supabase.removeChannel(usersSubscription);
-      supabase.removeChannel(notifSubscription);
+      channels.forEach((channel) => supabase.removeChannel(channel));
     };
-  }, [queryClient]);
+  }, [invalidate]);
 };

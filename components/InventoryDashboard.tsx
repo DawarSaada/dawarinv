@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { InventoryItem, LocationId, Language, Transaction, LocationData, CatalogItem, AppNotification, TransferSettings, Audit, Supplier, PurchaseOrder, PurchaseOrderStatus } from '../types';
+import { InventoryItem, LocationId, Language, Transaction, LocationData, CatalogItem, AppNotification, TransferSettings, Audit, Supplier, PurchaseOrder, PurchaseOrderStatus, Theme } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
 import SmartAssistant from './SmartAssistant';
@@ -16,15 +16,59 @@ import ScheduleAuditModal from './admin/ScheduleAuditModal';
 import PerformAuditModal from './admin/PerformAuditModal';
 import ReviewAuditModal from './admin/ReviewAuditModal';
 import { extractTextFromPDF, parseTransferDocument } from '../services/pdfService';
+import { AiUnavailableError, describeAiError } from '../services/aiClient';
 import { exportTransferPDF, exportInventoryExcel } from '../services/exportService';
 import { useAuditLock } from '../hooks/useAuditLock';
-import { 
-  XCircle, 
-  Package
+import { accessFor, canCreateProduct, canWriteLocation, readOnlyMessage } from '../services/permissions';
+import { UserRole } from '../types';
+import { logger } from '../utils/logger';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRightLeft,
+  CheckSquare,
+  ClipboardCheck,
+  FileSpreadsheet,
+  LayoutGrid,
+  List,
+  LogOut,
+  Moon,
+  Package,
+  Plus,
+  Printer,
+  Rows3,
+  ScanLine,
+  Search,
+  Sun,
+  ShoppingCart,
+  Sparkles,
+  Upload,
+  XCircle
 } from 'lucide-react';
-import InventoryHeader from './inventory/InventoryHeader';
+import {
+  AppShell,
+  Badge,
+  Button,
+  EmptyState,
+  Field,
+  FilterBar,
+  Modal,
+  PageBody,
+  PageHeader,
+  CommandPalette,
+  Segmented,
+  Select,
+  ShellBrand,
+  Textarea,
+  type ActiveFilterChip,
+  type CommandItem,
+  type MenuItem,
+  type NavItem
+} from './ui';
+import AppControls from './AppControls';
+import NotificationCenter from './NotificationCenter';
+import { useHotkey } from '../hooks/useHotkey';
 import InventoryNotifications from './inventory/InventoryNotifications';
-import InventoryToolbar from './inventory/InventoryToolbar';
 import InventoryGrid from './inventory/InventoryGrid';
 import BulkActionsBar from './inventory/BulkActionsBar';
 import ScannerModal from './ScannerModal';
@@ -81,6 +125,10 @@ interface InventoryDashboardProps {
   onEditPO?: (id: string, po: Partial<PurchaseOrder>, items: any[]) => void;
   onUpdatePOStatus?: (id: string, status: PurchaseOrderStatus, performedBy: string) => void;
   onReceivePO?: (poId: string, items: any[], performedBy: string) => void;
+  /** Theme/language controls are hosted by the shell top bar, not floating over content. */
+  theme?: Theme;
+  onToggleTheme?: () => void;
+  onToggleLanguage?: () => void;
 }
 
 const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ 
@@ -129,7 +177,10 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onCreatePO,
   onEditPO,
   onUpdatePOStatus,
-  onReceivePO
+  onReceivePO,
+  theme,
+  onToggleTheme,
+  onToggleLanguage
 }) => {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'inventory' | 'audits' | 'purchase_orders'>(() => {
@@ -163,6 +214,8 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
 
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  useHotkey('k', () => setIsCommandOpen((open) => !open), { mod: true });
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
@@ -189,8 +242,6 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const [deleteConfirm, setDeleteConfirm] = useState<{isOpen: boolean; itemId: string; itemName: string}>({isOpen: false, itemId: '', itemName: ''});
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
-  // Dropdown states
-  const [activeDropdown, setActiveDropdown] = useState<'view' | 'sort' | 'filter' | null>(null);
 
   // Grouped Notifications State
   const [selectedTransferGroup, setSelectedTransferGroup] = useState<string | null>(null);
@@ -221,7 +272,6 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   useEffect(() => {
     const handleClickOutside = () => {
         setActiveActionId(null);
-        setActiveDropdown(null);
     };
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
@@ -231,20 +281,33 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const t = TRANSLATIONS[language];
   const locationData = availableLocations.find(l => l.id === locationId);
   const locationName = isGlobalView ? t.globalInventory : (locationId === 'warehouse' ? t.warehouse : locationId === 'mammal' ? t.mammal : (locationData ? (language === 'ar' ? (locationData.nameAr || locationData.name) : locationData.name) : locationId));
-  const location = locationData || (isGlobalView ? { id: 'all', name: t.globalInventory, icon: 'globe' } : { id: locationId, name: locationId });
+  const location: LocationData = locationData || (isGlobalView
+    ? { id: 'all', name: t.globalInventory, description: '', icon: 'globe', type: 'global' }
+    : { id: locationId, name: locationId, description: '', icon: 'package' });
 
-  const canEditItem = userRole === 'admin' || 
-                      (userRole === 'branch_manager' && (userBranchCode === locationId || accessibleBranches.includes(locationId))) ||
-                      (userRole === 'warehouse_manager' && (locationId === 'warehouse' || locationId === 'mammal'));
+  /**
+   * All write access decisions come from services/permissions.ts.
+   *
+   * Previously these were hand-written per action and disagreed with each other:
+   * a branch marked read-only for the user was still editable, "bulk edit" excluded
+   * branch managers outright, and the warehouse-manager usage check had a
+   * copy-paste `locationId === 'warehouse' || locationId === 'warehouse'` that
+   * silently denied mammal. Read-only access now also greys out the write actions
+   * rather than leaving them to fail.
+   */
+  const accessSubject = {
+    role: userRole as UserRole,
+    branchCode: userBranchCode,
+    accessibleBranches,
+    readOnlyBranches,
+  };
+  const locationAccess = isGlobalView ? 'none' : accessFor(accessSubject, locationId);
+  const isReadOnly = locationAccess === 'read';
 
-  const canBulkEdit = userRole === 'admin' || (userRole === 'warehouse_manager' && (locationId === 'warehouse' || locationId === 'mammal'));
-
-  const canRecordUsage = userRole === 'admin' || 
-                         (userRole === 'branch_manager' && (userBranchCode === locationId || accessibleBranches.includes(locationId))) ||
-                         (userRole === 'warehouse_manager' && (locationId === 'warehouse' || locationId === 'warehouse')) ||
-                         (userRole === 'mammal_employee' && locationId === 'mammal');
-
-  const isReadOnly = userRole === 'branch_manager' && readOnlyBranches.includes(locationId);
+  const canCreateProductFlag = canCreateProduct(accessSubject);
+  const canEditItem = locationAccess === 'write';
+  const canBulkEdit = locationAccess === 'write' && userRole !== 'mammal_employee';
+  const canRecordUsage = locationAccess === 'write';
 
   const { isInventoryLocked, lockedByAuditTitle } = useAuditLock(userRole);
 
@@ -448,11 +511,35 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
     try {
         const text = await extractTextFromPDF(file);
         const data = await parseTransferDocument(text, inventory, availableLocations);
+
+        // Nothing matched: tell the user instead of opening an empty transfer form.
+        if (data.items.length === 0) {
+            addToast(
+                'warning',
+                language === 'ar'
+                    ? 'لم يتم العثور على أصناف مطابقة في هذا المستند'
+                    : 'No matching items were found in that document'
+            );
+            return;
+        }
+
         setPdfTransferData(data);
         setIsTransferModalOpen(true);
+
+        if (data.unmatched && data.unmatched.length > 0) {
+            addToast(
+                'info',
+                language === 'ar'
+                    ? `تم تجاهل ${data.unmatched.length} صنف غير معروف: ${data.unmatched.slice(0, 3).join(', ')}`
+                    : `Ignored ${data.unmatched.length} unrecognised item(s): ${data.unmatched.slice(0, 3).join(', ')}`
+            );
+        }
     } catch (error) {
-        console.error("PDF Error", error);
-        addToast('error', t.matchError);
+        logger.error("PDF Error", error);
+        addToast(
+            'error',
+            error instanceof AiUnavailableError ? describeAiError(error, language) : t.matchError
+        );
     } finally {
         setIsProcessingPdf(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -464,27 +551,324 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
     setShowScanner(false);
   };
 
+  const isAr = language === 'ar';
+
+  const navItems: NavItem[] = [
+    { id: 'inventory', label: isAr ? 'المخزون' : 'Inventory', icon: <Package />, mobilePrimary: true },
+    ...(!isGlobalView
+      ? [
+          { id: 'audits', label: isAr ? 'جرد المخزون' : 'Audits', icon: <ClipboardCheck />, mobilePrimary: true },
+          ...(onCreatePO && onUpdatePOStatus
+            ? [{ id: 'purchase_orders', label: isAr ? 'طلبات الشراء' : 'Purchase Orders', icon: <ShoppingCart /> }]
+            : [])
+        ]
+      : [])
+  ];
+
+  const activeFilterCount =
+    (selectedCategory !== 'all' ? 1 : 0) + (stockStatusFilter !== 'all' ? 1 : 0);
+
+  const filterChips: ActiveFilterChip[] = [
+    ...(selectedCategory !== 'all'
+      ? [
+          {
+            id: 'category',
+            label: `${isAr ? 'الفئة' : 'Category'}: ${selectedCategory}`,
+            onRemove: () => setSelectedCategory('all')
+          }
+        ]
+      : []),
+    ...(stockStatusFilter !== 'all'
+      ? [
+          {
+            id: 'stock',
+            label: stockStatusFilter === 'lowStock' ? t.lowStock : t.inStock,
+            tone: stockStatusFilter === 'lowStock' ? ('warning' as const) : ('success' as const),
+            onRemove: () => setStockStatusFilter('all')
+          }
+        ]
+      : [])
+  ];
+
+  const toolbarMenuItems: MenuItem[] = [
+    {
+      id: 'transfer',
+      label: isAr ? 'طلب تحويل' : 'New transfer',
+      icon: <ArrowRightLeft />,
+      disabled: isInventoryLocked,
+      onSelect: () => setIsTransferModalOpen(true)
+    },
+    {
+      id: 'import',
+      label: isAr ? 'استيراد من PDF' : 'Import from PDF',
+      icon: <Upload />,
+      disabled: isInventoryLocked || isProcessingPdf,
+      onSelect: () => fileInputRef.current?.click()
+    },
+    { id: '__separator__' },
+    {
+      id: 'select-all',
+      label: isAr ? 'تحديد الكل' : 'Select all',
+      icon: <CheckSquare />,
+      onSelect: toggleSelectAll
+    },
+    {
+      id: 'labels',
+      label: isAr ? 'طباعة الملصقات' : 'Print labels',
+      icon: <Printer />,
+      disabled: selectedItemIds.size === 0,
+      onSelect: () => setShowPrintLabels(true)
+    },
+    {
+      id: 'export',
+      label: isAr ? 'تصدير Excel' : 'Export Excel',
+      icon: <FileSpreadsheet />,
+      onSelect: () => exportInventoryExcel(filteredItems, locationId, language)
+    }
+  ];
+
+  const commandItems: CommandItem[] = [
+    ...(effectiveCanEditItem
+      ? [
+          {
+            id: 'add-item',
+            label: isAr ? 'إضافة صنف' : 'Add item',
+            group: isAr ? 'إجراءات' : 'Actions',
+            icon: <Plus />,
+            onSelect: () => {
+              setItemToEdit(null);
+              setIsAddItemModalOpen(true);
+            }
+          }
+        ]
+      : []),
+    ...(!isInventoryLocked
+      ? [
+          {
+            id: 'transfer',
+            label: isAr ? 'طلب تحويل' : 'New transfer',
+            group: isAr ? 'إجراءات' : 'Actions',
+            icon: <ArrowRightLeft />,
+            onSelect: () => setIsTransferModalOpen(true)
+          },
+          {
+            id: 'scan',
+            label: isAr ? 'مسح الباركود' : 'Scan barcode',
+            group: isAr ? 'إجراءات' : 'Actions',
+            icon: <ScanLine />,
+            onSelect: () => setShowScanner(true)
+          }
+        ]
+      : []),
+    {
+      id: 'export',
+      label: isAr ? 'تصدير المخزون إلى Excel' : 'Export inventory to Excel',
+      group: isAr ? 'إجراءات' : 'Actions',
+      icon: <FileSpreadsheet />,
+      onSelect: () => exportInventoryExcel(filteredItems, locationId, language)
+    },
+    {
+      id: 'low-stock',
+      label: isAr ? 'عرض الأصناف تحت الحد الأدنى' : 'Show low stock items',
+      group: isAr ? 'تصفية' : 'Filter',
+      icon: <AlertTriangle />,
+      onSelect: () => setStockStatusFilter('lowStock')
+    },
+    {
+      id: 'clear-filters',
+      label: isAr ? 'مسح كل عوامل التصفية' : 'Clear all filters',
+      group: isAr ? 'تصفية' : 'Filter',
+      onSelect: () => {
+        setSearch('');
+        setSelectedCategory('all');
+        setStockStatusFilter('all');
+      }
+    },
+    { id: 'grid', label: isAr ? 'عرض شبكي' : 'Grid view', group: isAr ? 'العرض' : 'View', icon: <LayoutGrid />, onSelect: () => setViewMode('grid') },
+    { id: 'list', label: isAr ? 'عرض قائمة' : 'List view', group: isAr ? 'العرض' : 'View', icon: <List />, onSelect: () => setViewMode('list') },
+    { id: 'compact', label: isAr ? 'عرض مكثف' : 'Compact view', group: isAr ? 'العرض' : 'View', icon: <Rows3 />, onSelect: () => setViewMode('compact') },
+    ...filteredItems.slice(0, 40).map((item) => ({
+      id: `item-${item.id}`,
+      label: isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr,
+      group: isAr ? 'الأصناف' : 'Items',
+      icon: <Package />,
+      keywords: [item.category, item.barcode || '', String(item.quantity)],
+      onSelect: () => {
+        setSearch(isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr);
+        setViewMode('list');
+      }
+    })),
+    {
+      id: 'all-locations',
+      label: isAr ? 'كل المواقع' : 'All locations',
+      group: isAr ? 'تنقل' : 'Navigate',
+      icon: <ArrowLeft className="rtl:rotate-180" />,
+      onSelect: onBack
+    },
+    ...(!isGlobalView
+      ? [
+          { id: 'go-audits', label: isAr ? 'جرد المخزون' : 'Audits', group: isAr ? 'تنقل' : 'Navigate', icon: <ClipboardCheck />, onSelect: () => setActiveTab('audits') },
+          ...(onCreatePO && onUpdatePOStatus
+            ? [{ id: 'go-pos', label: isAr ? 'طلبات الشراء' : 'Purchase orders', group: isAr ? 'تنقل' : 'Navigate', icon: <ShoppingCart />, onSelect: () => setActiveTab('purchase_orders') }]
+            : [])
+        ]
+      : []),
+    {
+      id: 'assistant',
+      label: isAr ? 'المساعد الذكي' : 'AI assistant',
+      group: isAr ? 'تنقل' : 'Navigate',
+      icon: <Sparkles />,
+      onSelect: () => setIsAssistantOpen(true)
+    },
+    ...(theme && onToggleTheme
+      ? [{
+          id: 'toggle-theme',
+          label: theme === 'dark' ? (isAr ? 'الوضع الفاتح' : 'Switch to light mode') : isAr ? 'الوضع الداكن' : 'Switch to dark mode',
+          group: isAr ? 'الإعدادات' : 'Preferences',
+          icon: theme === 'dark' ? <Sun /> : <Moon />,
+          onSelect: onToggleTheme
+        }]
+      : []),
+    ...(onToggleLanguage
+      ? [{
+          id: 'toggle-language',
+          label: isAr ? 'Switch to English' : 'التبديل إلى العربية',
+          group: isAr ? 'الإعدادات' : 'Preferences',
+          icon: <Sparkles />,
+          onSelect: onToggleLanguage
+        }]
+      : []),
+    {
+      id: 'logout',
+      label: t.logout,
+      group: isAr ? 'الإعدادات' : 'Preferences',
+      icon: <LogOut className="rtl:rotate-180" />,
+      onSelect: onLogout
+    }
+  ];
+
   return (
-    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors pb-24 ${language === 'ar' ? 'font-arabic' : ''}`}>
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${isAssistantOpen ? 'lg:mr-96 lg:rtl:mr-0 lg:rtl:ml-96' : ''}`}>
-        
-        <InventoryHeader 
-          onBack={onBack}
-          locationName={locationName}
-          isGlobalView={isGlobalView}
-          t={t}
-          isAssistantOpen={isAssistantOpen}
-          setIsAssistantOpen={setIsAssistantOpen}
-          onLogout={onLogout}
-          alerts={alerts}
-          language={language}
-          onMarkAsRead={onMarkNotificationAsRead}
-          onMarkAllAsRead={onMarkAllNotificationsAsRead}
+    <AppShell
+      className={language === 'ar' ? 'font-arabic' : ''}
+      navLabel={isAr ? 'فتح القائمة' : 'Open navigation'}
+      closeLabel={isAr ? 'إغلاق القائمة' : 'Close navigation'}
+      brand={
+        <ShellBrand
+          mark={<Package />}
+          title={locationName}
+          subtitle={isGlobalView ? (isAr ? 'كل المواقع' : 'All locations') : isAr ? 'إدارة المخزون' : 'Inventory management'}
         />
+      }
+      navItems={navItems}
+      activeId={activeTab}
+      onNavigate={(id) => setActiveTab(id as typeof activeTab)}
+      topbar={
+        <div className="flex items-center gap-2">
+          <Badge tone={isGlobalView ? 'info' : 'neutral'} className="hidden sm:inline-flex">
+            {locationName}
+          </Badge>
+          <button
+            type="button"
+            onClick={() => setIsCommandOpen(true)}
+            className="hidden h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 text-xs text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-800 sm:flex dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100"
+          >
+            <Search className="h-4 w-4" />
+            <span>{isAr ? 'أوامر' : 'Commands'}</span>
+            <kbd className="rounded border border-gray-200 px-1 text-2xs dark:border-gray-700">⌘K</kbd>
+          </button>
+          {lowStockItems.length > 0 && (
+            <Badge tone="warning" icon={<AlertTriangle />} className="hidden md:inline-flex">
+              {lowStockItems.length} {isAr ? 'تحت الحد' : 'low'}
+            </Badge>
+          )}
+        </div>
+      }
+      topbarEnd={
+        <>
+          <Button
+            variant="ghost"
+            icon={<Search />}
+            className="sm:hidden"
+            aria-label={isAr ? 'الأوامر' : 'Commands'}
+            title={isAr ? 'الأوامر' : 'Commands'}
+            onClick={() => setIsCommandOpen(true)}
+          />
+          <Button
+            variant="ghost"
+            icon={<Sparkles />}
+            aria-label={isAr ? 'المساعد الذكي' : 'AI assistant'}
+            title={isAr ? 'المساعد الذكي' : 'AI assistant'}
+            aria-pressed={isAssistantOpen}
+            onClick={() => setIsAssistantOpen(!isAssistantOpen)}
+          />
+          <NotificationCenter
+            notifications={alerts || []}
+            language={language}
+            t={t}
+            onMarkAsRead={onMarkNotificationAsRead || (() => {})}
+            onMarkAllAsRead={onMarkAllNotificationsAsRead}
+          />
+          {theme && onToggleTheme && onToggleLanguage && (
+            <AppControls
+              language={language}
+              theme={theme}
+              onToggleTheme={onToggleTheme}
+              onToggleLanguage={onToggleLanguage}
+            />
+          )}
+          <Button variant="ghost" icon={<LogOut className="rtl:rotate-180" />} onClick={onLogout} hideLabelOnMobile>
+            {t.logout}
+          </Button>
+        </>
+      }
+      sidebarFooter={
+        <Button variant="ghost" block icon={<ArrowLeft className="rtl:rotate-180" />} onClick={onBack}>
+          {isAr ? 'كل المواقع' : 'All locations'}
+        </Button>
+      }
+    >
+      {/* Section screens (audits, purchase orders) carry their own header. */}
+      {activeTab === 'inventory' && (
+        <PageHeader
+        title={locationName}
+        subtitle={
+          isGlobalView
+            ? isAr
+              ? 'عرض موحّد لجميع المواقع'
+              : 'Combined view across every location'
+            : isAr
+              ? 'الأصناف والكميات والحالة في هذا الموقع'
+              : 'Items, quantities and status for this location'
+        }
+        icon={<Package />}
+        onBack={onBack}
+        backLabel={isAr ? 'كل المواقع' : 'All locations'}
+        meta={
+          <>
+            <Badge tone="neutral">{filteredItems.length}</Badge>
+            {lowStockItems.length > 0 && (
+              <Badge tone="warning" icon={<AlertTriangle />}>
+                {lowStockItems.length} {isAr ? 'تحت الحد الأدنى' : 'below minimum'}
+              </Badge>
+            )}
+            {isInventoryLocked && (
+              <Badge tone="danger">{isAr ? 'مقفل بسبب جرد' : 'Locked by audit'}</Badge>
+            )}
+          </>
+        }
+        />
+      )}
 
-        <main className="p-4 sm:p-6 max-w-7xl mx-auto w-full">
+      <CommandPalette
+        open={isCommandOpen}
+        onClose={() => setIsCommandOpen(false)}
+        items={commandItems}
+        placeholder={isAr ? 'ابحث عن صنف أو أمر…' : 'Search for an item or command…'}
+        emptyLabel={isAr ? 'لا توجد نتائج' : 'No matches'}
+        recentLabel={isAr ? 'الأخيرة' : 'Recent'}
+      />
 
-          {/* Enhanced Notification Center */}
+      <PageBody className="space-y-4">              {/* Transfer requests, approvals and stock alerts — collapsed by default */}
           <InventoryNotifications 
             t={t}
             groupedIncoming={groupedIncoming}
@@ -501,25 +885,26 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
               setTransferDetailGroupId(groupId);
               setTransferDetailType(type);
             }}
+            onMarkAsRead={onMarkNotificationAsRead}
           />
 
           {!isGlobalView && (
-            <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="scrollbar-hide -mx-4 -mt-4 flex gap-1 overflow-x-auto border-b border-gray-200 px-4 sm:mx-0 sm:px-0 dark:border-gray-800">
               <button 
                 onClick={() => setActiveTab('inventory')}
-                className={`px-4 py-2 font-bold text-sm transition-colors border-b-2 ${activeTab === 'inventory' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                className={`relative -mb-px border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors ${activeTab === 'inventory' ? 'border-brand-600 text-gray-900 dark:border-brand-500 dark:text-white' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'}`}
               >
                 {language === 'ar' ? 'المخزون' : 'Inventory'}
               </button>
               <button 
                 onClick={() => setActiveTab('audits')}
-                className={`px-4 py-2 font-bold text-sm transition-colors border-b-2 ${activeTab === 'audits' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                className={`relative -mb-px border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors ${activeTab === 'audits' ? 'border-brand-600 text-gray-900 dark:border-brand-500 dark:text-white' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'}`}
               >
                 {language === 'ar' ? 'جرد المخزون' : 'Audits'}
               </button>
               <button 
                 onClick={() => setActiveTab('purchase_orders')}
-                className={`px-4 py-2 font-bold text-sm transition-colors border-b-2 ${activeTab === 'purchase_orders' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                className={`relative -mb-px border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors ${activeTab === 'purchase_orders' ? 'border-brand-600 text-gray-900 dark:border-brand-500 dark:text-white' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'}`}
               >
                 {language === 'ar' ? 'طلبات الشراء' : 'Purchase Orders'}
               </button>
@@ -548,37 +933,125 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                 </div>
               )}
 
-              {/* Action & Filter Bar */}
-              <InventoryToolbar 
-                t={t}
-                search={search}
-                setSearch={setSearch}
-                selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
-                categories={categories}
-                stockStatusFilter={stockStatusFilter}
-                setStockStatusFilter={setStockStatusFilter}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-                isGlobalView={isGlobalView}
-                selectedItemIds={selectedItemIds}
-                toggleSelectAll={toggleSelectAll}
-                filteredItemsCount={filteredItems.length}
-                onExportExcel={() => exportInventoryExcel(filteredItems, locationId, language)}
-                onSmartUpload={() => !isInventoryLocked && fileInputRef.current?.click()}
-                onOpenTransfer={() => !isInventoryLocked && setIsTransferModalOpen(true)}
-                onAddItem={() => { setItemToEdit(null); setIsAddItemModalOpen(true); }}
-                canEditItem={effectiveCanEditItem}
-                isProcessingPdf={isProcessingPdf}
-                activeDropdown={activeDropdown}
-                setActiveDropdown={setActiveDropdown}
-                lowStockCount={inventory.filter(i => i.quantity <= i.minThreshold).length}
-                language={language}
-                onScanClick={() => !isInventoryLocked && setShowScanner(true)}
+              <FilterBar
+                filtersLabel={isAr ? 'تصفية' : 'Filters'}
+                clearLabel={isAr ? 'مسح الكل' : 'Clear all'}
+                doneLabel={isAr ? 'تم' : 'Done'}
+                moreLabel={isAr ? 'خيارات أخرى' : 'More options'}
+                search={{
+                  value: search,
+                  onChange: setSearch,
+                  placeholder: t.searchPlaceholder,
+                  trailingSlot: (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<ScanLine />}
+                      aria-label={isAr ? 'مسح الباركود' : 'Scan barcode'}
+                      title={isAr ? 'مسح الباركود' : 'Scan barcode'}
+                      disabled={isInventoryLocked}
+                      onClick={() => setShowScanner(true)}
+                    />
+                  )
+                }}
+                chips={filterChips}
+                filterCount={activeFilterCount}
+                onClearFilters={() => {
+                  setSearch('');
+                  setSelectedCategory('all');
+                  setStockStatusFilter('all');
+                }}
+                inlineControls={
+                  <Segmented<'grid' | 'list' | 'compact'>
+                    aria-label={isAr ? 'طريقة العرض' : 'View mode'}
+                    value={viewMode}
+                    onChange={setViewMode}
+                    items={[
+                      { id: 'grid', label: isAr ? 'شبكة' : 'Grid', icon: <LayoutGrid /> },
+                      { id: 'list', label: isAr ? 'قائمة' : 'List', icon: <List /> },
+                      { id: 'compact', label: isAr ? 'مكثف' : 'Compact', icon: <Rows3 /> }
+                    ]}
+                  />
+                }
+                filters={
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {isAr ? 'الفئة' : 'Category'}
+                      </p>
+                      <Select
+                        value={selectedCategory}
+                        onChange={(event) => setSelectedCategory(event.target.value)}
+                        aria-label={isAr ? 'الفئة' : 'Category'}
+                      >
+                        <option value="all">{isAr ? 'كل الفئات' : 'All categories'}</option>
+                        {categories.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {isAr ? 'حالة المخزون' : 'Stock status'}
+                      </p>
+                      <Segmented<'all' | 'inStock' | 'lowStock'>
+                        value={stockStatusFilter}
+                        onChange={setStockStatusFilter}
+                        className="w-full"
+                        items={[
+                          { id: 'all', label: isAr ? 'الكل' : 'All' },
+                          { id: 'lowStock', label: t.lowStock, icon: <AlertTriangle /> },
+                          { id: 'inStock', label: t.inStock }
+                        ]}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {isAr ? 'الترتيب' : 'Sort by'}
+                      </p>
+                      <Select
+                        value={`${sortBy}:${sortOrder}`}
+                        onChange={(event) => {
+                          const [key, order] = event.target.value.split(':');
+                          setSortBy(key as typeof sortBy);
+                          setSortOrder(order as typeof sortOrder);
+                        }}
+                        aria-label={isAr ? 'الترتيب' : 'Sort by'}
+                      >
+                        <option value="name:asc">{isAr ? 'الاسم (أ - ي)' : 'Name (A–Z)'}</option>
+                        <option value="name:desc">{isAr ? 'الاسم (ي - أ)' : 'Name (Z–A)'}</option>
+                        <option value="quantity:asc">
+                          {isAr ? 'الكمية (الأقل أولاً)' : 'Quantity (low to high)'}
+                        </option>
+                        <option value="quantity:desc">
+                          {isAr ? 'الكمية (الأكثر أولاً)' : 'Quantity (high to low)'}
+                        </option>
+                        <option value="lastUpdated:desc">
+                          {isAr ? 'آخر تحديث' : 'Recently updated'}
+                        </option>
+                      </Select>
+                    </div>
+                  </div>
+                }
+                primaryAction={
+                  effectiveCanEditItem ? (
+                    <Button
+                      variant="primary"
+                      icon={<Plus />}
+                      onClick={() => {
+                        setItemToEdit(null);
+                        setIsAddItemModalOpen(true);
+                      }}
+                    >
+                      {isAr ? 'إضافة صنف' : 'Add item'}
+                    </Button>
+                  ) : undefined
+                }
+                overflowActions={toolbarMenuItems}
               />
 
           {/* Inventory Container */}
@@ -604,28 +1077,57 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           />
           
           {filteredItems.length === 0 && (
-             <div className="text-center py-20">
-                <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                   <Package className="w-10 h-10 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.noItemsFound}</h3>
-                <p className="text-gray-500 dark:text-gray-400">{t.tryAdjustingFilters}</p>
-             </div>
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+              <EmptyState
+                icon={<Package />}
+                title={t.noItemsFound}
+                description={t.tryAdjustingFilters}
+                action={
+                  activeFilterCount > 0 ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setSearch('');
+                        setSelectedCategory('all');
+                        setStockStatusFilter('all');
+                      }}
+                    >
+                      {isAr ? 'مسح كل عوامل التصفية' : 'Clear filters'}
+                    </Button>
+                  ) : effectiveCanEditItem ? (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<Plus />}
+                      onClick={() => {
+                        setItemToEdit(null);
+                        setIsAddItemModalOpen(true);
+                      }}
+                    >
+                      {isAr ? 'إضافة صنف' : 'Add item'}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           )}
 
           {/* Pagination */}
           {filteredItems.length > 0 && (
-              <div className="mt-6 mb-12">
-                  <Pagination 
-                      currentPage={currentPage}
-                      pageSize={pageSize}
-                      totalItems={filteredItems.length}
-                      onPageChange={setCurrentPage}
-                      onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                      canEditItem={effectiveCanEditItem}
-                      language={language}
-                  />
-              </div>
+            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+              <Pagination
+                currentPage={currentPage}
+                pageSize={pageSize}
+                totalItems={filteredItems.length}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                }}
+                language={language}
+              />
+            </div>
           )}
             </>
           )}
@@ -657,7 +1159,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           )}
 
           {activeTab === 'purchase_orders' && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 overflow-x-auto">
+            <div>
               {onCreatePO && onUpdatePOStatus ? (
                 <PurchaseOrderManagement
                   purchaseOrders={purchaseOrders.filter(po => po.locationId === locationId || (locationId === 'warehouse' && !po.locationId))}
@@ -666,21 +1168,38 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                   language={language}
                   onCreatePO={(po, items) => onCreatePO({...po, locationId}, items)}
                   onEditPO={onEditPO || (() => {})}
-                  onUpdateStatus={onUpdatePOStatus as any}
+                  onUpdateStatus={(id, status) =>
+                    onUpdatePOStatus?.(id, status as PurchaseOrderStatus, getUserName(userRole))
+                  }
                   onReceivePO={onReceivePO || (() => {})}
-                  userName={''}
+                  // Was '', so a branch receiving a purchase order wrote a ledger
+                  // entry with no performer. The admin screen passed a real name.
+                  userName={getUserName(userRole)}
+                  // A PO can only select catalogue products, so raising one cannot
+                  // introduce a new product — it follows the same rule as adding a
+                  // catalogue item to a shelf rather than the admin-only rule.
+                  canCreatePO={locationAccess === 'write'}
                   onOpenCreateModal={() => { setSelectedPO(undefined); setIsPOModalOpen(true); }}
                   onOpenViewModal={(po) => { setSelectedPO(po); setIsPOModalOpen(true); }}
                   onOpenReceiveModal={(po) => { setSelectedPO(po); setIsReceivePOModalOpen(true); }}
                 />
               ) : (
-                <div className="text-center text-gray-500 py-12">Purchase Order Management not configured</div>
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+                  <EmptyState
+                    icon={<ShoppingCart />}
+                    title={isAr ? 'طلبات الشراء غير مهيأة' : 'Purchase orders not configured'}
+                    description={
+                      isAr
+                        ? 'يرجى تفعيل وحدة المشتريات لاستخدام هذه الشاشة.'
+                        : 'Enable the procurement module to use this screen.'
+                    }
+                  />
+                </div>
               )}
             </div>
           )}
 
-        </main>
-      </div>
+      </PageBody>
 
       {/* Bulk Actions Bar */}
           <BulkActionsBar 
@@ -727,6 +1246,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         initialData={itemToEdit}
         existingItems={inventory}
         catalog={catalog}
+        canCreateProduct={canCreateProductFlag}
       />
 
       <BulkEditModal 
@@ -788,24 +1308,37 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       />
 
       {/* Rejection Modal */}
-      {rejectionTarget && (
-         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t.rejectionReason}</h3>
-               <textarea 
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder={t.rejectionPlaceholder}
-                  rows={3}
-               />
-               <div className="flex gap-3">
-                  <button onClick={() => setRejectionTarget(null)} className="flex-1 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium">{t.cancel}</button>
-                  <button onClick={handleReject} disabled={!rejectionReason.trim()} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 disabled:opacity-50">{t.reject}</button>
-               </div>
-            </div>
-         </div>
-      )}
+      <Modal
+        open={!!rejectionTarget}
+        onClose={() => setRejectionTarget(null)}
+        title={t.rejectionReason}
+        icon={<XCircle />}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRejectionTarget(null)}>
+              {t.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={!rejectionReason.trim()}
+              onClick={handleReject}
+            >
+              {t.reject}
+            </Button>
+          </>
+        }
+      >
+        <Field label={t.rejectionReason} hint={t.rejectionPlaceholder}>
+          <Textarea
+            value={rejectionReason}
+            onChange={(event) => setRejectionReason(event.target.value)}
+            placeholder={t.rejectionPlaceholder}
+            rows={3}
+            autoFocus
+          />
+        </Field>
+      </Modal>
 
       {/* Transfer Detail Modal — NEW */}
       <TransferDetailModal
@@ -841,37 +1374,37 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       />
 
       {/* Legacy View Items Modal — kept for backwards compat */}
-      {selectedTransferGroup && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
-                  <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t.transferDetails}</h3>
-                      <button onClick={() => setSelectedTransferGroup(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                          <XCircle className="w-6 h-6 text-gray-500" />
-                      </button>
-                  </div>
-                  <div className="space-y-3">
-                      {(() => {
-                          const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === selectedTransferGroup);
-                          return (group?.[1] || []).map(tx => (
-                              <div key={tx.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                                  <span className="font-medium text-gray-900 dark:text-white">{language === 'ar' ? tx.itemNameAr : tx.itemNameEn}</span>
-                                  <span className="font-bold text-brand-600 dark:text-brand-400">{tx.quantity} {tx.unit}</span>
-                              </div>
-                          ));
-                      })()}
-                  </div>
-                  <div className="mt-6">
-                      <button 
-                        onClick={() => setSelectedTransferGroup(null)} 
-                        className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-                      >
-                        {t.cancel}
-                      </button>
-                  </div>
+      <Modal
+        open={!!selectedTransferGroup}
+        onClose={() => setSelectedTransferGroup(null)}
+        title={t.transferDetails}
+        footer={
+          <Button block variant="secondary" onClick={() => setSelectedTransferGroup(null)}>
+            {t.cancel}
+          </Button>
+        }
+      >
+        <div className="space-y-2">
+          {(() => {
+            const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(
+              (entry) => entry[0] === selectedTransferGroup
+            );
+            return (group?.[1] || []).map((tx) => (
+              <div
+                key={tx.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-800"
+              >
+                <span className="truncate text-sm text-gray-900 dark:text-white">
+                  {isAr ? tx.itemNameAr || tx.itemNameEn : tx.itemNameEn || tx.itemNameAr}
+                </span>
+                <span className="tnum flex-shrink-0 text-sm font-semibold text-brand-700 dark:text-brand-400">
+                  {tx.quantity} {tx.unit}
+                </span>
               </div>
-          </div>
-      )}
+            ));
+          })()}
+        </div>
+      </Modal>
 
       {showScanner && (
         <ScannerModal 
@@ -942,7 +1475,17 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           onSave={selectedPO 
             ? (po, items) => onEditPO(selectedPO.id, po, items)
             : (po, items) => onCreatePO({...po, locationId}, items)}
-          userName={''}
+          // Editing an order writes its own branch, so withhold the controls when
+          // the viewer only has read access there.
+          canManage={canWriteLocation(accessSubject, (selectedPO?.locationId as string) || locationId)}
+          // A branch manager orders for their own shelf and approves their own order, so
+          // there is no approval queue for them. Enforced again in useInventoryData.
+          autoApprove={accessSubject?.role === 'branch_manager'}
+          onUpdateStatus={(id, status) =>
+            onUpdatePOStatus?.(id, status as PurchaseOrderStatus, getUserName(userRole))
+          }
+          // `created_by` was '' for a purchase order raised by a branch.
+          userName={getUserName(userRole)}
           language={language}
         />
       )}
@@ -952,12 +1495,20 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           isOpen={isReceivePOModalOpen}
           onClose={() => setIsReceivePOModalOpen(false)}
           purchaseOrder={selectedPO || null}
-          onReceive={onReceivePO}
-          userName={''}
+          // Receiving writes stock into the order's own location, so it needs write
+          // access there — not merely access to the purchase order screen.
+          onReceive={(poId, items, performedBy) => {
+            if (!canWriteLocation(accessSubject, selectedPO.locationId || 'warehouse')) {
+              addToast('error', readOnlyMessage(language, selectedPO.locationId || undefined));
+              return;
+            }
+            onReceivePO(poId, items, performedBy);
+          }}
+          userName={getUserName(userRole)}
           language={language}
         />
       )}
-    </div>
+    </AppShell>
   );
 };
 

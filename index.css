@@ -1,53 +1,162 @@
-html, body {
-  overflow-x: hidden;
-  width: 100%;
-  position: relative;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-gutter: stable;
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Numbers in tables, stats and money columns should never shift width. */
+  table,
+  .tnum,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A visible, consistent focus ring for keyboard users everywhere. */
+  :where(button, a, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible {
+    outline: 2px solid theme('colors.brand.500');
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 0.875rem;
+  }
+
+  /* Arabic text should use the Arabic face even when only `dir` is set. */
+  [dir='rtl'] body {
+    font-family: theme('fontFamily.arabic');
+  }
+
+  ::selection {
+    background-color: theme('colors.brand.500');
+    color: #fff;
+  }
+
+  /* Restrained scrollbars that work on both themes. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.gray.300') transparent;
+  }
+
+  .dark * {
+    scrollbar-color: theme('colors.gray.700') transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: theme('colors.gray.300');
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.gray.400');
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: theme('colors.gray.700');
+    background-clip: content-box;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.gray.600');
+  }
+
+  /* Overlays lock the page; never let the background scroll behind a sheet. */
+  body[data-scroll-locked='true'] {
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
-/* Custom scrollbar for better look in dark mode */
-.dark ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@layer components {
+  .font-arabic {
+    font-family: theme('fontFamily.arabic');
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Thin accent rule used above section headings. */
+  .rule-accent::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    height: 2px;
+    width: 2rem;
+    border-radius: 999px;
+    background: theme('colors.brand.500');
+  }
 }
 
-.dark ::-webkit-scrollbar-track {
-  background: #1f2937; 
-}
+@layer utilities {
+  @keyframes scan {
+    0% {
+      top: 0%;
+    }
+    50% {
+      top: 100%;
+    }
+    100% {
+      top: 0%;
+    }
+  }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #4b5563; 
-  border-radius: 4px;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280; 
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-
-.font-arabic {
-  font-family: 'Cairo', sans-serif;
-}
-
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-@keyframes scan {
-  0% { top: 0%; }
-  50% { top: 100%; }
-  100% { top: 0%; }
-}
-
-.animate-scan {
-  animation: scan 2.5s ease-in-out infinite;
+  .animate-scan {
+    animation: scan 2.5s ease-in-out infinite;
+  }
 }

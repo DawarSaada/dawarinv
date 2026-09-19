@@ -30,7 +30,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
 
   const getStatusColor = (status: string) => {
     switch(status) {
-      case 'scheduled': return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+      case 'scheduled': return 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300';
       case 'in_progress': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
       case 'pending_review': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
       case 'completed': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
@@ -59,26 +59,26 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <ClipboardCheck className="w-8 h-8 text-brand-500" />
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl dark:text-white">
+            <ClipboardCheck className="h-5 w-5 text-brand-600 dark:text-brand-400" />
             {language === 'ar' ? 'إدارة الجرد الدوري' : 'Cycle Counting & Audits'}
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+          <p className="mt-0.5 text-xs text-gray-500 sm:text-sm dark:text-gray-400">
             {language === 'ar' ? 'جدولة ومراجعة جرد المخزون' : 'Schedule and review inventory audits'}
           </p>
         </div>
         <button 
           onClick={onOpenScheduleModal}
-          className="w-full sm:w-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-sm shadow-brand-500/20"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-800"
         >
           <Plus className="w-5 h-5" />
           {language === 'ar' ? 'جدولة جرد' : 'Schedule Audit'}
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row dark:border-gray-800">
         <div className="relative flex-1">
           <Search className={`absolute ${language === 'ar' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5`} />
           <input
@@ -86,13 +86,13 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
             placeholder={language === 'ar' ? 'ابحث باسم الجرد...' : 'Search by audit title...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={`w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white ${language === 'ar' ? 'pr-10 pl-4' : ''}`}
+            className={`w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white ${language === 'ar' ? 'pr-10 pl-4' : ''}`}
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
+          className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
         >
           <option value="all">{language === 'ar' ? 'جميع الحالات' : 'All Statuses'}</option>
           <option value="scheduled">{language === 'ar' ? 'مجدول' : 'Scheduled'}</option>
@@ -104,7 +104,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAudits.map(audit => (
-          <div key={audit.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col group">
+          <div key={audit.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col group">
             <div className="p-6 flex-1 flex flex-col">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -138,7 +138,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
               </div>
             </div>
             
-            <div className="bg-gray-50 dark:bg-gray-900/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end items-center gap-3">
+            <div className="bg-gray-50 dark:bg-gray-900/50 px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-end items-center gap-3">
               {(audit.status === 'scheduled' || audit.status === 'in_progress') && (
                 <button 
                   onClick={() => onOpenPerformModal(audit)}
@@ -162,7 +162,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
               {audit.status === 'completed' && (
                 <button 
                   onClick={() => onOpenReviewModal(audit)}
-                  className="text-gray-600 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-colors w-full justify-center"
+                  className="text-gray-600 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-colors w-full justify-center"
                 >
                   <CheckCircle className="w-4 h-4" />
                   {language === 'ar' ? 'عرض النتائج' : 'View Results'}
@@ -183,7 +183,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
         ))}
 
         {filteredAudits.length === 0 && (
-          <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+          <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
             <ClipboardCheck className="w-12 h-12 mx-auto mb-4 opacity-20" />
             <p className="text-lg">{language === 'ar' ? 'لم يتم العثور على أي جرد.' : 'No audits found.'}</p>
           </div>
@@ -192,7 +192,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200 border border-gray-200 dark:border-gray-800">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}
             </h3>
