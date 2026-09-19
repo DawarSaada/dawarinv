@@ -141,7 +141,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
 
     return (
         <div className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${language === 'ar' ? 'font-arabic' : ''}`}>
-            <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md p-4 sm:p-6 shadow-2xl overflow-y-auto max-h-[90dvh]">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
@@ -212,7 +212,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.itemNameEn}</label>
                             <input
@@ -286,7 +286,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                         </datalist>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{isEditMode ? t.quantity : t.initialQty}</label>
                             <input
@@ -392,13 +392,13 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
+                            className="flex-1 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
                         >
                             {t.cancel}
                         </button>
                         <button
                             type="submit"
-                            className="flex-1 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 px-4 py-3 bg-brand-700 hover:bg-brand-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                         >
                             {isEditMode ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                             {isEditMode ? t.saveUser : t.addItem}

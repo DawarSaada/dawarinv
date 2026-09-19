@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "smoke": "node scripts/smoke-test.mjs",
+    "migrations": "node scripts/migration-doctor.mjs",
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {

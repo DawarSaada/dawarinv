@@ -195,8 +195,8 @@ const TransferModal: React.FC<TransferModalProps> = ({
                                     {availableItemsForSource.map(item => <option key={item.id} value={item.id}>{(language === 'ar' ? item.nameAr : item.nameEn)} ({item.quantity} {item.unit})</option>)}
                                 </select>
                                 <div className="flex gap-2">
-                                    <input type="number" value={quantity} onChange={(e) => { setQuantity(e.target.value); setError(''); }} className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500" placeholder={t.quantity} />
-                                    <button type="button" onClick={handleAddItem} className="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-transform">{t.addToTransfer}</button>
+                                    <input type="number" value={quantity} onChange={(e) => { setQuantity(e.target.value); setError(''); }} className="flex-1 px-3 py-2.5 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500" placeholder={t.quantity} />
+                                    <button type="button" onClick={handleAddItem} className="px-4 py-3 bg-brand-600 text-white rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-transform">{t.addToTransfer}</button>
                                 </div>
                                 {error && <div className="text-red-500 text-[10px] font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</div>}
                             </div>

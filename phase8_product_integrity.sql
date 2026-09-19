@@ -109,7 +109,13 @@ BEGIN
         p_location_id, v_name_en, v_name_ar, btrim(p_description),
         btrim(coalesce(nullif(btrim(p_category), ''), 'Uncategorized')),
         greatest(coalesce(p_quantity, 0), 0), btrim(p_unit),
-        greatest(coalesce(p_min_threshold, 0), 0), p_expiration_date, nullif(btrim(p_barcode), '')
+        greatest(coalesce(p_min_threshold, 0), 0),
+        -- inventory_items.expiration_date is `date` in the live database (supabase_schema.sql
+        -- declares it text). The parameter is text, so it must be cast explicitly: Postgres
+        -- does not implicitly cast text to date in an INSERT, and passing it raw made every
+        -- add fail with 42804 "column \"expiration_date\" is of type date but expression is of
+        -- type text". Empty string is treated as "no expiry".
+        nullif(btrim(p_expiration_date), '')::date, nullif(btrim(p_barcode), '')
     ) RETURNING * INTO v_new_item;
 
     RETURN to_jsonb(v_new_item);
@@ -165,7 +171,8 @@ BEGIN
         quantity = greatest(coalesce(p_quantity, 0), 0),
         unit = btrim(p_unit),
         min_threshold = greatest(coalesce(p_min_threshold, 0), 0),
-        expiration_date = p_expiration_date,
+        -- Cast for the same 42804 reason as execute_add_item above.
+        expiration_date = nullif(btrim(p_expiration_date), '')::date,
         barcode = nullif(btrim(p_barcode), ''),
         last_updated = now()
     WHERE id = p_id;

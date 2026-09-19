@@ -316,12 +316,12 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => onDownload(transferGroupId, transferType === 'incoming' ? 'incoming' : 'outgoing')}
-                className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-xl transition-colors"
+                className="p-2.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-xl transition-colors"
                 title="Download PDF"
               >
                 <Download className="w-5 h-5" />
               </button>
-              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+              <button onClick={onClose} className="p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -356,11 +356,11 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
               );
             })}
           </div>
-          <div className="flex justify-between mt-1 text-[10px] text-gray-400 font-medium">
-            <span>{t.transferInitiated}</span>
-            <span>{t.sourceApproved}</span>
-            <span>{t.pendingReceipt}</span>
-            <span>{t.transferCompleted}</span>
+          <div className="flex justify-between mt-1 text-xs text-gray-400 font-medium">
+            <span className="truncate max-w-[25%]">{t.transferInitiated}</span>
+            <span className="hidden sm:block truncate max-w-[25%] text-center">{t.sourceApproved}</span>
+            <span className="hidden sm:block truncate max-w-[25%] text-center">{t.pendingReceipt}</span>
+            <span className="truncate max-w-[25%] text-right">{t.transferCompleted}</span>
           </div>
         </div>
 
@@ -401,21 +401,21 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                       <div className="flex items-center gap-1 mt-0.5" onClick={e => e.stopPropagation()}>
                         <button 
                           onClick={() => updateItemQuantity(item.transactionId, Math.max(0, item.receivedQuantity - 1))}
-                          className="p-0.5 rounded bg-white/60 dark:bg-gray-600/60 hover:bg-white dark:hover:bg-gray-600 transition-colors"
+                          className="p-2 rounded bg-white/60 dark:bg-gray-600/60 hover:bg-white dark:hover:bg-gray-600 transition-colors"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-3.5 h-3.5" />
                         </button>
                         <input 
                           type="number"
                           value={item.receivedQuantity}
                           onChange={e => updateItemQuantity(item.transactionId, Math.max(0, Number(e.target.value)))}
-                          className="w-16 text-center text-sm font-bold bg-white dark:bg-gray-950 rounded-lg border border-current/20 py-0.5 outline-none focus:ring-2 focus:ring-brand-500"
+                          className="w-16 text-center text-sm font-bold bg-white dark:bg-gray-950 rounded-lg border border-current/20 py-1.5 outline-none focus:ring-2 focus:ring-brand-500"
                         />
                         <button 
                           onClick={() => updateItemQuantity(item.transactionId, item.receivedQuantity + 1)}
-                          className="p-0.5 rounded bg-white/60 dark:bg-gray-600/60 hover:bg-white dark:hover:bg-gray-600 transition-colors"
+                          className="p-2 rounded bg-white/60 dark:bg-gray-600/60 hover:bg-white dark:hover:bg-gray-600 transition-colors"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                         <span className="text-xs ml-1">{item.unit}</span>
                       </div>

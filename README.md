@@ -64,6 +64,7 @@ function secret so it never reaches the browser.
 | `npm run preview` | Serve the production build locally |
 | `npm run smoke` | Serve `dist/` and assert the built app mounts with no page errors |
 | `npm run icons` | Regenerate PWA icons from the SVG definition |
+| `npm run migrations` | Read-only cross-check of which SQL migrations the live project has applied, and which are still outstanding. Never writes. |
 | `node scripts/catalog-doctor.mjs` | Read-only report on product data quality: duplicate products, damaged names, placeholder categories, unit spellings, and which migrations the live project has applied. |
 | `node scripts/catalog-doctor.mjs --apply` | Applies that repair, writing a JSON backup plus a `.rollback.sql` into `scripts/backups/`. Add `--no-merge` to fix fields without deleting duplicate rows. |
 | `node scripts/catalog-doctor.mjs --prune-uncatalogued` | Reports the branch rows whose product is not in the catalogue. With `--apply` it removes them, after backing them up. |
@@ -80,26 +81,56 @@ development aid only and is not part of the production bundle.
 
 ## Supabase provisioning
 
-Apply the SQL in the repository root in order (catalog, notifications, POs, audit,
-RLS, web push, transfers, **integrity**). `supabase/migrations/` holds the
-schema-tracked files.
+Run `npm run migrations` to see what is already applied — it is read-only, and it
+prints the same information as `migration-check.sql`, which you can paste into the
+SQL editor when you want the parts the REST API cannot reach (triggers,
+constraints, RLS policies).
 
-Both of these are required, not optional:
+`supabase/migrations/` holds the schema-tracked files. Everything in the repository
+root up to `phase6` is already applied on the live project; the phases below are the
+ones that still need running.
 
-- `phase7_integrity_migration.sql` — repairs stock rows that had gone negative,
-  adds `CHECK (quantity >= 0)`, guards usage logging against over-issuing, and
-  replaces `receive_purchase_order` with an atomic version.
-- `phase8_product_integrity.sql` — case/whitespace-insensitive unique indexes per
+### Run these, in this order
+
+```
+1. phase11_item_date_fix.sql      -- today: add/edit item are broken without it
+2. node scripts/catalog-doctor.mjs --apply   -- cleans duplicates (not SQL)
+3. phase7_integrity_migration.sql -- negative stock + PO receipt
+4. phase8_product_integrity.sql   -- uniqueness + trimming
+5. phase10_app_settings.sql       -- central settings (currency, retention)
+```
+
+`phase9_branch_permissions.sql` is optional for now: it adds `can_edit_location()` /
+`can_read_location()` in SQL, matching `services/permissions.ts`. Apply it when you
+move to Supabase Auth, so the branch rule can be enforced by RLS — on its own it
+enforces nothing.
+
+Each file runs in one transaction and is safe to re-run.
+
+### Why each one matters
+
+- **`phase11_item_date_fix.sql`** — `execute_add_item` and `execute_edit_item`
+  declare `p_expiration_date` as `text` but write it into a `date` column, so
+  **every** add and edit fails with `42804 column "expiration_date" is of type date
+  but expression is of type text`. Postgres raises this at plan time, before any row
+  is touched, so it does not matter what the caller passes. Until this runs, a
+  branch cannot add a catalogue product and nobody can correct an existing item.
+- **`catalog-doctor.mjs --apply`** — phase8's unique indexes cannot be created while
+  duplicate `(location, name)` rows exist, and it fails loudly rather than silently
+  skipping them. Run it first; it backs up before it deletes.
+- **`phase7_integrity_migration.sql`** — clamps negative stock (with the originals
+  preserved in `inventory_negative_stock_backup`), adds `CHECK (quantity >= 0)`,
+  guards usage logging against over-issuing, and replaces `receive_purchase_order`
+  with an atomic version that credits the PO's own location and can receive a
+  partially delivered order.
+- **`phase8_product_integrity.sql`** — case/whitespace-insensitive unique indexes per
   location, `CHECK` constraints against untrimmed names, and `execute_add_item` /
   `execute_edit_item` rebuilt to trim on write and report duplicates clearly.
-- `phase9_branch_permissions.sql` — optional for now: adds `can_edit_location()` /
-  `can_read_location()` in SQL, matching `services/permissions.ts`. Apply it when
-  you move to Supabase Auth, so the branch rule can be enforced by RLS.
+- **`phase10_app_settings.sql`** — adds `updated_by` to `app_settings`, and seeds
+  `currency` (SAR) and `retention_months` (0). The settings screen works without it,
+  but stays local-only and cannot record who changed a setting.
 
-Apply each in one transaction; both are re-runnable. See
-[PRODUCTION_AUDIT.md](./PRODUCTION_AUDIT.md) for why, and run
-`node scripts/catalog-doctor.mjs --apply` first if the product data has not been
-cleaned yet (phase8 refuses to build the indexes while duplicates remain).
+See [PRODUCTION_AUDIT.md](./PRODUCTION_AUDIT.md) for the reasoning behind each.
 
 Deploy the edge functions and their secrets:
 

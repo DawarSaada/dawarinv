@@ -42,6 +42,15 @@
     font-size: 0.875rem;
   }
 
+  /* iOS Safari auto-zooms when input font-size < 16px. Override on mobile. */
+  @media (max-width: 639px) {
+    input,
+    select,
+    textarea {
+      font-size: 1rem;
+    }
+  }
+
   /* Arabic text should use the Arabic face even when only `dir` is set. */
   [dir='rtl'] body {
     font-family: theme('fontFamily.arabic');
@@ -62,9 +71,12 @@
     scrollbar-color: theme('colors.gray.700') transparent;
   }
 
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+  /* Only show custom scrollbar on pointer (mouse) devices, not touch screens */
+  @media (pointer: fine) {
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
   }
 
   ::-webkit-scrollbar-track {

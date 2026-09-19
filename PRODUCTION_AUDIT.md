@@ -718,3 +718,79 @@ non-existent id **succeeds**. Combined with risk 1 this means the database is wr
 holding that key, which ships inside the client bundle. Every permission control built in this
 project is a UX and integrity boundary — which is why `phase9_branch_permissions.sql` mirrors the
 rules as SQL functions ready for RLS. This is the auth item you asked me to leave.
+
+## Migration cross-check (2026-09-19)
+
+Asked to say which of the SQL files actually need running, I probed the live project instead of
+trusting the README. `npm run migrations` (new: `scripts/migration-doctor.mjs`) now answers this
+from a terminal, and `migration-check.sql` answers it from the SQL editor for the parts the REST
+API cannot see.
+
+The probe technique matters, because the obvious one does not work. `GET /rest/v1/rpc/<name>`
+answers **404 for a function that exists and one that does not**, identically, so it cannot detect
+anything — an earlier version of this script used it and reported all 25 functions missing. The
+script now probes functions by *behaviour*, with calls engineered to be incapable of writing: an
+empty array, `p_months = 0`, `p_days = 36500`, or an id that matches no row. The server's refusal
+is the evidence, and a missing function answers `PGRST202`.
+
+### Already applied
+
+`supabase_schema`, `phase2_notifications`, `phase3_migration`, `phase3_po`, `phase4_audit`,
+`phase5_webpush`, `phase6_po`, `catalog_migration`, `transfer_overhaul`, `oms_sync_rpc`, both
+`supabase/migrations/*` files. Their tables, columns and functions are all present.
+
+### Still outstanding
+
+| # | File | Evidence it has not run |
+| --- | --- | --- |
+| 1 | `phase11_item_date_fix.sql` **(new)** | `execute_add_item` / `execute_edit_item` fail with `42804` for every payload |
+| 2 | `catalog-doctor.mjs --apply` | 3 duplicate `(location, name)` groups, 8 untrimmed names, 13 placeholder categories, 4 `peace` units |
+| 3 | `phase7_integrity_migration.sql` | **68** rows at negative stock; `receive_purchase_order` is the older version |
+| 4 | `phase8_product_integrity.sql` | preconditions in row 2; `execute_edit_item` does not raise on an unknown id |
+| 5 | `phase10_app_settings.sql` | `app_settings.updated_by` absent; `retention_months` not seeded |
+| — | `phase9_branch_permissions.sql` | `can_edit_location()` etc. absent — optional, enforces nothing alone |
+
+`phase5_rls_migration.sql` is a special case worth stating plainly: its *functions* are installed,
+but its **RLS half is not in force**. A `PATCH` to `inventory_items` with only the anon key returns
+**204**, where phase5 makes that table read-only over REST. So the RPC-only design is not actually
+enforced — nothing stops a client bypassing the guards `phase7` adds, as §9 already notes.
+
+### Add and edit are broken right now
+
+This is the finding that came out of the cross-check, and it was invisible from the UI only
+because it fails on every attempt.
+
+`execute_add_item` and `execute_edit_item` declare `p_expiration_date` as `text` and pass it
+straight into `inventory_items.expiration_date`, which is **`date`** in the live database:
+
+```
+42804  column "expiration_date" is of type date but expression is of type text
+```
+
+Postgres raises this at plan time, before the row is touched and before any other check, so it does
+not matter whether the caller passes a date or `NULL`. Reproduced three ways — direct REST, the
+app's own client from the browser, and with a location that fails the foreign key (the type error
+precedes it). Confirmed in the running app: adding a catalogue product returns
+`Failed to add item: column "expiration_date" is of type date but expression is of type text`.
+
+The root cause is a schema drift nobody could see: `supabase_schema.sql` declares
+`expiration_date text`, and guards the column with
+`add column if not exists`, so the file and the database disagree and re-running it changes nothing.
+
+`phase11_item_date_fix.sql` resolves it by casting inside the function
+(`nullif(btrim(p_expiration_date), '')::date`), which works whichever type wins when the schema is
+reconciled, and keeps the signature unchanged so existing calls still resolve. `phase8` carries the
+same two functions and now has the same cast, so applying it later cannot reintroduce the bug.
+
+### The data is drifting again
+
+The earlier pass left 962 rows and 100% catalogue coverage. It is now **975 rows**, and every one of
+the 13 new rows was written between 08:52 and 08:56 today — by the *previous* deployment, an hour
+before the 10:01 push. They carry the old fingerprints: trailing spaces, the `Peace` unit,
+`Uncategorized`. Two of them (`yogurt`, `Astra Halloumi Cheese`) are rows this audit pruned as
+uncatalogued, re-created by `receive_purchase_order` when it looked for an item that was no longer
+there. That is the same defect §7 of the phase8 header describes and the reason phase8's unique
+indexes matter: without them, a receipt can resurrect a deleted product.
+
+`catalog-doctor.mjs` resolves all of it — 12 duplicate rows merged, 3 field repairs, 0 residual
+collisions — and the run is reported above.
