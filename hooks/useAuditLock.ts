@@ -10,8 +10,18 @@ export const useAuditLock = (userRole?: string) => {
       return { isInventoryLocked: false };
     }
 
-    // Global Lock: Find ANY audit that is scheduled or in_progress
-    const activeAudit = audits.find(a => a.status === 'scheduled' || a.status === 'in_progress');
+    // Global Lock: Find an audit that is in_progress, OR scheduled for today (or earlier)
+    const today = new Date().toISOString().split('T')[0];
+    const activeAudit = audits.find(a => {
+      if (a.status === 'in_progress') return true;
+      if (a.status === 'scheduled') {
+        // Lock if it's scheduled for today or earlier
+        if (a.scheduledDate && a.scheduledDate <= today) return true;
+        // If it has no scheduled date, lock immediately just in case
+        if (!a.scheduledDate) return true;
+      }
+      return false;
+    });
 
     if (activeAudit) {
       return {
