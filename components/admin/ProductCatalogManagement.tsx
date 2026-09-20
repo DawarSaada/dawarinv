@@ -139,7 +139,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
             </div>
 
             <div className="overflow-x-auto">
-                <table className="w-full text-left rtl:text-right">
+                <table className="hidden md:table w-full text-left rtl:text-right">
                     <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400">
                             <th className="pb-3 px-4">Name (En)</th>
@@ -177,6 +177,43 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                         )}
                     </tbody>
                 </table>
+            {/* Mobile Card Layout */}
+            <div className="md:hidden flex flex-col gap-4 mt-4">
+                {filteredCatalog.map(item => (
+                    <div key={item.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-xl shadow-sm flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-gray-900 dark:text-white">{item.nameEn}</h3>
+                                <h3 className="font-bold text-gray-900 dark:text-white font-arabic mt-1">{item.nameAr}</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => handleOpenModal(item)} className="p-2 text-brand-600 bg-brand-50 dark:bg-brand-900/30 rounded-lg">
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handleDelete(item.id)} className="p-2 text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
+                            <div>
+                                <div className="text-xs text-gray-500">{t.category || 'Category'}</div>
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.category}</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-gray-500">{t.unit || 'Unit'}</div>
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.unit}</div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                {filteredCatalog.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 dark:bg-gray-900 rounded-xl">
+                        No products found in catalog.
+                    </div>
+                )}
+            </div>
+
             </div>
 
             {isModalOpen && (

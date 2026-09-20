@@ -221,7 +221,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.dailyTransactions}</h3>
           </div>
           <div className="overflow-x-auto">
-              <table className="w-full text-left rtl:text-right text-xs sm:text-sm">
+              <table className="hidden md:table w-full text-left rtl:text-right text-xs sm:text-sm">
                   <thead>
                       <tr className="bg-gray-50/30 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-800 text-gray-400 font-bold uppercase">
                           <th className="px-6 py-4">{t.time}</th>
@@ -256,6 +256,40 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                       )}
                   </tbody>
               </table>
+            {/* Mobile Card Layout */}
+            <div className="md:hidden flex flex-col divide-y divide-gray-100 dark:divide-gray-800 border-t border-gray-200 dark:border-gray-800">
+                {filteredReportTx.map(tx => (
+                    <div key={tx.id} className="p-4 flex flex-col gap-2 bg-white dark:bg-gray-900">
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">
+                                {new Date(tx.date).toLocaleTimeString(language === 'ar' ? 'ar-EG' : 'en-US', {hour: '2-digit', minute:'2-digit'})}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${tx.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {t[tx.status]}
+                            </span>
+                        </div>
+                        
+                        <div className="font-bold text-gray-900 dark:text-white text-base mt-1">
+                            {language === 'ar' ? tx.itemNameAr : tx.itemNameEn}
+                        </div>
+                        
+                        <div className="flex justify-between items-center mt-1">
+                            <span className={`flex items-center gap-1.5 text-sm font-bold ${tx.type === 'transfer' ? 'text-blue-600' : tx.type === 'usage' ? 'text-orange-600' : 'text-green-600'}`}>
+                                {t[tx.type]}
+                            </span>
+                            <span className="font-bold text-gray-700 dark:text-gray-300">
+                                {tx.quantity} <span className="text-xs font-normal">{tx.unit}</span>
+                            </span>
+                        </div>
+                    </div>
+                ))}
+                {filteredReportTx.length === 0 && (
+                    <div className="px-6 py-12 text-center text-gray-400 italic">
+                        {t.noTransactionsFound}
+                    </div>
+                )}
+            </div>
+
           </div>
       </div>
     </div>
