@@ -689,20 +689,26 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
 
   const saveAuditCountsMutation = useMutation({
     mutationFn: async ({ items }: { items: { id: string, counted_quantity: number, notes?: string }[] }) => {
-      for (const item of items) {
-        const { error } = await supabase
-          .from('audit_items')
-          .update({ 
-            counted_quantity: item.counted_quantity,
-            notes: item.notes
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+        const chunk = items.slice(i, i + CHUNK_SIZE);
+        await Promise.all(
+          chunk.map(async (item) => {
+            const { error } = await supabase
+              .from('audit_items')
+              .update({ 
+                counted_quantity: item.counted_quantity,
+                notes: item.notes
+              })
+              .eq('id', item.id);
+            if (error) throw error;
           })
-          .eq('id', item.id);
-        if (error) throw error;
+        );
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['audits'] });
-      addToast('success', language === 'ar' ? 'تم حفظ الجرد' : 'Audit counts saved');
+      addToast('success', language === 'ar' ? 'تم حفظ العد' : 'Audit counts saved');
     },
     onError: (error: any) => {
       addToast('error', error.message);

@@ -95,7 +95,7 @@ interface AdminDashboardProps {
     onReceivePO: (poId: string, items: any[], performedBy: string) => void;
     audits: Audit[];
     onScheduleAudit: (params: any) => void;
-    onSaveAuditCounts: (auditId: string, items: any[]) => void;
+    onSaveAuditCounts: (auditId: string, items: any[]) => Promise<void> | void;
     onSubmitAudit: (auditId: string) => void;
     onApplyAudit: (auditId: string, performedBy: string) => void;
     onDeleteAudit: (auditId: string) => void;

@@ -8,7 +8,7 @@ interface PerformAuditModalProps {
   onClose: () => void;
   language: Language;
   audit: Audit | null;
-  onSaveCounts: (items: any[]) => void;
+  onSaveCounts: (items: any[]) => Promise<void> | void;
   onSubmitAudit: (auditId: string) => void;
 }
 
@@ -49,16 +49,16 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const itemsToSave = Object.entries(counts).map(([id, data]) => ({
       id,
       counted_quantity: data.count === '' ? null : Number(data.count),
       notes: data.notes
     }));
-    onSaveCounts(itemsToSave);
+    await onSaveCounts(itemsToSave);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Ensure all items have been counted
     const uncounted = Object.values(counts).filter(data => data.count === '');
     if (uncounted.length > 0) {
@@ -67,7 +67,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
     }
 
     if (window.confirm(language === 'ar' ? 'هل أنت متأكد من إرسال هذا الجرد للمراجعة؟ لا يمكن تعديل الجرد بعد الإرسال.' : 'Are you sure you want to submit this audit for review? Counts cannot be changed after submission.')) {
-      handleSave(); // Save final state just in case
+      await handleSave(); // Save final state just in case
       onSubmitAudit(audit.id);
       onClose();
     }

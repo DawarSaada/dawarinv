@@ -363,7 +363,7 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
     },
     handleSaveAuditCounts: (auditId: string, items: any[]) => {
         if (!guardWrite(getAuditTarget(auditId))) return;
-      saveAuditCountsMutation.mutate({ items });
+      return saveAuditCountsMutation.mutateAsync({ items });
     },
     handleSubmitAudit: (id: string) => {
         if (!guardWrite(getAuditTarget(id))) return;
