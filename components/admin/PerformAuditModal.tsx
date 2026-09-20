@@ -92,7 +92,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
 
         <div className="p-6 overflow-y-auto flex-1">
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <table className="w-full text-left border-collapse">
+            <table className="hidden md:table w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400">
                   <th className="p-4 font-medium">{language === 'ar' ? 'العنصر' : 'Item'}</th>
@@ -147,14 +147,74 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                 })}
               </tbody>
             </table>
+            {/* Mobile Card Layout for Perform Audit */}
+            <div className="md:hidden space-y-4 pt-4">
+              {audit.items?.map(item => {
+                const currentCountStr = counts[item.id]?.count;
+                const currentCountNum = currentCountStr === '' ? undefined : Number(currentCountStr);
+                const isCounted = currentCountNum !== undefined;
+                const variance = isCounted ? currentCountNum - item.expectedQuantity : null;
+                
+                return (
+                  <div key={item.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm flex flex-col gap-3 relative">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="font-bold text-gray-900 dark:text-white">
+                          {language === 'ar' ? item.itemNameAr : item.itemNameEn}
+                        </div>
+                        <div className="text-xs text-gray-500">{item.category}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'المتوقع' : 'Expected'}</div>
+                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                          {item.expectedQuantity} <span className="text-xs">{item.unit}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                        {language === 'ar' ? 'الكمية الفعلية (التي تم عدها)' : 'Actual Count'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={currentCountStr !== undefined ? currentCountStr : ''}
+                        onChange={(e) => handleCountChange(item.id, e.target.value)}
+                        className={`w-full px-3 py-3 bg-gray-50 dark:bg-gray-900 border rounded-lg focus:ring-2 focus:ring-brand-500 font-bold text-lg ${
+                          isCounted && variance !== 0 ? 'border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-500/30 dark:bg-orange-900/20 dark:text-orange-400' 
+                          : isCounted && variance === 0 ? 'border-green-300 text-green-700 bg-green-50 dark:border-green-500/30 dark:bg-green-900/20 dark:text-green-400' 
+                          : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-gray-500">
+                        {language === 'ar' ? 'ملاحظات (اختياري)' : 'Notes (Optional)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={counts[item.id]?.notes || ''}
+                        onChange={(e) => handleNotesChange(item.id, e.target.value)}
+                        placeholder={language === 'ar' ? 'سبب الفرق إن وجد...' : 'Reason for variance...'}
+                        className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-sm text-gray-500">
             {language === 'ar' ? 'تم جرد' : 'Counted'}: {Object.values(counts).filter(c => c.count !== '').length} / {audit.items?.length || 0}
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full md:w-auto justify-center">
             <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium">
               {t.cancel}
             </button>

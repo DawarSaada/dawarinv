@@ -76,7 +76,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse whitespace-nowrap min-w-[600px]">
+                <table className="hidden md:table w-full text-left border-collapse whitespace-nowrap min-w-[600px]">
                   <thead>
                     <tr className="bg-gray-50/50 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
                       <th className="p-3 font-medium">{language === 'ar' ? 'العنصر' : 'Item'}</th>
@@ -108,6 +108,39 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
                     ))}
                   </tbody>
                 </table>
+              {/* Mobile Variance Cards */}
+              <div className="md:hidden flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
+                {itemsWithVariance.map(item => (
+                  <div key={item.id} className="p-4 bg-white dark:bg-gray-900 flex flex-col gap-3">
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {language === 'ar' ? item.itemNameAr : item.itemNameEn}
+                    </div>
+                    <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'النظام' : 'System'}</div>
+                        <div className="font-bold text-gray-600 dark:text-gray-400">{item.expectedQuantity}</div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400 rtl:rotate-180" />
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'الفعلي' : 'Counted'}</div>
+                        <div className="font-bold text-gray-900 dark:text-white">{item.countedQuantity}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'الفرق' : 'Diff'}</div>
+                        <span className={`inline-block px-2 py-1 rounded font-bold text-xs ${item.variance! > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {item.variance! > 0 ? '+' : ''}{item.variance}
+                        </span>
+                      </div>
+                    </div>
+                    {item.notes && (
+                      <div className="text-sm text-gray-500 bg-gray-50 dark:bg-gray-800/50 p-2 rounded">
+                        <span className="font-medium">{language === 'ar' ? 'ملاحظة:' : 'Note:'}</span> {item.notes}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
               </div>
             </div>
           )}
