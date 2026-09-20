@@ -355,7 +355,7 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
           rowKey={(item) => item.id}
           
           mobileCard={(item) => {
-            const isLow = item.quantity <= item.lowStockThreshold;
+            const isLow = item.quantity <= item.minThreshold;
             return (
               <div className="flex flex-col gap-3 py-1">
                 <div className="flex items-start justify-between gap-3">
