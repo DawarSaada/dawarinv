@@ -1,9 +1,3 @@
-  const queryClient = useQueryClient();
-  const getAuditTarget = useCallback((auditId: string) => {
-    const audits = queryClient.getQueryData(['audits']) as any[];
-    return audits?.find(a => a.id === auditId)?.locationId || selectedLocation || '';
-  }, [queryClient, selectedLocation]);
-
 import { useCallback } from 'react';
 import { InventoryItem, Transaction, TransactionType, LocationId, User, Language, AppNotification, PurchaseOrder } from '../types';
 import { useInventoryQuery, useTransactionsQuery, usePurchaseOrdersQuery } from './useQueries';
@@ -20,6 +14,12 @@ interface UseInventoryDataProps {
 }
 
 export const useInventoryData = ({ currentUser, selectedLocation, language, alerts, addToast }: UseInventoryDataProps) => {
+  const queryClient = useQueryClient();
+  const getAuditTarget = useCallback((auditId: string) => {
+    const audits = queryClient.getQueryData(['audits']) as any[];
+    return audits?.find(a => a.id === auditId)?.locationId || selectedLocation || '';
+  }, [queryClient, selectedLocation]);
+
   /**
    * Every write goes through this.
    *
