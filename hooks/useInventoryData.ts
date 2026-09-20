@@ -1,6 +1,13 @@
+  const queryClient = useQueryClient();
+  const getAuditTarget = useCallback((auditId: string) => {
+    const audits = queryClient.getQueryData(['audits']) as any[];
+    return audits?.find(a => a.id === auditId)?.locationId || selectedLocation || '';
+  }, [queryClient, selectedLocation]);
+
 import { useCallback } from 'react';
 import { InventoryItem, Transaction, TransactionType, LocationId, User, Language, AppNotification, PurchaseOrder } from '../types';
 import { useInventoryQuery, useTransactionsQuery, usePurchaseOrdersQuery } from './useQueries';
+import { useQueryClient } from '@tanstack/react-query';
 import { useInventoryMutations } from './useMutations';
 import { canWriteLocation, isAdmin, readOnlyMessage, subjectFrom } from '../services/permissions';
 
@@ -354,21 +361,21 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
       if (!guardWrite(target)) return;
       scheduleAuditMutation.mutate(params);
     },
-    handleSaveAuditCounts: (items: any[]) => {
-      if (!guardWrite(selectedLocation || '')) return;
+    handleSaveAuditCounts: (auditId: string, items: any[]) => {
+        if (!guardWrite(getAuditTarget(auditId))) return;
       saveAuditCountsMutation.mutate({ items });
     },
     handleSubmitAudit: (id: string) => {
-      if (!guardWrite(selectedLocation || '')) return;
+        if (!guardWrite(getAuditTarget(id))) return;
       submitAuditMutation.mutate(id);
     },
     handleApplyAudit: (auditId: string, performedBy: string) => {
-      if (!guardWrite(selectedLocation || '')) return;
+        if (!guardWrite(getAuditTarget(auditId))) return;
       applyAuditMutation.mutate({ auditId, performedBy });
     },
     handleDeleteAudit: (auditId: string) => {
-      // Deleting an audit destroys the record of a count, so it stays admin-only.
-      if (!canWriteLocation(subjectFrom(currentUser), selectedLocation || '')) return;
+        // Deleting an audit destroys the record of a count, so it stays admin-only.
+        if (!canWriteLocation(subjectFrom(currentUser), getAuditTarget(auditId))) return;
       if (!isAdmin(subjectFrom(currentUser))) {
         addToast('error', language === 'ar' ? 'حذف الجرد متاح للمدير فقط.' : 'Only an administrator can delete an audit.');
         return;

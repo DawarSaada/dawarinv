@@ -115,7 +115,7 @@ interface InventoryDashboardProps {
   onMarkAllNotificationsAsRead?: () => void;
   audits?: Audit[];
   onScheduleAudit?: (params: any) => void;
-  onSaveAuditCounts?: (items: any[]) => void;
+  onSaveAuditCounts?: (auditId: string, items: any[]) => void;
   onSubmitAudit?: (id: string) => void;
   onApplyAudit?: (auditId: string, performedBy: string) => void;
   onDeleteAudit?: (auditId: string) => void;
@@ -1451,7 +1451,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         onClose={() => { setIsPerformAuditModalOpen(false); setSelectedAudit(null); }}
         language={language}
         audit={selectedAudit}
-        onSaveCounts={(items) => onSaveAuditCounts?.(items)}
+        onSaveCounts={(items) => onSaveAuditCounts?.(selectedAudit!.id, items)}
         onSubmitAudit={(id) => onSubmitAudit?.(id)}
       />
 

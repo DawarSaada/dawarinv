@@ -95,7 +95,7 @@ interface AdminDashboardProps {
     onReceivePO: (poId: string, items: any[], performedBy: string) => void;
     audits: Audit[];
     onScheduleAudit: (params: any) => void;
-    onSaveAuditCounts: (items: any[]) => void;
+    onSaveAuditCounts: (auditId: string, items: any[]) => void;
     onSubmitAudit: (auditId: string) => void;
     onApplyAudit: (auditId: string, performedBy: string) => void;
     onDeleteAudit: (auditId: string) => void;
@@ -791,7 +791,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClose={() => { setIsPerformAuditModalOpen(false); setSelectedAudit(null); }}
                 language={language}
                 audit={selectedAudit}
-                onSaveCounts={onSaveAuditCounts}
+                onSaveCounts={(items) => onSaveAuditCounts(selectedAudit!.id, items)}
                 onSubmitAudit={onSubmitAudit}
             />
 
