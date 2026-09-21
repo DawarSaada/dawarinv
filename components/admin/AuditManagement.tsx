@@ -103,7 +103,14 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAudits.map(audit => (
+        {filteredAudits.map(audit => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const scheduled = audit.scheduledDate ? new Date(audit.scheduledDate) : new Date();
+          scheduled.setHours(0, 0, 0, 0);
+          const isFuture = scheduled > today;
+
+          return (
           <div key={audit.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col group">
             <div className="p-6 flex-1 flex flex-col">
               <div className="flex justify-between items-start mb-4">
@@ -142,10 +149,16 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
               {(audit.status === 'scheduled' || audit.status === 'in_progress') && (
                 <button 
                   onClick={() => onOpenPerformModal(audit)}
-                  className="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-colors w-full justify-center"
+                  disabled={isFuture}
+                  className={
+                    isFuture
+                      ? "text-gray-400 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold w-full justify-center cursor-not-allowed"
+                      : "text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-colors w-full justify-center"
+                  }
+                  title={isFuture ? (language === 'ar' ? 'لا يمكن إجراء الجرد قبل تاريخه المجدول' : 'Cannot perform audit before scheduled date') : undefined}
                 >
                   <Play className="w-4 h-4" />
-                  {language === 'ar' ? 'بدء/إكمال الجرد' : 'Perform Audit'}
+                  {language === 'ar' ? 'بدء/متابعة الجرد' : 'Perform Audit'}
                 </button>
               )}
 
@@ -180,7 +193,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
               )}
             </div>
           </div>
-        ))}
+        )})}
 
         {filteredAudits.length === 0 && (
           <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
