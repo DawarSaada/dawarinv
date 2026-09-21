@@ -376,6 +376,9 @@ export const useRealtimeSubscriptions = () => {
       { table: 'inventory_items', key: 'inventory' },
       { table: 'app_users', key: 'users' },
       { table: 'notifications', key: 'notifications' },
+      { table: 'purchase_orders', key: 'purchase_orders' },
+      { table: 'audits', key: 'audits' },
+      { table: 'suppliers', key: 'suppliers' },
     ];
 
     const channels = tables.map(({ table, key }) =>
