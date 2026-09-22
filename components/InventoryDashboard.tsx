@@ -419,9 +419,14 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const handleBulkAccept = async (groupId: string) => {
       const group = groupedIncoming.find(g => g[0] === groupId);
       if (group) {
-          for (const tx of group[1]) {
-              await onReceiveTransfer(tx);
-          }
+          if (onReceiveTransferGroup) {
+                const items = group[1].map(tx => ({ transactionId: tx.id, receivedQuantity: tx.quantity, itemStatus: 'ok', receiptNotes: '' }));
+                await onReceiveTransferGroup(groupId, items);
+            } else {
+                for (const tx of group[1]) {
+                    await onReceiveTransfer(tx);
+                }
+            }
       }
   };
 
