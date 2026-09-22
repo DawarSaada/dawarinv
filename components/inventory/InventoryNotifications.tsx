@@ -65,11 +65,7 @@ const InventoryNotifications: React.FC<InventoryNotificationsProps> = ({
   const isAr = language === 'ar';
   const unreadAlerts = alerts.filter((alert) => !alert.isRead);
 
-  // Nothing to act on: the bell in the top bar already holds the alert history,
-  // so an all-zero summary panel would just push the inventory down.
-  if (!hasActions && unreadAlerts.length === 0) {
-    return null;
-  }
+  // Removed auto-hide logic as requested by user to keep banner permanently visible
 
   const handleMarkAsRead = async (id: string) => {
     if (onMarkAsRead) {
