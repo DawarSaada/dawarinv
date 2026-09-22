@@ -45,6 +45,7 @@ export interface DataTableProps<T> {
   stickyHeader?: boolean;
   /** Label shown in the selection header for screen readers. */
   selectAllLabel?: string;
+  language?: 'en' | 'ar';
 }
 
 const HIDE_BELOW: Record<NonNullable<Column<unknown>['hideBelow']>, string> = {
@@ -90,8 +91,11 @@ export function DataTable<T>({
   footer,
   className,
   stickyHeader = true,
-  selectAllLabel = 'Select all rows',
+  selectAllLabel,
+  language,
 }: DataTableProps<T>) {
+  const isAr = language === 'ar' || (typeof document !== 'undefined' && (document.documentElement.dir === 'rtl' || document.documentElement.lang === 'ar'));
+  const effectiveSelectAllLabel = selectAllLabel ?? (isAr ? 'تحديد كل الصفوف' : 'Select all rows');
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -123,7 +127,7 @@ export function DataTable<T>({
                 <Checkbox
                   checked={allSelected}
                   indeterminate={someSelected}
-                  aria-label={selectAllLabel}
+                  aria-label={effectiveSelectAllLabel}
                   onChange={(event) => selection.onToggleAll(event.target.checked)}
                 />
               </th>
@@ -282,21 +286,30 @@ export function DataTable<T>({
               disabled={currentPage === 1}
               className="relative inline-flex items-center rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
-              Previous
+              {isAr ? 'السابق' : 'Previous'}
             </button>
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
-              Next
+              {isAr ? 'التالي' : 'Next'}
             </button>
           </div>
           <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-700 dark:text-gray-400">
-                Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to <span className="font-medium">{Math.min(currentPage * pageSize, rows.length)}</span> of{' '}
-                <span className="font-medium">{rows.length}</span> results
+                {isAr ? (
+                  <>
+                    عرض <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> إلى <span className="font-medium">{Math.min(currentPage * pageSize, rows.length)}</span> من أصل{' '}
+                    <span className="font-medium">{rows.length}</span> نتيجة
+                  </>
+                ) : (
+                  <>
+                    Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to <span className="font-medium">{Math.min(currentPage * pageSize, rows.length)}</span> of{' '}
+                    <span className="font-medium">{rows.length}</span> results
+                  </>
+                )}
               </p>
             </div>
             <div>
@@ -306,8 +319,8 @@ export function DataTable<T>({
                   disabled={currentPage === 1}
                   className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
                 >
-                  <span className="sr-only">Previous</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <span className="sr-only">{isAr ? 'السابق' : 'Previous'}</span>
+                  <svg className="h-5 w-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
                   </svg>
                 </button>
@@ -316,8 +329,8 @@ export function DataTable<T>({
                   disabled={currentPage === totalPages}
                   className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
                 >
-                  <span className="sr-only">Next</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <span className="sr-only">{isAr ? 'التالي' : 'Next'}</span>
+                  <svg className="h-5 w-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
                   </svg>
                 </button>

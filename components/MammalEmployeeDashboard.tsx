@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { InventoryItem, Language, Transaction, TransactionType, AppNotification, Theme } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { formatUnit } from '../utils/units';
 import NotificationCenter from './NotificationCenter';
 import { exportDailyReportPDF } from '../services/exportService';
 import { 
@@ -295,13 +296,13 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                                     <div>
                                         <h3 className="font-bold text-gray-900 dark:text-white">{language === 'ar' ? item.nameAr : item.nameEn}</h3>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{t.stockLevel}: <span className="tnum font-medium text-gray-900 dark:text-white">{item.quantity} {item.unit}</span></p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{t.stockLevel}: <span className="tnum font-medium text-gray-900 dark:text-white">{item.quantity} {formatUnit(item.unit, language)}</span></p>
                                             {isLow && <Badge tone="warning" size="sm">{t.lowStock}</Badge>}
                                         </div>
                                     </div>
                                     {hasEntry && (
                                         <Badge tone="brand">
-                                            {projectedStock} {item.unit} {isAr ? '(متوقع)' : '(projected)'}
+                                            {projectedStock} {formatUnit(item.unit, language)} {isAr ? '(متوقع)' : '(projected)'}
                                         </Badge>
                                     )}
                                 </div>

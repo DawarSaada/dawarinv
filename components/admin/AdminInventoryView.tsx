@@ -9,6 +9,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { InventoryItem, LocationData, Language, LocationId, User } from '../../types';
+import { formatUnit } from '../../utils/units';
 import { canWriteLocation, subjectFrom } from '../../services/permissions';
 import {
   Badge,
@@ -160,7 +161,7 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
       cell: (item) => (
         <span className="tnum font-semibold text-gray-900 dark:text-white">
           {item.quantity}
-          <span className="ms-1 text-2xs font-normal text-gray-400">{item.unit}</span>
+          <span className="ms-1 text-2xs font-normal text-gray-400">{formatUnit(item.unit, language)}</span>
         </span>
       )
     },
@@ -373,7 +374,7 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                         {item.quantity}
                       </span>
                       <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
-                        {item.unit}
+                        {formatUnit(item.unit, language)}
                       </span>
                     </div>
                     {isLow && (

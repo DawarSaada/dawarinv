@@ -11,6 +11,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { InventoryItem, Language } from '../../types';
+import { formatUnit } from '../../utils/units';
 import { Badge, Button, Checkbox, DataTable, Menu, cn, type Column, type MenuItem } from '../ui';
 
 interface InventoryGridProps {
@@ -150,7 +151,7 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
         )}
       >
         {item.quantity}
-        <span className="ms-1 text-2xs font-normal text-gray-400">{item.unit}</span>
+        <span className="ms-1 text-2xs font-normal text-gray-400">{formatUnit(item.unit, language)}</span>
       </span>
     );
   };

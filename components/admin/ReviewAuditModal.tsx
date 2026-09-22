@@ -53,7 +53,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
             <button 
               onClick={() => exportAuditToPDF(audit, language)}
               className="p-2 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg transition-colors"
-              title="Download PDF"
+              title={language === 'ar' ? 'تحميل PDF' : 'Download PDF'}
             >
               <Download className="w-5 h-5" />
             </button>

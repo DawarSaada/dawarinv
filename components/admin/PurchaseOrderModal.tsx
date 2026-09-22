@@ -147,7 +147,7 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
               <button 
                 onClick={() => exportPOToPDF(purchaseOrder, language, catalog, suppliers, currency)}
                 className="p-2 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg transition-colors"
-                title="Download PDF"
+                title={language === 'ar' ? 'تحميل PDF' : 'Download PDF'}
               >
                 <Download className="w-5 h-5" />
               </button>

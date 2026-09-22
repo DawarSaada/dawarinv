@@ -365,7 +365,18 @@ export const TRANSLATIONS = {
     noCameraFound: "No camera found on this device",
     cameraPermissionDenied: "Camera permission denied or unavailable",
     printLabels: "Print Labels",
-    print: "Print"
+    print: "Print",
+    // Catalog Management
+    catalogMasterList: "Product Catalog (Master List)",
+    manageCatalogDesc: "Manage the official list of products available to branches.",
+    nameEn: "Name (En)",
+    nameAr: "Name (Ar)",
+    defaultMinThreshold: "Default Min Threshold",
+    saveProduct: "Save Product",
+    addProduct: "Add Product",
+    editProduct: "Edit Product",
+    noProductsInCatalog: "No products found in catalog.",
+    unitPlaceholderHint: "e.g., Piece, Bag, Carton"
   },
   ar: {
     title: "دوار السعادة",
@@ -660,7 +671,18 @@ export const TRANSLATIONS = {
     noCameraFound: "لم يتم العثور على كاميرا في هذا الجهاز",
     cameraPermissionDenied: "تم رفض إذن الكاميرا أو غير متاح",
     printLabels: "طباعة الملصقات",
-    print: "طباعة"
+    print: "طباعة",
+    // Catalog Management
+    catalogMasterList: "دليل المنتجات (القائمة الرئيسية)",
+    manageCatalogDesc: "إدارة القائمة الرسمية للمنتجات المتاحة للفروع.",
+    nameEn: "الاسم (إنجليزي)",
+    nameAr: "الاسم (عربي)",
+    defaultMinThreshold: "الحد الأدنى الافتراضي للمخزون",
+    saveProduct: "حفظ المنتج",
+    addProduct: "إضافة منتج",
+    editProduct: "تعديل منتج",
+    noProductsInCatalog: "لم يتم العثور على منتجات في الدليل.",
+    unitPlaceholderHint: "مثال: قطعة، كيس، كرتون"
   }
 };
 

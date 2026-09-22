@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { InventoryItem, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { formatUnit } from '../utils/units';
 import { ArrowUpCircle, X } from 'lucide-react';
 
 interface ReceiveModalProps {
@@ -79,9 +80,9 @@ const ReceiveModal: React.FC<ReceiveModalProps> = ({ isOpen, onClose, item, onCo
                                 }}
                                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none"
                             />
-                            <span className="text-gray-500 dark:text-gray-400 font-medium">{item.unit}</span>
+                            <span className="text-gray-500 dark:text-gray-400 font-medium">{formatUnit(item.unit, language)}</span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">{t.available}: {item.quantity} {item.unit}</p>
+                        <p className="text-xs text-gray-500 mt-1">{t.available}: {item.quantity} {formatUnit(item.unit, language)}</p>
                     </div>
 
                     <div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Audit, Language } from '../../types';
 import { TRANSLATIONS } from '../../constants';
+import { formatUnit } from '../../utils/units';
 import { X, Play, CheckCircle, Save } from 'lucide-react';
 
 interface PerformAuditModalProps {
@@ -117,7 +118,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                         <div className="text-xs text-gray-500">{item.category}</div>
                       </td>
                       <td className="p-4 text-gray-600 dark:text-gray-300">
-                        {item.expectedQuantity} <span className="text-xs">{item.unit}</span>
+                        {item.expectedQuantity} <span className="text-xs">{formatUnit(item.unit, language)}</span>
                       </td>
                       <td className="p-4">
                         <input
@@ -167,7 +168,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                       <div className="text-right">
                         <div className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'المتوقع' : 'Expected'}</div>
                         <div className="font-medium text-gray-700 dark:text-gray-300">
-                          {item.expectedQuantity} <span className="text-xs">{item.unit}</span>
+                          {item.expectedQuantity} <span className="text-xs">{formatUnit(item.unit, language)}</span>
                         </div>
                       </div>
                     </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CatalogItem, Language, Supplier } from '../../types';
 import { TRANSLATIONS } from '../../constants';
+import { formatUnit } from '../../utils/units';
 import { Plus, Edit2, Trash2, Search, X, Check } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useCurrency } from '../AppSettingsProvider';
@@ -95,19 +96,22 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
             queryClient.invalidateQueries({ queryKey: ['catalog'] });
         } catch (err) {
             console.error("Failed to save catalog item", err);
-            alert("Error saving item");
+            alert(language === 'ar' ? 'حدث خطأ أثناء حفظ المنتج' : "Error saving item");
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm("Are you sure you want to delete this catalog item? Existing inventory items won't be deleted, but this will no longer be available for selection.")) return;
+        const confirmMsg = language === 'ar' 
+            ? "هل أنت متأكد من حذف هذا المنتج من الدليل؟ لن يتم حذف عناصر المخزون الحالية، لكنه لن يكون متاحاً للاختيار مجدداً." 
+            : "Are you sure you want to delete this catalog item? Existing inventory items won't be deleted, but this will no longer be available for selection.";
+        if (!window.confirm(confirmMsg)) return;
         try {
             const { error } = await supabase.from('product_catalog').delete().eq('id', id);
             if (error) throw error;
             queryClient.invalidateQueries({ queryKey: ['catalog'] });
         } catch (err) {
             console.error("Failed to delete", err);
-            alert("Error deleting item");
+            alert(language === 'ar' ? 'حدث خطأ أثناء حذف المنتج' : "Error deleting item");
         }
     };
 
@@ -115,15 +119,15 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 transition-colors">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div>
-                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 sm:text-xl dark:text-white">Product Catalog (Master List)</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Manage the official list of products available to branches.</p>
+                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 sm:text-xl dark:text-white">{t.catalogMasterList}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t.manageCatalogDesc}</p>
                 </div>
                 <button 
                     onClick={() => handleOpenModal()}
                     className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-800"
                 >
                     <Plus className="w-5 h-5" />
-                    {language === 'ar' ? 'إضافة منتج' : 'Add Product'}
+                    {t.addProduct}
                 </button>
             </div>
 
@@ -142,11 +146,11 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                 <table className="hidden md:table w-full text-left rtl:text-right">
                     <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400">
-                            <th className="pb-3 px-4">Name (En)</th>
-                            <th className="pb-3 px-4 font-arabic">Name (Ar)</th>
-                            <th className="pb-3 px-4">Category</th>
-                            <th className="pb-3 px-4">Unit</th>
-                            <th className="pb-3 px-4 text-center">Actions</th>
+                            <th className="pb-3 px-4">{t.nameEn}</th>
+                            <th className="pb-3 px-4 font-arabic">{t.nameAr}</th>
+                            <th className="pb-3 px-4">{t.category}</th>
+                            <th className="pb-3 px-4">{t.unit}</th>
+                            <th className="pb-3 px-4 text-center">{t.actions}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -155,7 +159,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                                 <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{item.nameEn}</td>
                                 <td className="py-3 px-4 font-medium text-gray-900 dark:text-white font-arabic">{item.nameAr}</td>
                                 <td className="py-3 px-4 text-sm text-gray-500">{item.category}</td>
-                                <td className="py-3 px-4 text-sm text-gray-500">{item.unit}</td>
+                                <td className="py-3 px-4 text-sm text-gray-500">{formatUnit(item.unit, language)}</td>
                                 <td className="py-3 px-4">
                                     <div className="flex items-center justify-center gap-2">
                                         <button onClick={() => handleOpenModal(item)} className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg">
@@ -171,7 +175,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                         {filteredCatalog.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="py-8 text-center text-gray-500">
-                                    No products found in catalog.
+                                    {t.noProductsInCatalog}
                                 </td>
                             </tr>
                         )}
@@ -197,19 +201,19 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                         </div>
                         <div className="flex gap-4 border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
                             <div>
-                                <div className="text-xs text-gray-500">{t.category || 'Category'}</div>
+                                <div className="text-xs text-gray-500">{t.category}</div>
                                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.category}</div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-500">{t.unit || 'Unit'}</div>
-                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.unit}</div>
+                                <div className="text-xs text-gray-500">{t.unit}</div>
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{formatUnit(item.unit, language)}</div>
                             </div>
                         </div>
                     </div>
                 ))}
                 {filteredCatalog.length === 0 && (
                     <div className="text-center py-8 text-gray-500 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                        No products found in catalog.
+                        {t.noProductsInCatalog}
                     </div>
                 )}
             </div>
@@ -220,33 +224,33 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)]">
                     <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-lg p-6">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold dark:text-white">{editingItem ? 'Edit Product' : 'Add Product'}</h3>
+                            <h3 className="text-xl font-bold dark:text-white">{editingItem ? t.editProduct : t.addProduct}</h3>
                             <button onClick={() => setIsModalOpen(false)}><X className="w-5 h-5 text-gray-500" /></button>
                         </div>
                         <form onSubmit={handleSave} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm mb-1 dark:text-gray-300">Name (En)</label>
+                                    <label className="block text-sm mb-1 dark:text-gray-300">{t.nameEn}</label>
                                     <input required type="text" value={form.nameEn} onChange={e => setForm({...form, nameEn: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm mb-1 dark:text-gray-300 font-arabic">Name (Ar)</label>
+                                    <label className="block text-sm mb-1 dark:text-gray-300 font-arabic">{t.nameAr}</label>
                                     <input required type="text" value={form.nameAr} onChange={e => setForm({...form, nameAr: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm mb-1 dark:text-gray-300">Category</label>
+                                    <label className="block text-sm mb-1 dark:text-gray-300">{t.category}</label>
                                     <input required type="text" value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm mb-1 dark:text-gray-300">Unit (e.g. KG, PCS)</label>
+                                    <label className="block text-sm mb-1 dark:text-gray-300">{t.unit} ({t.unitPlaceholderHint})</label>
                                     <input required type="text" value={form.unit} onChange={e => setForm({...form, unit: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm mb-1 dark:text-gray-300">Default Min Threshold</label>
+                                    <label className="block text-sm mb-1 dark:text-gray-300">{t.defaultMinThreshold}</label>
                                     <input required type="number" min="0" value={form.minThreshold} onChange={e => setForm({...form, minThreshold: Number(e.target.value)})} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                 </div>
                                 <div>
@@ -264,7 +268,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                                 </label>
                                 <div className="border border-gray-200 dark:border-gray-800 rounded-lg max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {suppliers.map(supplier => (
-                                        <label key={supplier.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors">
+                                         <label key={supplier.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer transition-colors">
                                             <input 
                                                 type="checkbox" 
                                                 className="rounded text-brand-600 focus:ring-brand-500"
@@ -291,7 +295,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                                 </div>
                             </div>
                             
-                            <button type="submit" className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition-colors mt-4">Save Product</button>
+                            <button type="submit" className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition-colors mt-4">{t.saveProduct}</button>
                         </form>
                     </div>
                 </div>

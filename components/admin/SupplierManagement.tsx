@@ -187,11 +187,15 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, onAd
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name (English) *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {language === 'ar' ? 'الاسم (إنجليزي) *' : 'Name (English) *'}
+                  </label>
                   <input required type="text" value={formData.nameEn} onChange={e => setFormData({...formData, nameEn: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg dark:text-white" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name (Arabic) *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 font-arabic">
+                    {language === 'ar' ? 'الاسم (عربي) *' : 'Name (Arabic) *'}
+                  </label>
                   <input required type="text" value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-right dark:text-white" dir="rtl" />
                 </div>
               </div>

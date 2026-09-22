@@ -9,14 +9,17 @@ const InventoryDashboard = lazy(() => import('./components/InventoryDashboard'))
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const MammalEmployeeDashboard = lazy(() => import('./components/MammalEmployeeDashboard'));
 
-const DashboardLoadingFallback: React.FC = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
-    <div className="flex flex-col items-center gap-3">
-      <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Loading...</p>
+const DashboardLoadingFallback: React.FC = () => {
+  const isAr = typeof document !== 'undefined' && (document.documentElement.dir === 'rtl' || document.documentElement.lang === 'ar');
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{isAr ? 'جاري التحميل...' : 'Loading...'}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 import { LOCATIONS as STATIC_LOCATIONS, TRANSLATIONS, generateId } from './constants';
 import { supabase } from './services/supabase';
 import { useToast } from './components/Toast';
@@ -197,6 +200,7 @@ const App: React.FC = () => {
   // Handle document direction and theme class updates
   useEffect(() => {
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = language;
   }, [language]);
 
   useEffect(() => {

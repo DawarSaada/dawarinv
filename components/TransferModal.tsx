@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { InventoryItem, LocationId, Language, LocationData } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { formatUnit } from '../utils/units';
 import { ArrowRightLeft, AlertCircle, Plus, Trash2, List, MapPin, Search, X } from 'lucide-react';
 
 interface TransferItem {
@@ -192,7 +193,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                                 <label className="block text-xs font-bold text-brand-700 dark:text-brand-300 uppercase">{t.selectItem}</label>
                                 <select value={selectedItemId} onChange={(e) => { setSelectedItemId(e.target.value); setError(''); }} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500">
                                     <option value="">{t.selectItem}...</option>
-                                    {availableItemsForSource.map(item => <option key={item.id} value={item.id}>{(language === 'ar' ? item.nameAr : item.nameEn)} ({item.quantity} {item.unit})</option>)}
+                                    {availableItemsForSource.map(item => <option key={item.id} value={item.id}>{(language === 'ar' ? item.nameAr : item.nameEn)} ({item.quantity} {formatUnit(item.unit, language)})</option>)}
                                 </select>
                                 <div className="flex gap-2">
                                     <input type="number" value={quantity} onChange={(e) => { setQuantity(e.target.value); setError(''); }} className="flex-1 px-3 py-2.5 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-brand-500" placeholder={t.quantity} />
@@ -252,7 +253,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                                             <div key={item.itemId} className="flex justify-between items-center p-3 bg-white dark:bg-gray-900 gap-4">
                                                 <div className="overflow-hidden flex-1">
                                                     <p className="font-bold text-xs sm:text-sm truncate text-gray-900 dark:text-white">{itemName}</p>
-                                                    <p className="text-[10px] text-gray-400">{maxQty} {item.unit} {t.available || 'available'}</p>
+                                                    <p className="text-[10px] text-gray-400">{maxQty} {formatUnit(item.unit, language)} {t.available || 'available'}</p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <input 
@@ -266,7 +267,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                                                         }}
                                                         className={`w-20 px-2 py-1 border rounded-lg text-sm text-center outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-950 dark:text-white ${item.quantity > maxQty ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-600'}`}
                                                     />
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{item.unit}</span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{formatUnit(item.unit, language)}</span>
                                                 </div>
                                                 <button onClick={() => setTransferList(prev => prev.filter(i => i.itemId !== item.itemId))} className="p-2 text-red-400 hover:text-red-600 transition-colors shrink-0">
                                                     <Trash2 className="w-4 h-4" />

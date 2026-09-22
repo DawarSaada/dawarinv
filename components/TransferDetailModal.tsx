@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Transaction, LocationData, Language, TransferSettings } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { formatUnit } from '../utils/units';
 import { 
   X, Package, ArrowRight, CheckCircle, XCircle, AlertTriangle, 
   Download, Camera, Pen, Trash2, Plus, Minus, ChevronDown, ChevronUp,
@@ -317,7 +318,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
               <button 
                 onClick={() => onDownload(transferGroupId, transferType === 'incoming' ? 'incoming' : 'outgoing')}
                 className="p-2.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-xl transition-colors"
-                title="Download PDF"
+                title={language === 'ar' ? 'تحميل PDF' : 'Download PDF'}
               >
                 <Download className="w-5 h-5" />
               </button>
@@ -396,7 +397,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                   
                   {/* Quantity Display */}
                   <div className="text-right shrink-0">
-                    <p className="text-xs opacity-60">{t.sentQuantity}: {item.sentQuantity} {item.unit}</p>
+                    <p className="text-xs opacity-60">{t.sentQuantity}: {item.sentQuantity} {formatUnit(item.unit, language)}</p>
                     {transferType === 'incoming' ? (
                       <div className="flex items-center gap-1 mt-0.5" onClick={e => e.stopPropagation()}>
                         <button 
@@ -417,10 +418,10 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="text-xs ml-1">{item.unit}</span>
+                        <span className="text-xs ml-1">{formatUnit(item.unit, language)}</span>
                       </div>
                     ) : (
-                      <p className="font-bold text-sm">{item.sentQuantity} {item.unit}</p>
+                      <p className="font-bold text-sm">{item.sentQuantity} {formatUnit(item.unit, language)}</p>
                     )}
                   </div>
 
