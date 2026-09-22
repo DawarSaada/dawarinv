@@ -4,9 +4,6 @@ import { TRANSLATIONS } from '../constants';
 import { useToast } from './Toast';
 import ConfirmationModal from './ConfirmationModal';
 import { exportDailyReportPDF, exportDailyReportExcel } from '../services/exportService';
-import * as XLSX from 'xlsx';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 import {
     Activity,
@@ -362,7 +359,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
 
     // Inventory Exports
-    const exportToExcel = () => {
+    const exportToExcel = async () => {
+        const XLSX = await import('xlsx');
         const locName = selectedInventoryLocation === 'warehouse' ? t.warehouse : selectedInventoryLocation === 'mammal' ? t.mammal : (language === 'ar' ? (availableLocations.find(l => l.id === selectedInventoryLocation)?.nameAr || availableLocations.find(l => l.id === selectedInventoryLocation)?.name) : availableLocations.find(l => l.id === selectedInventoryLocation)?.name) || selectedInventoryLocation;
         const data = currentInventory.map(item => ({
             [t.itemNameEn]: item.nameEn,
@@ -378,7 +376,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         XLSX.writeFile(wb, `Inventory_${locName}.xlsx`);
     };
 
-    const exportToPDF = () => {
+    const exportToPDF = async () => {
+        const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+            import('jspdf'),
+            import('jspdf-autotable')
+        ]);
         const locName = selectedInventoryLocation === 'warehouse' ? t.warehouse : selectedInventoryLocation === 'mammal' ? t.mammal : (language === 'ar' ? (availableLocations.find(l => l.id === selectedInventoryLocation)?.nameAr || availableLocations.find(l => l.id === selectedInventoryLocation)?.name) : availableLocations.find(l => l.id === selectedInventoryLocation)?.name) || selectedInventoryLocation;
         const doc = new jsPDF();
         doc.text(`${t.inventory} - ${locName}`, 14, 15);

@@ -1,10 +1,17 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { Transaction, InventoryItem, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
 
-export const exportTransferPDF = (transactions: Transaction[], language: Language, fromLocationName: string, toLocationName: string) => {
+export const exportTransferPDF = async (
+  transactions: Transaction[],
+  language: Language,
+  fromLocationName: string,
+  toLocationName: string
+) => {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+
   const t = TRANSLATIONS[language];
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -50,10 +57,8 @@ export const exportTransferPDF = (transactions: Transaction[], language: Languag
   });
 
   // --- STAMP & SIGNATURE SECTION ---
-  // Determine Y position after table
   let finalY = (doc as any).lastAutoTable.finalY || 100;
   
-  // If not enough space, add page
   if (finalY > 230) {
       doc.addPage();
       finalY = 20;
@@ -90,14 +95,12 @@ export const exportTransferPDF = (transactions: Transaction[], language: Languag
   // Stamp Text
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
-  // Top
   doc.text("DAWAR SAADA INVENTORY", stampX, stampY - 12, { align: 'center' });
-  // Center
   doc.setFontSize(11);
   doc.text("SENT / DISPATCHED", stampX, stampY, { align: 'center' });
-  // Bottom Location
   doc.setFontSize(7);
   doc.text(locationLabel, stampX, stampY + 10, { align: 'center' });
+
   // Bottom Date
   doc.setFontSize(6);
   doc.setFont("helvetica", "normal");
@@ -106,7 +109,8 @@ export const exportTransferPDF = (transactions: Transaction[], language: Languag
   doc.save(`Transfer_${group.transferGroupId || group.id}.pdf`);
 };
 
-export const exportInventoryExcel = (items: InventoryItem[], locationName: string, language: Language) => {
+export const exportInventoryExcel = async (items: InventoryItem[], locationName: string, language: Language) => {
+  const XLSX = await import('xlsx');
   const t = TRANSLATIONS[language];
   const data = items.map(item => ({
     [t.itemNameEn]: item.nameEn,
@@ -123,7 +127,20 @@ export const exportInventoryExcel = (items: InventoryItem[], locationName: strin
   XLSX.writeFile(wb, `Inventory_${locationName}.xlsx`);
 };
 
-export const exportDailyReportPDF = (transactions: Transaction[], locationId: string, locationName: string, language: Language, userName: string | undefined, date?: string, getLocationName?: (id: string) => string) => {
+export const exportDailyReportPDF = async (
+  transactions: Transaction[],
+  locationId: string,
+  locationName: string,
+  language: Language,
+  userName: string | undefined,
+  date?: string,
+  getLocationName?: (id: string) => string
+) => {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+
   const t = TRANSLATIONS[language];
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -132,16 +149,12 @@ export const exportDailyReportPDF = (transactions: Transaction[], locationId: st
   });
 
   const isRtl = language === 'ar';
-  
-  // Use provided date or today
   const reportDate = date ? new Date(date) : new Date();
   const dateStr = reportDate.toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US');
 
-  // Separating transactions
   const received = transactions.filter(t => t.type === 'receive' || (t.type === 'transfer' && t.toLocation === locationId));
   const used = transactions.filter(t => t.type === 'usage');
 
-  // Header
   doc.setFontSize(22);
   doc.setTextColor(234, 88, 12); 
   doc.text(t.title, isRtl ? 190 : 14, 20, { align: isRtl ? 'right' : 'left' });
@@ -159,10 +172,9 @@ export const exportDailyReportPDF = (transactions: Transaction[], locationId: st
 
   let finalY = 55;
 
-  // --- RECEIVED SECTION ---
   if (received.length > 0) {
     doc.setFontSize(12);
-    doc.setTextColor(0, 100, 0); // Green title
+    doc.setTextColor(0, 100, 0);
     doc.text(t.receivedToday, isRtl ? 190 : 14, finalY, { align: isRtl ? 'right' : 'left' });
     
     autoTable(doc, {
@@ -170,16 +182,15 @@ export const exportDailyReportPDF = (transactions: Transaction[], locationId: st
       head: [[t.itemName, t.quantity, t.from]],
       body: received.map(tx => [language === 'ar' ? tx.itemNameAr : tx.itemNameEn, `${tx.quantity} ${tx.unit}`, getLocationName ? getLocationName(tx.fromLocation || '') : (tx.fromLocation || '-')]),
       theme: 'striped',
-      headStyles: { fillColor: [34, 197, 94] }, // Green-500
+      headStyles: { fillColor: [34, 197, 94] },
       styles: { font: isRtl ? 'Cairo' : 'helvetica', halign: isRtl ? 'right' : 'left' }
     });
     finalY = (doc as any).lastAutoTable.finalY + 15;
   }
 
-  // --- USED SECTION ---
   if (used.length > 0) {
     doc.setFontSize(12);
-    doc.setTextColor(220, 38, 38); // Red title
+    doc.setTextColor(220, 38, 38);
     doc.text(t.usedToday, isRtl ? 190 : 14, finalY, { align: isRtl ? 'right' : 'left' });
     
     autoTable(doc, {
@@ -187,7 +198,7 @@ export const exportDailyReportPDF = (transactions: Transaction[], locationId: st
       head: [[t.itemName, t.quantity, t.notes]],
       body: used.map(tx => [language === 'ar' ? tx.itemNameAr : tx.itemNameEn, `${tx.quantity} ${tx.unit}`, tx.notes || '-']),
       theme: 'striped',
-      headStyles: { fillColor: [239, 68, 68] }, // Red-500
+      headStyles: { fillColor: [239, 68, 68] },
       styles: { font: isRtl ? 'Cairo' : 'helvetica', halign: isRtl ? 'right' : 'left' }
     });
     finalY = (doc as any).lastAutoTable.finalY + 15;
@@ -200,7 +211,6 @@ export const exportDailyReportPDF = (transactions: Transaction[], locationId: st
     finalY += 20;
   }
 
-  // --- SIGNATURE SECTION ---
   if (finalY > 240) {
       doc.addPage();
       finalY = 20;
@@ -208,7 +218,6 @@ export const exportDailyReportPDF = (transactions: Transaction[], locationId: st
   
   const sectionY = finalY + 10;
   
-  // Only add signature block if userName is provided (Employee context)
   if (userName) {
     const sigX = 105 - 25; 
     doc.setDrawColor(100, 100, 100);
@@ -226,48 +235,52 @@ export const exportDailyReportPDF = (transactions: Transaction[], locationId: st
   doc.save(`DailyReport_${locationName}_${dateStr.replace(/\//g, '-')}.pdf`);
 };
 
-export const exportDailyReportExcel = (transactions: Transaction[], locationId: string, locationName: string, language: Language, date: string, getLocationName?: (id: string) => string) => {
-    const t = TRANSLATIONS[language];
-    
-    // Separating transactions
-    const received = transactions.filter(t => t.type === 'receive' || (t.type === 'transfer' && t.toLocation === locationId));
-    const used = transactions.filter(t => t.type === 'usage');
+export const exportDailyReportExcel = async (
+  transactions: Transaction[],
+  locationId: string,
+  locationName: string,
+  language: Language,
+  date: string,
+  getLocationName?: (id: string) => string
+) => {
+  const XLSX = await import('xlsx');
+  const t = TRANSLATIONS[language];
   
-    const wb = XLSX.utils.book_new();
-  
-    // Received Sheet
-    if (received.length > 0) {
-      const receivedData = received.map(tx => ({
-        [t.date]: new Date(tx.date).toLocaleDateString(),
-        [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
-        [t.quantity]: tx.quantity,
-        [t.unit]: tx.unit,
-        [t.from]: getLocationName ? getLocationName(tx.fromLocation || '') : (tx.fromLocation || '-'),
-        [t.performedBy]: tx.performedBy
-      }));
-      const wsReceived = XLSX.utils.json_to_sheet(receivedData);
-      XLSX.utils.book_append_sheet(wb, wsReceived, "Received");
-    }
-  
-    // Used Sheet
-    if (used.length > 0) {
-      const usedData = used.map(tx => ({
-        [t.date]: new Date(tx.date).toLocaleDateString(),
-        [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
-        [t.quantity]: tx.quantity,
-        [t.unit]: tx.unit,
-        [t.notes]: tx.notes,
-        [t.performedBy]: tx.performedBy
-      }));
-      const wsUsed = XLSX.utils.json_to_sheet(usedData);
-      XLSX.utils.book_append_sheet(wb, wsUsed, "Used");
-    }
-  
-    // If empty
-    if (received.length === 0 && used.length === 0) {
-        const wsEmpty = XLSX.utils.json_to_sheet([{ Note: "No data for this date" }]);
-        XLSX.utils.book_append_sheet(wb, wsEmpty, "Report");
-    }
-  
-    XLSX.writeFile(wb, `DailyReport_${locationName}_${date}.xlsx`);
-  };
+  const received = transactions.filter(t => t.type === 'receive' || (t.type === 'transfer' && t.toLocation === locationId));
+  const used = transactions.filter(t => t.type === 'usage');
+
+  const wb = XLSX.utils.book_new();
+
+  if (received.length > 0) {
+    const receivedData = received.map(tx => ({
+      [t.date]: new Date(tx.date).toLocaleDateString(),
+      [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
+      [t.quantity]: tx.quantity,
+      [t.unit]: tx.unit,
+      [t.from]: getLocationName ? getLocationName(tx.fromLocation || '') : (tx.fromLocation || '-'),
+      [t.performedBy]: tx.performedBy
+    }));
+    const wsReceived = XLSX.utils.json_to_sheet(receivedData);
+    XLSX.utils.book_append_sheet(wb, wsReceived, "Received");
+  }
+
+  if (used.length > 0) {
+    const usedData = used.map(tx => ({
+      [t.date]: new Date(tx.date).toLocaleDateString(),
+      [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
+      [t.quantity]: tx.quantity,
+      [t.unit]: tx.unit,
+      [t.notes]: tx.notes,
+      [t.performedBy]: tx.performedBy
+    }));
+    const wsUsed = XLSX.utils.json_to_sheet(usedData);
+    XLSX.utils.book_append_sheet(wb, wsUsed, "Used");
+  }
+
+  if (received.length === 0 && used.length === 0) {
+      const wsEmpty = XLSX.utils.json_to_sheet([{ Note: "No data for this date" }]);
+      XLSX.utils.book_append_sheet(wb, wsEmpty, "Report");
+  }
+
+  XLSX.writeFile(wb, `DailyReport_${locationName}_${date}.xlsx`);
+};

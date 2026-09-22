@@ -1,12 +1,22 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react';
 import Login from './components/Login';
-import LocationSelection from './components/LocationSelection';
-import InventoryDashboard from './components/InventoryDashboard';
 import { useSubscription } from './components/SubscriptionGate';
 import { useAppSettingsContext } from './components/AppSettingsProvider';
-import AdminDashboard from './components/AdminDashboard';
-import MammalEmployeeDashboard from './components/MammalEmployeeDashboard';
 import { LocationId, Language, Theme, User, InventoryItem, Transaction, TransactionType, LocationData, TransactionStatus, UserRole, TransferSettings } from './types';
+
+const LocationSelection = lazy(() => import('./components/LocationSelection'));
+const InventoryDashboard = lazy(() => import('./components/InventoryDashboard'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const MammalEmployeeDashboard = lazy(() => import('./components/MammalEmployeeDashboard'));
+
+const DashboardLoadingFallback: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="flex flex-col items-center gap-3">
+      <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Loading...</p>
+    </div>
+  </div>
+);
 import { LOCATIONS as STATIC_LOCATIONS, TRANSLATIONS, generateId } from './constants';
 import { supabase } from './services/supabase';
 import { useToast } from './components/Toast';
@@ -345,58 +355,60 @@ const App: React.FC = () => {
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
           </div>
         )}
-        <AdminDashboard
-          currentUserRole={currentUser.role}
-          currentUser={currentUser}
-          users={users}
-          transactions={transactions}
-          inventory={inventory}
-          catalog={catalog}
-          onCreateUser={(user) => handleCreateUser(user)}
-          onEditUser={(user) => handleEditUser(user)}
-          onDeleteUser={handleDeleteUser}
-          onDeleteItem={handleDeleteItem}
-          onLogout={() => handleLogout(setSelectedLocation, () => { })}
-          language={language}
-          availableLocations={availableLocations}
-          onManageLocation={setSelectedLocation}
-          onCleanUpTransactions={handleCleanUpTransactions}
-          getUserName={getUserName}
-          subDetails={subDetails}
-          onRefreshSubscription={subscription.refresh}
-          transferSettings={transferSettings}
-          onTransferSettingsChange={(next) => {
-            // Saved to the central store when phase10 is applied; otherwise the hook
-            // falls back to this browser and says so in the settings screen.
-            void saveSettings({ transfer: next }, { updatedBy: getUserName(currentUser.role) });
-          }}
-          retentionMonths={settings.retentionMonths}
-          onRetentionMonthsChange={(months) =>
-            saveSettings({ retentionMonths: months }, { updatedBy: getUserName(currentUser.role) })
-          }
-          settingsAreShared={centralStoreAvailable}
-          suppliers={suppliers}
-          purchaseOrders={purchaseOrders}
-          onAddSupplier={handleAddSupplier}
-          onEditSupplier={handleEditSupplier}
-          onDeleteSupplier={handleDeleteSupplier}
-          onCreatePO={handleCreatePO}
-          onEditPO={handleEditPO}
-          onUpdatePOStatus={handleUpdatePOStatus}
-          onReceivePO={handleReceivePO}
-          audits={audits}
-          onScheduleAudit={handleScheduleAudit}
-          onSaveAuditCounts={handleSaveAuditCounts}
-          onSubmitAudit={handleSubmitAudit}
-          onApplyAudit={handleApplyAudit}
-          onDeleteAudit={handleDeleteAudit}
-          alerts={alerts}
-          onMarkNotificationAsRead={handleMarkNotificationAsRead}
-          onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onToggleLanguage={toggleLanguage}
-        />
+        <Suspense fallback={<DashboardLoadingFallback />}>
+          <AdminDashboard
+            currentUserRole={currentUser.role}
+            currentUser={currentUser}
+            users={users}
+            transactions={transactions}
+            inventory={inventory}
+            catalog={catalog}
+            onCreateUser={(user) => handleCreateUser(user)}
+            onEditUser={(user) => handleEditUser(user)}
+            onDeleteUser={handleDeleteUser}
+            onDeleteItem={handleDeleteItem}
+            onLogout={() => handleLogout(setSelectedLocation, () => { })}
+            language={language}
+            availableLocations={availableLocations}
+            onManageLocation={setSelectedLocation}
+            onCleanUpTransactions={handleCleanUpTransactions}
+            getUserName={getUserName}
+            subDetails={subDetails}
+            onRefreshSubscription={subscription.refresh}
+            transferSettings={transferSettings}
+            onTransferSettingsChange={(next) => {
+              // Saved to the central store when phase10 is applied; otherwise the hook
+              // falls back to this browser and says so in the settings screen.
+              void saveSettings({ transfer: next }, { updatedBy: getUserName(currentUser.role) });
+            }}
+            retentionMonths={settings.retentionMonths}
+            onRetentionMonthsChange={(months) =>
+              saveSettings({ retentionMonths: months }, { updatedBy: getUserName(currentUser.role) })
+            }
+            settingsAreShared={centralStoreAvailable}
+            suppliers={suppliers}
+            purchaseOrders={purchaseOrders}
+            onAddSupplier={handleAddSupplier}
+            onEditSupplier={handleEditSupplier}
+            onDeleteSupplier={handleDeleteSupplier}
+            onCreatePO={handleCreatePO}
+            onEditPO={handleEditPO}
+            onUpdatePOStatus={handleUpdatePOStatus}
+            onReceivePO={handleReceivePO}
+            audits={audits}
+            onScheduleAudit={handleScheduleAudit}
+            onSaveAuditCounts={handleSaveAuditCounts}
+            onSubmitAudit={handleSubmitAudit}
+            onApplyAudit={handleApplyAudit}
+            onDeleteAudit={handleDeleteAudit}
+            alerts={alerts}
+            onMarkNotificationAsRead={handleMarkNotificationAsRead}
+            onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onToggleLanguage={toggleLanguage}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -409,21 +421,23 @@ const App: React.FC = () => {
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
           </div>
         )}
-        <MammalEmployeeDashboard
-          items={inventory['mammal'] || []}
-          onLogout={() => handleLogout(setSelectedLocation, () => { })}
-          language={language}
-          onLogTransaction={handleDailyLog}
-          onBulkLogTransaction={handleBulkLog}
-          userName={language === 'ar' ? (currentUser.nameAr || currentUser.name) : currentUser.name}
-          transactions={transactions}
-          alerts={alerts}
-          onMarkNotificationAsRead={handleMarkNotificationAsRead}
-          onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onToggleLanguage={toggleLanguage}
-        />
+        <Suspense fallback={<DashboardLoadingFallback />}>
+          <MammalEmployeeDashboard
+            items={inventory['mammal'] || []}
+            onLogout={() => handleLogout(setSelectedLocation, () => { })}
+            language={language}
+            onLogTransaction={handleDailyLog}
+            onBulkLogTransaction={handleBulkLog}
+            userName={language === 'ar' ? (currentUser.nameAr || currentUser.name) : currentUser.name}
+            transactions={transactions}
+            alerts={alerts}
+            onMarkNotificationAsRead={handleMarkNotificationAsRead}
+            onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onToggleLanguage={toggleLanguage}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -436,16 +450,18 @@ const App: React.FC = () => {
             {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
           </div>
         )}
-        <LocationSelection
-          onSelect={setSelectedLocation}
-          onLogout={() => handleLogout(setSelectedLocation, () => { })}
-          language={language}
-          availableLocations={availableLocations}
-          currentUserRole={currentUser.role}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onToggleLanguage={toggleLanguage}
-        />
+        <Suspense fallback={<DashboardLoadingFallback />}>
+          <LocationSelection
+            onSelect={setSelectedLocation}
+            onLogout={() => handleLogout(setSelectedLocation, () => { })}
+            language={language}
+            availableLocations={availableLocations}
+            currentUserRole={currentUser.role}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onToggleLanguage={toggleLanguage}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -472,58 +488,60 @@ const App: React.FC = () => {
           {language === 'ar' ? 'أنت في وضع عدم الاتصال (أوفلاين)' : 'You are currently offline'}
         </div>
       )}
-      <InventoryDashboard
-        key={selectedLocation || 'global'}
-        locationId={selectedLocation}
-        inventory={displayInventory}
-        transactions={transactions}
-        onBack={() => setSelectedLocation(null)}
-        onLogout={() => handleLogout(setSelectedLocation, () => { })}
-        language={language}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onToggleLanguage={toggleLanguage}
-        onTransfer={handleTransfer}
-        onAddItem={handleAddItem}
-        onEditItem={handleEditItem}
-        onDeleteItem={handleDeleteItem}
-        onBulkDeleteItems={handleBulkDeleteItems}
-        onBulkEditItems={handleBulkEditItems}
-        onRecordUsage={(itemId, qty, notes) => handleDailyLog('usage', itemId, qty, notes)}
-        onRecordReceive={(itemId, qty, notes) => handleDailyLog('receive', itemId, qty, notes)}
-        userRole={currentUser.role}
-        userBranchCode={currentUser.branchCode}
-        accessibleBranches={currentUser.accessibleBranches}
-        readOnlyBranches={currentUser.readOnlyBranches}
-        incomingTransfers={incomingTransfers}
-        outgoingTransfers={outgoingTransfers}
-        outgoingApprovals={outgoingApprovals}
-        onReceiveTransfer={handleReceiveTransfer}
-        onRejectTransfer={handleRejectTransfer}
-        onConfirmOutbound={handleConfirmSourceTransfer}
-        availableLocations={availableLocations}
-        getUserName={getUserName}
-        catalog={catalog}
-        alerts={alerts}
-        onMarkNotificationAsRead={handleMarkNotificationAsRead}
-        onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
-        transferSettings={transferSettings}
-        onReceiveTransferGroup={handleReceiveTransferGroup}
-        onRejectTransferGroup={handleRejectTransferGroup}
-        onConfirmTransferGroup={handleConfirmTransferGroup}
-        audits={audits}
-        onScheduleAudit={handleScheduleAudit}
-        onSaveAuditCounts={handleSaveAuditCounts}
-        onSubmitAudit={handleSubmitAudit}
-        onApplyAudit={handleApplyAudit}
-        onDeleteAudit={handleDeleteAudit}
-        suppliers={suppliers}
-        purchaseOrders={purchaseOrders}
-        onCreatePO={handleCreatePO}
-        onEditPO={handleEditPO}
-        onUpdatePOStatus={handleUpdatePOStatus}
-        onReceivePO={handleReceivePO}
-      />
+      <Suspense fallback={<DashboardLoadingFallback />}>
+        <InventoryDashboard
+          key={selectedLocation || 'global'}
+          locationId={selectedLocation}
+          inventory={displayInventory}
+          transactions={transactions}
+          onBack={() => setSelectedLocation(null)}
+          onLogout={() => handleLogout(setSelectedLocation, () => { })}
+          language={language}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onToggleLanguage={toggleLanguage}
+          onTransfer={handleTransfer}
+          onAddItem={handleAddItem}
+          onEditItem={handleEditItem}
+          onDeleteItem={handleDeleteItem}
+          onBulkDeleteItems={handleBulkDeleteItems}
+          onBulkEditItems={handleBulkEditItems}
+          onRecordUsage={(itemId, qty, notes) => handleDailyLog('usage', itemId, qty, notes)}
+          onRecordReceive={(itemId, qty, notes) => handleDailyLog('receive', itemId, qty, notes)}
+          userRole={currentUser.role}
+          userBranchCode={currentUser.branchCode}
+          accessibleBranches={currentUser.accessibleBranches}
+          readOnlyBranches={currentUser.readOnlyBranches}
+          incomingTransfers={incomingTransfers}
+          outgoingTransfers={outgoingTransfers}
+          outgoingApprovals={outgoingApprovals}
+          onReceiveTransfer={handleReceiveTransfer}
+          onRejectTransfer={handleRejectTransfer}
+          onConfirmOutbound={handleConfirmSourceTransfer}
+          availableLocations={availableLocations}
+          getUserName={getUserName}
+          catalog={catalog}
+          alerts={alerts}
+          onMarkNotificationAsRead={handleMarkNotificationAsRead}
+          onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
+          transferSettings={transferSettings}
+          onReceiveTransferGroup={handleReceiveTransferGroup}
+          onRejectTransferGroup={handleRejectTransferGroup}
+          onConfirmTransferGroup={handleConfirmTransferGroup}
+          audits={audits}
+          onScheduleAudit={handleScheduleAudit}
+          onSaveAuditCounts={handleSaveAuditCounts}
+          onSubmitAudit={handleSubmitAudit}
+          onApplyAudit={handleApplyAudit}
+          onDeleteAudit={handleDeleteAudit}
+          suppliers={suppliers}
+          purchaseOrders={purchaseOrders}
+          onCreatePO={handleCreatePO}
+          onEditPO={handleEditPO}
+          onUpdatePOStatus={handleUpdatePOStatus}
+          onReceivePO={handleReceivePO}
+        />
+      </Suspense>
     </div>
   );
 };
