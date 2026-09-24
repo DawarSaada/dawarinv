@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
  * Subscription enforcement.
  *
  * The application is licensed per period and the period end lives in the OMS
- * project's `app_settings` (`polar_current_period_end` / `polar_subscription_status`).
+ * project's `app_settings` (`safepay_current_period_end` / `safepay_subscription_status`).
  * When that moment passes the whole application must stop, with a message telling
  * the user to ask the administrator to renew.
  *
@@ -80,10 +80,10 @@ interface SubscriptionSettings {
 const SETTINGS_CACHE_KEY = 'dawar_subscription_state';
 const SETTINGS_KEYS = [
   'sub_simulate_fail',
-  'polar_subscription_status',
-  'polar_current_period_end',
+  'safepay_subscription_status',
+  'safepay_current_period_end',
   'sub_last_paid_month',
-  'polar_checkout_url',
+  'safepay_checkout_url',
 ];
 
 /** How often the known period end is compared against the clock (no network). */
@@ -257,10 +257,10 @@ export const useOMSSubscription = (): SubscriptionResult => {
 
       (data ?? []).forEach((row) => {
         if (row.key === 'sub_simulate_fail') next.simulateFailure = row.value === 'true';
-        if (row.key === 'polar_subscription_status') next.status = row.value || null;
-        if (row.key === 'polar_current_period_end') next.periodEnd = row.value || null;
+        if (row.key === 'safepay_subscription_status') next.status = row.value || null;
+        if (row.key === 'safepay_current_period_end') next.periodEnd = row.value || null;
         if (row.key === 'sub_last_paid_month') next.lastPaidMonth = row.value || null;
-        if (row.key === 'polar_checkout_url') next.checkoutUrl = row.value || null;
+        if (row.key === 'safepay_checkout_url') next.checkoutUrl = row.value || null;
       });
 
       setSettings(next);
