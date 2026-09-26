@@ -18,14 +18,51 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
   audits, locations, userRole, language, onOpenScheduleModal, onOpenPerformModal, onOpenReviewModal, onDeleteAudit
 }) => {
   const t = TRANSLATIONS[language];
+  type TabType = 'active' | 'completed' | 'pending';
+  const [activeTab, setActiveTab] = useState<TabType>('active');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const getWeekEnd = (date: Date) => {
+    const start = new Date(date);
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    start.setDate(diff);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  };
+
+  const getActiveTabAudits = () => {
+    const incomplete = audits.filter(a => a.status !== 'completed').sort((a, b) => new Date(a.scheduledDate || 0).getTime() - new Date(b.scheduledDate || 0).getTime());
+    const now = new Date();
+    const currentWeekEnd = getWeekEnd(now);
+
+    let active = incomplete.filter(a => new Date(a.scheduledDate || 0) <= currentWeekEnd);
+    
+    if (active.length === 0 && incomplete.length > 0) {
+      const firstFutureEnd = getWeekEnd(new Date(incomplete[0].scheduledDate || 0));
+      active = incomplete.filter(a => new Date(a.scheduledDate || 0) <= firstFutureEnd);
+    }
+    return active;
+  };
+
+  const activeAuditsList = getActiveTabAudits();
 
   const filteredAudits = audits.filter(audit => {
     const matchesSearch = audit.title.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || audit.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    if (!matchesSearch) return false;
+
+    if (activeTab === 'active') {
+      return activeAuditsList.some(a => a.id === audit.id);
+    } else if (activeTab === 'completed') {
+      return audit.status === 'completed';
+    } else if (activeTab === 'pending') {
+      return audit.status !== 'completed' && !activeAuditsList.some(a => a.id === audit.id);
+    }
+    return false;
   });
 
   const getStatusColor = (status: string) => {
@@ -78,7 +115,28 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row dark:border-gray-800">
+      <div className="flex space-x-1 mb-2 border-b border-gray-200 dark:border-gray-800 overflow-x-auto hide-scrollbar">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`flex-1 whitespace-nowrap py-3 px-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'active' ? 'border-brand-600 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+        >
+          {language === 'ar' ? 'النشطة والقادمة' : 'Active & Upcoming'}
+        </button>
+        <button
+          onClick={() => setActiveTab('completed')}
+          className={`flex-1 whitespace-nowrap py-3 px-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'completed' ? 'border-brand-600 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+        >
+          {language === 'ar' ? 'المكتملة' : 'Completed'}
+        </button>
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`flex-1 whitespace-nowrap py-3 px-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'pending' ? 'border-brand-600 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+        >
+          {language === 'ar' ? 'جميع المعلقة' : 'All Pending'}
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3 pb-2 sm:flex-row dark:border-gray-800">
         <div className="relative flex-1">
           <Search className={`absolute ${language === 'ar' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5`} />
           <input
@@ -89,17 +147,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
             className={`w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white ${language === 'ar' ? 'pr-10 pl-4' : ''}`}
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
-        >
-          <option value="all">{language === 'ar' ? 'جميع الحالات' : 'All Statuses'}</option>
-          <option value="scheduled">{language === 'ar' ? 'مجدول' : 'Scheduled'}</option>
-          <option value="in_progress">{language === 'ar' ? 'قيد الجرد' : 'In Progress'}</option>
-          <option value="pending_review">{language === 'ar' ? 'بانتظار المراجعة' : 'Pending Review'}</option>
-          <option value="completed">{language === 'ar' ? 'مكتمل' : 'Completed'}</option>
-        </select>
+        
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
