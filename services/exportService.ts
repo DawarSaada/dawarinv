@@ -253,7 +253,7 @@ export const exportDailyReportExcel = async (
 
   if (received.length > 0) {
     const receivedData = received.map(tx => ({
-      [t.date]: new Date(tx.date).toLocaleDateString(),
+      [t.date]: new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US'),
       [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
       [t.quantity]: tx.quantity,
       [t.unit]: tx.unit,
@@ -266,7 +266,7 @@ export const exportDailyReportExcel = async (
 
   if (used.length > 0) {
     const usedData = used.map(tx => ({
-      [t.date]: new Date(tx.date).toLocaleDateString(),
+      [t.date]: new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US'),
       [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
       [t.quantity]: tx.quantity,
       [t.unit]: tx.unit,

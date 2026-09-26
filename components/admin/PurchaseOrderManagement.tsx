@@ -146,7 +146,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
               <div className="space-y-2 mt-auto">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">{language === 'ar' ? 'التاريخ' : 'Date'}</span>
-                  <span className="font-medium dark:text-white">{new Date(po.createdAt).toLocaleDateString()}</span>
+                  <span className="font-medium dark:text-white">{new Date(po.createdAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">{language === 'ar' ? 'العناصر' : 'Items'}</span>

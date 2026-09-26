@@ -26,24 +26,25 @@ import { AppShell, ShellBrand, PageBody, Badge, Menu, CommandPalette, Button, ty
 import AppControls from './AppControls';
 import NotificationCenter from './NotificationCenter';
 import { useHotkey } from '../hooks/useHotkey';
-import UserManagement from './admin/UserManagement';
-import AdminInventoryView from './admin/AdminInventoryView';
-import AdminTransactionsLog from './admin/AdminTransactionsLog';
-import AdminReports from './admin/AdminReports';
-import AdminSettings from './admin/AdminSettings';
 import UserModal from './admin/UserModal';
-import ProductCatalogManagement from './admin/ProductCatalogManagement';
-import AnalyticsDashboard from './admin/AnalyticsDashboard';
-import SupplierManagement from './admin/SupplierManagement';
-import PurchaseOrderManagement from './admin/PurchaseOrderManagement';
 import PurchaseOrderModal from './admin/PurchaseOrderModal';
 import ReceivePOModal from './admin/ReceivePOModal';
-import AuditManagement from './admin/AuditManagement';
 import ScheduleAuditModal from './admin/ScheduleAuditModal';
 import PerformAuditModal from './admin/PerformAuditModal';
 import ReviewAuditModal from './admin/ReviewAuditModal';
 import { Supplier, PurchaseOrder, PurchaseOrderItem, Audit, Theme } from '../types';
 import { canOpenTab, canWriteLocation, subjectFrom } from '../services/permissions';
+
+const UserManagement = React.lazy(() => import('./admin/UserManagement'));
+const AdminInventoryView = React.lazy(() => import('./admin/AdminInventoryView'));
+const AdminTransactionsLog = React.lazy(() => import('./admin/AdminTransactionsLog'));
+const AdminReports = React.lazy(() => import('./admin/AdminReports'));
+const AdminSettings = React.lazy(() => import('./admin/AdminSettings'));
+const ProductCatalogManagement = React.lazy(() => import('./admin/ProductCatalogManagement'));
+const AnalyticsDashboard = React.lazy(() => import('./admin/AnalyticsDashboard'));
+const SupplierManagement = React.lazy(() => import('./admin/SupplierManagement'));
+const PurchaseOrderManagement = React.lazy(() => import('./admin/PurchaseOrderManagement'));
+const AuditManagement = React.lazy(() => import('./admin/AuditManagement'));
 
 const ALL_TABS = [
     'users',
@@ -565,6 +566,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }
         >
             <PageBody className="space-y-4">
+<React.Suspense fallback={<div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>}>
                 {activeTab === 'users' && currentUserRole === 'admin' && (
                     <UserManagement 
                         users={users}
@@ -718,7 +720,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onDeleteAudit={onDeleteAudit}
                     />
                 )}
-            </PageBody>
+                  </React.Suspense>
+      </PageBody>
 
             <CommandPalette
                 open={commandOpen}
