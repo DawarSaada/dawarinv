@@ -108,9 +108,9 @@ interface InventoryDashboardProps {
   catalog: CatalogItem[];
   alerts?: AppNotification[];
   transferSettings?: TransferSettings;
-  onReceiveTransferGroup?: (groupId: string, items: any[], signatureUrl?: string) => void;
-  onRejectTransferGroup?: (groupId: string, reason: string) => void;
-  onConfirmTransferGroup?: (groupId: string) => void;
+  onReceiveTransferGroup?: (groupId: string, items: any[], signatureUrl?: string, transferToLocation?: string) => void;
+  onRejectTransferGroup?: (groupId: string, reason: string, transferToLocation?: string) => void;
+  onConfirmTransferGroup?: (groupId: string, transferFromLocation?: string) => void;
   onMarkNotificationAsRead?: (id: string) => void;
   onMarkAllNotificationsAsRead?: () => void;
   audits?: Audit[];
@@ -416,12 +416,13 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       }
   };
 
-  const handleBulkAccept = async (groupId: string) => {
+    const handleBulkAccept = async (groupId: string) => {
       const group = groupedIncoming.find(g => g[0] === groupId);
       if (group) {
+          const targetLocation = group[1]?.[0]?.toLocation || locationId;
           if (onReceiveTransferGroup) {
-                const items = group[1].map(tx => ({ transactionId: tx.id, receivedQuantity: tx.quantity, itemStatus: 'ok', receiptNotes: '' }));
-                await onReceiveTransferGroup(groupId, items);
+                const items = group[1].map(tx => ({ transactionId: tx.id, receivedQuantity: tx.quantity, itemStatus: 'received', receiptNotes: '' }));
+                await onReceiveTransferGroup(groupId, items, undefined, targetLocation);
             } else {
                 for (const tx of group[1]) {
                     await onReceiveTransfer(tx);
@@ -1361,17 +1362,23 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         settings={transferSettings}
         onAcceptGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId, items, sigUrl) => {
           if (onReceiveTransferGroup) {
-            onReceiveTransferGroup(groupId, items, sigUrl);
+            const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === groupId);
+            const targetLoc = group?.[1]?.[0]?.toLocation || locationId;
+            onReceiveTransferGroup(groupId, items, sigUrl, targetLoc);
           }
         })}
         onRejectGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId, reason) => {
           if (onRejectTransferGroup) {
-            onRejectTransferGroup(groupId, reason);
+            const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === groupId);
+            const targetLoc = group?.[1]?.[0]?.toLocation || locationId;
+            onRejectTransferGroup(groupId, reason, targetLoc);
           }
         })}
         onConfirmGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId) => {
           if (onConfirmTransferGroup) {
-            onConfirmTransferGroup(groupId);
+            const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === groupId);
+            const fromLoc = group?.[1]?.[0]?.fromLocation || locationId;
+            onConfirmTransferGroup(groupId, fromLoc);
           }
         })}
         onDownload={handleDownloadTransfer}

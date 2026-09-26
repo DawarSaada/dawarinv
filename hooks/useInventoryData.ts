@@ -241,27 +241,32 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
   }, [currentUser, selectedLocation, dailyLogMutation, guardWrite]);
 
   const handleReceiveTransferGroup = useCallback(async (
-    transferGroupId: string, 
+    transferGroupId: string,
     items: { transactionId: string, receivedQuantity: number, itemStatus: string, receiptNotes: string, photoUrls?: string[] }[],
-    signatureUrl?: string
+    signatureUrl?: string,
+    transferToLocation?: string
   ) => {
     if (!currentUser) return;
-    // Group operations only carry an id, so the acting location is the one being
-    // viewed. These are reached from a single location's list, never from the
-    // combined view.
-    if (!guardWrite(selectedLocation || '')) return;
+    // Resolve the acting location: prefer the transfer's own to_location so that
+    // branch managers at ANY branch (not just the currently selected one) can
+    // accept incoming transfers directed to them.
+    const actingLocation = transferToLocation || selectedLocation || '';
+    if (!guardWrite(actingLocation)) return;
     receiveTransferGroupMutation.mutate({ transferGroupId, items, signatureUrl });
   }, [currentUser, receiveTransferGroupMutation, guardWrite, selectedLocation]);
 
-  const handleRejectTransferGroup = useCallback(async (transferGroupId: string, reason: string) => {
+  const handleRejectTransferGroup = useCallback(async (transferGroupId: string, reason: string, transferToLocation?: string) => {
     if (!currentUser) return;
-    if (!guardWrite(selectedLocation || '')) return;
+    const actingLocation = transferToLocation || selectedLocation || '';
+    if (!guardWrite(actingLocation)) return;
     rejectTransferGroupMutation.mutate({ transferGroupId, reason });
   }, [currentUser, rejectTransferGroupMutation, guardWrite, selectedLocation]);
 
-  const handleConfirmTransferGroup = useCallback(async (transferGroupId: string) => {
+  const handleConfirmTransferGroup = useCallback(async (transferGroupId: string, transferFromLocation?: string) => {
     if (!currentUser) return;
-    if (!guardWrite(selectedLocation || '')) return;
+    // Confirm (approve & ship) is a source-side action; use fromLocation if provided.
+    const actingLocation = transferFromLocation || selectedLocation || '';
+    if (!guardWrite(actingLocation)) return;
     confirmTransferGroupMutation.mutate(transferGroupId);
   }, [currentUser, confirmTransferGroupMutation, guardWrite, selectedLocation]);
 
