@@ -309,7 +309,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const canBulkEdit = locationAccess === 'write' && userRole !== 'mammal_employee';
   const canRecordUsage = locationAccess === 'write';
 
-  const { isInventoryLocked, lockedByAuditTitle } = useAuditLock(userRole);
+  const { isInventoryLocked, lockedByAuditTitle } = useAuditLock(userRole, locationId);
 
   const effectiveCanEditItem = canEditItem && !isInventoryLocked;
   const effectiveCanBulkEdit = canBulkEdit && !isInventoryLocked;

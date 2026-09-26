@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useAuditsQuery } from './useQueries';
 
-export const useAuditLock = (userRole?: string) => {
+export const useAuditLock = (userRole?: string, locationId?: string) => {
   const { data: audits = [] } = useAuditsQuery();
 
   return useMemo(() => {
@@ -10,9 +10,12 @@ export const useAuditLock = (userRole?: string) => {
       return { isInventoryLocked: false };
     }
 
-    // Global Lock: Find an audit that is in_progress, OR scheduled for today (or earlier)
+    // Lock: Find an audit that is in_progress, OR scheduled for today (or earlier)
     const today = new Date().toISOString().split('T')[0];
     const activeAudit = audits.find(a => {
+      // ONLY check audits for the specific location if a locationId is provided
+      if (locationId && a.locationId !== locationId) return false;
+      
       if (a.status === 'in_progress') return true;
       if (a.status === 'scheduled') {
         // Lock if it's scheduled for today or earlier
@@ -32,5 +35,5 @@ export const useAuditLock = (userRole?: string) => {
     }
 
     return { isInventoryLocked: false };
-  }, [audits, userRole]);
+  }, [audits, userRole, locationId]);
 };
