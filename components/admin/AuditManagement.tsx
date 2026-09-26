@@ -63,6 +63,14 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
       return audit.status !== 'completed' && !activeAuditsList.some(a => a.id === audit.id);
     }
     return false;
+  }).sort((a, b) => {
+    if (activeTab === 'completed') {
+      // Sort completed audits by completedDate descending (newest first)
+      return new Date(b.completedDate || 0).getTime() - new Date(a.completedDate || 0).getTime();
+    } else {
+      // Sort active/pending audits by scheduledDate ascending (soonest first)
+      return new Date(a.scheduledDate || 0).getTime() - new Date(b.scheduledDate || 0).getTime();
+    }
   });
 
   const getStatusColor = (status: string) => {
