@@ -1,7 +1,9 @@
--- oms_sync_rpc.sql
--- Database RPCs for syncing DawarSaadaOMS orders with dawarsaada-inventory.
+-- 20260927_update_oms_dispatch_rpc.sql
+-- Upgraded execute_oms_dispatch function:
+-- 1. Case-insensitive and trimmed matching for item names (lower(btrim(...)))
+-- 2. Two-pass execution: checks that all items exist and have sufficient stock before deducting anything
+-- 3. If any item is missing or short, aborts cleanly with a detailed descriptive exception rather than violating check constraints
 
--- 1. Dispatch Sync RPC (Robust with stock checking and case-insensitive matching)
 CREATE OR REPLACE FUNCTION public.execute_oms_dispatch(
     p_order_id text,
     p_from_location text,
@@ -90,46 +92,6 @@ BEGIN
             v_transfer_group_id, now(), 'transfer', 'pending_target', p_from_location, p_to_location,
             v_name_en, v_name_ar, v_quantity, v_unit, p_performed_by, 'OMS Order Dispatch Sync'
         );
-    END LOOP;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- 2. Receive Sync RPC
-CREATE OR REPLACE FUNCTION public.execute_oms_receive(
-    p_order_id text,
-    p_performed_by text
-) RETURNS void AS $$
-DECLARE
-    v_tx record;
-BEGIN
-    -- Loop through all pending transactions for this order and receive them
-    FOR v_tx IN 
-        SELECT id FROM public.transactions 
-        WHERE transfer_group_id = 'OMS-' || p_order_id 
-          AND status = 'pending_target'
-    LOOP
-        PERFORM public.receive_transfer(v_tx.id);
-    END LOOP;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- 3. Cancel Sync RPC
-CREATE OR REPLACE FUNCTION public.execute_oms_cancel(
-    p_order_id text,
-    p_reason text
-) RETURNS void AS $$
-DECLARE
-    v_tx record;
-BEGIN
-    -- Revert all pending transactions for this order (returns stock to source)
-    FOR v_tx IN 
-        SELECT id FROM public.transactions 
-        WHERE transfer_group_id = 'OMS-' || p_order_id 
-          AND status = 'pending_target'
-    LOOP
-        PERFORM public.reject_transfer(v_tx.id, p_reason);
     END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
