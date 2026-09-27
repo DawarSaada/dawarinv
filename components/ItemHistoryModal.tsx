@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { InventoryItem, Transaction, Language } from '../types';
 import { X, Clock, ArrowRightLeft, ArrowDownCircle, Plus, AlertTriangle } from 'lucide-react';
 import { TRANSLATIONS } from '../constants';
+import { formatDateTimeDDMMYYYY } from '../utils/dateUtils';
 
 interface ItemHistoryModalProps {
   isOpen: boolean;
@@ -111,7 +112,7 @@ const ItemHistoryModal: React.FC<ItemHistoryModalProps> = ({
                         {getTransactionDescription(tx)}
                       </p>
                       <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
-                        {new Date(tx.date).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                        {formatDateTimeDDMMYYYY(tx.date)}
                       </span>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-gray-500">

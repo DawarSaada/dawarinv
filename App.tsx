@@ -8,6 +8,7 @@ const LocationSelection = lazy(() => import('./components/LocationSelection'));
 const InventoryDashboard = lazy(() => import('./components/InventoryDashboard'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const MammalEmployeeDashboard = lazy(() => import('./components/MammalEmployeeDashboard'));
+const VerifyPO = lazy(() => import('./components/VerifyPO'));
 
 const DashboardLoadingFallback: React.FC = () => {
   const isAr = typeof document !== 'undefined' && (document.documentElement.dir === 'rtl' || document.documentElement.lang === 'ar');
@@ -326,8 +327,21 @@ const App: React.FC = () => {
     }));
   }, [inventory, selectedLocation, availableLocations]);
 
-  // Loading is handled by React Query at component levels, 
-  // or we can show a global loader if data is absolutely required before rendering.
+  const isVerifyRoute = typeof window !== 'undefined' && (
+    window.location.pathname.includes('/verify-po') ||
+    window.location.search.includes('verify-po') ||
+    new URLSearchParams(window.location.search).has('verify_po') ||
+    (new URLSearchParams(window.location.search).has('id') && window.location.pathname.includes('verify')) ||
+    (new URLSearchParams(window.location.search).has('po') && !currentUser)
+  );
+
+  if (isVerifyRoute) {
+    return (
+      <Suspense fallback={<DashboardLoadingFallback />}>
+        <VerifyPO />
+      </Suspense>
+    );
+  }
 
   if (!currentUser) {
     return (

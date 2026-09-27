@@ -23,6 +23,7 @@ import { getAiStatus, AiStatus } from '../../services/aiClient';
 import { APP_VERSION } from '../../config';
 import { useAppSettingsContext } from '../AppSettingsProvider';
 import { useToast } from '../Toast';
+import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '../../utils/dateUtils';
 
 /**
  * Administrator settings.
@@ -226,12 +227,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
 
     const formatDate = (value: string | null | undefined, withTime = false) => {
         if (!value) return null;
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return value;
-        return date.toLocaleString(isAr ? 'ar-SA-u-ca-gregory' : 'en-GB',
-            withTime
-                ? { dateStyle: 'medium', timeStyle: 'short' }
-                : { dateStyle: 'medium' });
+        return withTime ? formatDateTimeDDMMYYYY(value) : formatDateDDMMYYYY(value);
     };
 
     return (

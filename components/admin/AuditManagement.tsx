@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Audit, Language, LocationData, UserRole } from '../../types';
 import { TRANSLATIONS } from '../../constants';
+import { formatDateDDMMYYYY } from '../../utils/dateUtils';
 import { Search, Plus, ClipboardCheck, Calendar, Play, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 
 interface AuditManagementProps {
@@ -186,7 +187,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
               <div className="space-y-2 mt-auto">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><Calendar className="w-4 h-4"/> {language === 'ar' ? 'الموعد' : 'Date'}</span>
-                  <span className="font-medium dark:text-white">{audit.scheduledDate ? new Date(audit.scheduledDate).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US') : '-'}</span>
+                  <span className="font-medium dark:text-white">{audit.scheduledDate ? formatDateDDMMYYYY(audit.scheduledDate) : '-'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">{language === 'ar' ? 'العناصر المراد جردها' : 'Items to Count'}</span>
@@ -195,7 +196,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
                 {audit.status === 'completed' && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">{language === 'ar' ? 'تاريخ الاكتمال' : 'Completed'}</span>
-                    <span className="font-medium text-green-600 dark:text-green-400">{new Date(audit.completedDate!).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</span>
+                    <span className="font-medium text-green-600 dark:text-green-400">{formatDateDDMMYYYY(audit.completedDate)}</span>
                   </div>
                 )}
               </div>

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { InventoryItem, Language, Transaction, TransactionType, AppNotification, Theme } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { formatUnit } from '../utils/units';
+import { formatDateDDMMYYYY } from '../utils/dateUtils';
 import NotificationCenter from './NotificationCenter';
 import { exportDailyReportPDF } from '../services/exportService';
 import { 
@@ -438,7 +439,7 @@ const MammalEmployeeDashboard: React.FC<MammalEmployeeDashboardProps> = ({
                         />
                     </div>
                     <p className="text-center text-xs text-gray-400">
-                        {t.summary} • {new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US')}
+                        {t.summary} • {formatDateDDMMYYYY(new Date())}
                     </p>
                 </div>
             </Modal>

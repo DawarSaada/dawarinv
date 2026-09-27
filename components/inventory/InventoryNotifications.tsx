@@ -18,6 +18,7 @@ import { Transaction, AppNotification, LocationData, Language } from '../../type
 import { supabase } from '../../services/supabase';
 import { TRANSLATIONS } from '../../constants';
 import { logger } from '../../utils/logger';
+import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '../../utils/dateUtils';
 import { Badge, Button, Panel, cn } from '../ui';
 
 interface InventoryNotificationsProps {
@@ -97,12 +98,7 @@ const InventoryNotifications: React.FC<InventoryNotificationsProps> = ({
   };
 
   const formatDate = (value?: string) =>
-    value
-      ? new Date(value).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
-          month: 'short',
-          day: 'numeric'
-        })
-      : '';
+    value ? formatDateDDMMYYYY(value) : '';
 
   const renderGroup = (
     groupId: string,
@@ -385,13 +381,7 @@ const InventoryNotifications: React.FC<InventoryNotificationsProps> = ({
                       </p>
                       <p className="mt-1 flex items-center gap-1 text-2xs text-gray-400">
                         <Clock className="h-3 w-3" />
-                        {new Date(alert.createdAt).toLocaleString(isAr ? 'ar-SA' : 'en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {formatDateTimeDDMMYYYY(alert.createdAt)}
                       </p>
                     </div>
                     {!alert.isRead && (

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Transaction, LocationData, Language, TransferSettings } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { formatUnit } from '../utils/units';
+import { formatDateDDMMYYYY } from '../utils/dateUtils';
 import { 
   X, Package, ArrowRight, CheckCircle, XCircle, AlertTriangle, 
   Download, Camera, Pen, Trash2, Plus, Minus, ChevronDown, ChevronUp,
@@ -342,7 +343,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
           </div>
           <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
             <span className="flex items-center gap-1"><User className="w-3 h-3" /> {performedByName}</span>
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(firstTx?.date || '').toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatDateDDMMYYYY(firstTx?.date)}</span>
             <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {transactions.length} {t.items}</span>
           </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Check, Package, ArrowRightLeft, Info, X } from 'lucide-react';
 import { AppNotification, Language } from '../types';
+import { formatDateDDMMYYYY } from '../utils/dateUtils';
 
 interface NotificationCenterProps {
   notifications: AppNotification[];
@@ -55,7 +56,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     if (diffHours < 24) {
       return date.toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' });
     }
-    return date.toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' });
+    return formatDateDDMMYYYY(date);
   };
 
   return (

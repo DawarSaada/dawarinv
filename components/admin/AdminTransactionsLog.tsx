@@ -9,6 +9,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { Transaction, Language } from '../../types';
+import { formatDateDDMMYYYY } from '../../utils/dateUtils';
 import { Pagination } from '../Pagination';
 import {
   Badge,
@@ -122,7 +123,7 @@ const AdminTransactionsLog: React.FC<AdminTransactionsLogProps> = ({
       width: 'w-40',
       cell: (tx) => (
         <span className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-          {new Date(tx.date).toLocaleString(locale)}
+          {formatDateDDMMYYYY(tx.date)}
         </span>
       )
     },
@@ -245,7 +246,7 @@ const AdminTransactionsLog: React.FC<AdminTransactionsLogProps> = ({
                 <span className="tnum font-semibold text-gray-700 dark:text-gray-200">
                   {tx.quantity} {tx.unit}
                 </span>
-                <span className="ms-auto">{new Date(tx.date).toLocaleDateString(locale)}</span>
+                <span className="ms-auto">{formatDateDDMMYYYY(tx.date)}</span>
               </div>
             </div>
           )}

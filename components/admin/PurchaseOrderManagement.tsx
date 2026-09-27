@@ -3,6 +3,7 @@ import { PurchaseOrder, Language, Supplier, CatalogItem } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { useCurrency } from '../AppSettingsProvider';
 import { formatMoney } from '../../utils/money';
+import { formatDateDDMMYYYY } from '../../utils/dateUtils';
 import { Search, Plus, Eye, ShoppingCart, CheckCircle, FileText } from 'lucide-react';
 
 interface PurchaseOrderManagementProps {
@@ -146,7 +147,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
               <div className="space-y-2 mt-auto">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">{language === 'ar' ? 'التاريخ' : 'Date'}</span>
-                  <span className="font-medium dark:text-white">{new Date(po.createdAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</span>
+                  <span className="font-medium dark:text-white">{formatDateDDMMYYYY(po.createdAt)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">{language === 'ar' ? 'العناصر' : 'Items'}</span>

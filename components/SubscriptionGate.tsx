@@ -4,6 +4,7 @@ import { useOMSSubscription, SubscriptionResult } from '../hooks/useOMSSubscript
 import { Button } from './ui/Button';
 import { APP_VERSION } from '../config';
 import { logger } from '../utils/logger';
+import { formatDateTimeDDMMYYYY } from '../utils/dateUtils';
 import type { Language, Theme } from '../types';
 
 /**
@@ -77,14 +78,9 @@ const readSessionUser = (): { role?: string; name?: string } | null => {
  * as a Hijri date alone is hard to act on. Arabic-Indic digits and Arabic month
  * names are kept.
  */
-const formatDeadline = (value: string | null, language: Language): string | null => {
+const formatDeadline = (value: string | null, _language: Language): string | null => {
   if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(language === 'ar' ? 'ar-SA-u-ca-gregory' : 'en-GB', {
-    dateStyle: 'long',
-    timeStyle: 'short',
-  });
+  return formatDateTimeDDMMYYYY(value);
 };
 
 interface Copy {

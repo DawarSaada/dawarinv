@@ -1,5 +1,6 @@
 import { Transaction, InventoryItem, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { formatDateDDMMYYYY } from '../utils/dateUtils';
 
 export const exportTransferPDF = async (
   transactions: Transaction[],
@@ -21,7 +22,7 @@ export const exportTransferPDF = async (
 
   const isRtl = language === 'ar';
   const group = transactions[0];
-  const dateStr = new Date(group.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US');
+  const dateStr = formatDateDDMMYYYY(group.date);
 
   // Header
   doc.setFontSize(22);
@@ -150,7 +151,7 @@ export const exportDailyReportPDF = async (
 
   const isRtl = language === 'ar';
   const reportDate = date ? new Date(date) : new Date();
-  const dateStr = reportDate.toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US');
+  const dateStr = formatDateDDMMYYYY(reportDate);
 
   const received = transactions.filter(t => t.type === 'receive' || (t.type === 'transfer' && t.toLocation === locationId));
   const used = transactions.filter(t => t.type === 'usage');
@@ -253,7 +254,7 @@ export const exportDailyReportExcel = async (
 
   if (received.length > 0) {
     const receivedData = received.map(tx => ({
-      [t.date]: new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US'),
+      [t.date]: formatDateDDMMYYYY(tx.date),
       [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
       [t.quantity]: tx.quantity,
       [t.unit]: tx.unit,
@@ -266,7 +267,7 @@ export const exportDailyReportExcel = async (
 
   if (used.length > 0) {
     const usedData = used.map(tx => ({
-      [t.date]: new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US'),
+      [t.date]: formatDateDDMMYYYY(tx.date),
       [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
       [t.quantity]: tx.quantity,
       [t.unit]: tx.unit,
