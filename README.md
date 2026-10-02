@@ -290,6 +290,10 @@ On top of that:
   products** (`canAddCatalogItem()` / `canCreateProduct()`). Creating a product is
   admin-only and happens on the Catalog screen; the add-item dialog is catalogue-only
   for everyone, and the name fields are read-only in create mode.
+- **Creating an audit is a management action** (`canCreateAudit()`): an administrator
+  or a warehouse manager raises a count, and only for a location they can write — a
+  scheduled audit locks that location's inventory. Branch staff perform the counts
+  and review the results, but they do not decide that a count happens.
 - **Branches may delete items on their own branch** (`canDeleteItem()`), which is how
   a branch stops carrying something.
 - Every inventory row must reference a `product_catalog` product. Coverage is

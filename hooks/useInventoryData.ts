@@ -3,7 +3,7 @@ import { InventoryItem, Transaction, TransactionType, LocationId, User, Language
 import { useInventoryQuery, useTransactionsQuery, usePurchaseOrdersQuery } from './useQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInventoryMutations } from './useMutations';
-import { canWriteLocation, isAdmin, readOnlyMessage, subjectFrom } from '../services/permissions';
+import { auditCreateMessage, canCreateAudit, canWriteLocation, isAdmin, readOnlyMessage, subjectFrom } from '../services/permissions';
 
 interface UseInventoryDataProps {
   currentUser: User | null;
@@ -361,7 +361,15 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
     // were permission-checked, so a read-only branch could run a count and post the
     // variances. They are scoped to the location being viewed, which is where the
     // audit list is filtered from.
+    //
+    // Scheduling is narrower still: only an administrator and a warehouse manager may
+    // create a new audit (canCreateAudit), and even they may only raise one for a
+    // location they can write — a scheduled audit locks that location's inventory.
     handleScheduleAudit: (params: any) => {
+      if (!canCreateAudit(subjectFrom(currentUser))) {
+        addToast('error', auditCreateMessage(language));
+        return;
+      }
       const target = params?.locationId || params?.location_id || selectedLocation || '';
       if (!guardWrite(target)) return;
       scheduleAuditMutation.mutate(params);

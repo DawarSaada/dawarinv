@@ -103,6 +103,28 @@ export const canAddCatalogItem = (subject: AccessSubject | null | undefined, loc
   canWriteLocation(subject, locationId);
 
 /**
+ * Creating a new audit is a management action.
+ *
+ * Only an administrator and a warehouse manager may schedule one. A scheduled
+ * audit locks its location's inventory (`useAuditLock`) and ends in stock
+ * adjustments, so the person raising it has to be accountable for the sites it
+ * covers — branch staff perform the counts and review the results, but they do
+ * not decide that a count happens. Keep this next to the other rules rather
+ * than comparing `role` at the call site, so the UI and the guards cannot drift
+ * apart again.
+ */
+export const AUDIT_CREATE_ROLES: UserRole[] = ['admin', 'warehouse_manager'];
+
+export const canCreateAudit = (subject?: AccessSubject | null): boolean =>
+  !!subject && AUDIT_CREATE_ROLES.includes(subject.role);
+
+/** Copy for a refused audit schedule, matching `readOnlyMessage`'s voice. */
+export const auditCreateMessage = (language: 'en' | 'ar'): string =>
+  language === 'ar'
+    ? 'جدولة الجرد متاحة للمدير أو مدير المستودع فقط.'
+    : 'Only an administrator or a warehouse manager can schedule an audit.';
+
+/**
  * Creating a *new product* is central: only an administrator may do it.
  *
  * Branches therefore cannot introduce products, which keeps the catalogue the

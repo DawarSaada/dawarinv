@@ -15,6 +15,7 @@
         canReadLocation,
         canCreateProduct,
         canAddCatalogItem,
+        canCreateAudit,
         canDeleteItem,
         canOpenTab,
       } from '/services/permissions.ts';
@@ -52,6 +53,15 @@
         ['branch may add a catalogue product to its own shelf', canAddCatalogItem(jawafaMgr, 'b01'), true],
         ['branch may add to a granted branch', canAddCatalogItem(jawafaMgr, 'b02'), true],
         ['branch may not add to a read-only branch', canAddCatalogItem(jawafaMgr, 'b03'), false],
+        // Creating audits is a management action: administrator or warehouse manager
+        // only, whatever location they manage. Branch staff perform the counts.
+        ['admin creates audits', canCreateAudit(admin), true],
+        ['warehouse manager creates audits', canCreateAudit(whMgr), true],
+        ['branch manager cannot create audits', canCreateAudit(jawafaMgr), false],
+        ['read-only branch manager cannot create audits', canCreateAudit(readOnlyB01), false],
+        ['mammal staff cannot create audits', canCreateAudit(mammalStaff), false],
+        ['anonymous cannot create audits', canCreateAudit(null), false],
+
         ['branch may delete on its own branch', canDeleteItem(jawafaMgr, 'b01'), true],
         ['branch may not delete on a read-only branch', canDeleteItem(jawafaMgr, 'b03'), false],
         ['warehouse manager may delete at warehouse', canDeleteItem(whMgr, 'warehouse'), true],

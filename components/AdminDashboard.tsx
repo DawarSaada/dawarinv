@@ -33,7 +33,8 @@ import ScheduleAuditModal from './admin/ScheduleAuditModal';
 import PerformAuditModal from './admin/PerformAuditModal';
 import ReviewAuditModal from './admin/ReviewAuditModal';
 import { Supplier, PurchaseOrder, PurchaseOrderItem, Audit, Theme } from '../types';
-import { canOpenTab, canWriteLocation, subjectFrom } from '../services/permissions';
+import { canCreateAudit, canOpenTab, canWriteLocation, subjectFrom } from '../services/permissions';
+import type { AccessSubject } from '../services/permissions';
 
 const UserManagement = React.lazy(() => import('./admin/UserManagement'));
 const AdminInventoryView = React.lazy(() => import('./admin/AdminInventoryView'));
@@ -67,9 +68,9 @@ interface AdminDashboardProps {
     transactions: Transaction[];
     inventory: Record<string, InventoryItem[]>;
     catalog: CatalogItem[];
-    onCreateUser: (user: Omit<User, 'id'>) => void;
-    onEditUser: (user: User) => void;
-    onDeleteUser: (id: string) => void;
+    onCreateUser: (user: Omit<User, 'id'>) => void | Promise<void>;
+    onEditUser: (user: User) => void | Promise<void>;
+    onDeleteUser: (id: string) => void | Promise<void>;
     onDeleteItem: (locationId: string, itemId: string) => void;
     onLogout: () => void;
     language: Language;
@@ -315,6 +316,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setShowUserModal(true);
     };
 
+    /**
+     * Runs a user-directory write and reports a refusal.
+     *
+     * `onCreateUser` / `onEditUser` / `onDeleteUser` reject when the write fails
+     * (a duplicate username, no connection). These handlers ignored the promise and
+     * closed the dialog first, so a failed save looked exactly like a successful
+     * one — the user was simply not there on the next load.
+     */
+    const runUserAction = async (action: () => void | Promise<unknown>) => {
+        try {
+            await action();
+        } catch (error: any) {
+            window.alert(
+                language === 'ar'
+                    ? `تعذر حفظ التغييرات: ${error?.message ?? ''}`
+                    : `Could not save the change: ${error?.message ?? ''}`
+            );
+        }
+    };
+
     const handleUserSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const payload = {
@@ -322,12 +343,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             role: locationType === 'branch' ? 'branch_manager' as UserRole : userForm.role
         };
 
-        if (editingUserId) {
-            onEditUser({ ...payload, id: editingUserId } as User);
-        } else {
-            onCreateUser(payload as any);
-        }
-        setShowUserModal(false);
+        // The dialog closes only once the write has landed; a refusal keeps the form
+        // open with its values intact so it can be retried.
+        void runUserAction(async () => {
+            if (editingUserId) {
+                await onEditUser({ ...payload, id: editingUserId } as User);
+            } else {
+                await onCreateUser(payload as any);
+            }
+            setShowUserModal(false);
+        });
     };
 
     const handleDeleteUserRequest = (user: User) => {
@@ -351,11 +376,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
 
     const executeDeletion = () => {
-        if (confirmDelete.type === 'user') {
-            onDeleteUser(confirmDelete.id);
-        } else if (confirmDelete.type === 'item' && confirmDelete.locationId) {
-            onDeleteItem(confirmDelete.locationId, confirmDelete.id);
-        }
+        void runUserAction(async () => {
+            if (confirmDelete.type === 'user') {
+                await onDeleteUser(confirmDelete.id);
+            } else if (confirmDelete.type === 'item' && confirmDelete.locationId) {
+                await onDeleteItem(confirmDelete.locationId, confirmDelete.id);
+            }
+        });
         setConfirmDelete(prev => ({ ...prev, isOpen: false }));
     };
 
@@ -443,6 +470,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
     const isAr = language === 'ar';
+
+    // Only an administrator or a warehouse manager may create a new audit, and only
+    // for a location they can write: scheduling locks that location's inventory.
+    const auditSubject: AccessSubject = subjectFrom(currentUser) ?? { role: currentUserRole };
+    const mayScheduleAudit = canCreateAudit(auditSubject);
+    const auditLocations = availableLocations.filter((l) => canWriteLocation(auditSubject, l.id));
+
+    // The ledger records *who* did something, so it stores the signed-in user's name.
+    // These call sites used to pass `getUserName(currentUserRole)`, which resolved to
+    // the role string ("admin") — a trail that names a role cannot answer "who".
+    const actorName = currentUser?.name || currentUserRole;
 
     // Section list drives the sidebar, the mobile tab bar and the command palette.
     const adminMenu = [
@@ -700,7 +738,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onEditPO={onEditPO}
                         onUpdateStatus={onUpdatePOStatus}
                         onReceivePO={onReceivePO}
-                        userName={getUserName(currentUserRole)}
+                        userName={actorName}
                         language={language}
                         onOpenCreateModal={() => { setSelectedPO(undefined); setIsPOModalOpen(true); }}
                         onOpenViewModal={(po) => { setSelectedPO(po); setIsPOModalOpen(true); }}
@@ -718,6 +756,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onOpenPerformModal={(audit) => { setSelectedAudit(audit); setIsPerformAuditModalOpen(true); }}
                         onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
                         onDeleteAudit={onDeleteAudit}
+                        canCreate={mayScheduleAudit}
                     />
                 )}
                   </React.Suspense>
@@ -769,7 +808,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 // Approval, cancellation and editing write the order's own branch,
                 // so they are withheld unless the viewer may write there.
                 canManage={canWriteLocation(subjectFrom(currentUser), selectedPO?.locationId || 'warehouse')}
-                userName={getUserName(currentUserRole)}
+                userName={actorName}
             />
 
             <ReceivePOModal 
@@ -778,17 +817,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 language={language}
                 purchaseOrder={selectedPO || null}
                 onReceive={onReceivePO}
-                userName={getUserName(currentUserRole)}
+                userName={actorName}
             />
 
             <ScheduleAuditModal 
                 isOpen={isScheduleAuditModalOpen}
                 onClose={() => setIsScheduleAuditModalOpen(false)}
                 language={language}
-                locations={availableLocations}
+                // Only locations this user may write: scheduling a count locks the
+                // location's inventory, and handleScheduleAudit refuses the rest.
+                locations={auditLocations}
                 inventory={inventory}
                 onSchedule={onScheduleAudit}
-                userName={getUserName(currentUserRole)}
+                userName={actorName}
             />
 
             <PerformAuditModal 
@@ -806,7 +847,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 language={language}
                 audit={selectedAudit}
                 userRole={currentUserRole}
-                onApplyAudit={(id) => onApplyAudit(id, getUserName(currentUserRole))}
+                onApplyAudit={(id) => onApplyAudit(id, actorName)}
             />
 
             <ConfirmationModal

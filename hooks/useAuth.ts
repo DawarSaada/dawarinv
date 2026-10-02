@@ -7,8 +7,15 @@ export const useAuth = (requestNotificationPermission: () => void, fetchedUsers:
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
       const saved = localStorage.getItem('dawar_user');
       const expiry = localStorage.getItem('dawar_session_expiry');
-      if (saved && expiry && Date.now() < parseInt(expiry, 10)) {
-          return JSON.parse(saved);
+      try {
+          if (saved && expiry && Date.now() < parseInt(expiry, 10)) {
+              return JSON.parse(saved);
+          }
+      } catch {
+          // A truncated or hand-edited session used to throw inside this initialiser,
+          // which took the whole app down to the error boundary until the browser's
+          // storage was cleared by hand. Discarding the bad value is enough.
+          console.warn('[Auth] Discarded an unreadable saved session.');
       }
       localStorage.removeItem('dawar_user');
       localStorage.removeItem('dawar_session_expiry');

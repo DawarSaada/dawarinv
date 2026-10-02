@@ -19,7 +19,7 @@ import { extractTextFromPDF, parseTransferDocument } from '../services/pdfServic
 import { AiUnavailableError, describeAiError } from '../services/aiClient';
 import { exportTransferPDF, exportInventoryExcel } from '../services/exportService';
 import { useAuditLock } from '../hooks/useAuditLock';
-import { accessFor, canCreateProduct, canWriteLocation, readOnlyMessage } from '../services/permissions';
+import { accessFor, canCreateAudit, canCreateProduct, canWriteLocation, readOnlyMessage } from '../services/permissions';
 import { UserRole } from '../types';
 import { logger } from '../utils/logger';
 import {
@@ -105,6 +105,8 @@ interface InventoryDashboardProps {
   onConfirmOutbound: (transaction: Transaction) => void;
   availableLocations: LocationData[];
   getUserName: (name: string) => string;
+  /** Canonical name of the signed-in user, recorded in the ledger and in audits. */
+  userName?: string;
   catalog: CatalogItem[];
   alerts?: AppNotification[];
   transferSettings?: TransferSettings;
@@ -157,6 +159,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onConfirmOutbound,
   availableLocations,
   getUserName,
+  userName,
   onRecordReceive,
   catalog,
   alerts = [],
@@ -308,6 +311,22 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const canEditItem = locationAccess === 'write';
   const canBulkEdit = locationAccess === 'write' && userRole !== 'mammal_employee';
   const canRecordUsage = locationAccess === 'write';
+
+  // Creating a new audit belongs to an administrator or a warehouse manager
+  // (services/permissions.ts), and only where they can write: scheduling a count
+  // locks that location's inventory, so a read-only branch is not scheduled from
+  // here. `handleScheduleAudit` refuses the same two cases server-side-by-convention.
+  const canScheduleAudit =
+    canCreateAudit(accessSubject) && (isGlobalView || locationAccess === 'write');
+  const auditLocations = (isGlobalView ? availableLocations : [location!]).filter((l) =>
+    canWriteLocation(accessSubject, l.id)
+  );
+
+  // The ledger and audit trail record *who*, so they store the signed-in user's
+  // name. These call sites passed the role through the name translator, which
+  // resolved to the role string ("branch_manager") — a trail that names a role
+  // cannot answer "who".
+  const actorName = userName || userRole;
 
   const { isInventoryLocked, lockedByAuditTitle } = useAuditLock(userRole, locationId);
 
@@ -1161,6 +1180,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                 setIsPerformAuditModalOpen(true); 
               }}
               onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
+              canCreate={canScheduleAudit}
             />
           )}
 
@@ -1175,12 +1195,12 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                   onCreatePO={(po, items) => onCreatePO({...po, locationId}, items)}
                   onEditPO={onEditPO || (() => {})}
                   onUpdateStatus={(id, status) =>
-                    onUpdatePOStatus?.(id, status as PurchaseOrderStatus, getUserName(userRole))
+                    onUpdatePOStatus?.(id, status as PurchaseOrderStatus, actorName)
                   }
                   onReceivePO={onReceivePO || (() => {})}
                   // Was '', so a branch receiving a purchase order wrote a ledger
                   // entry with no performer. The admin screen passed a real name.
-                  userName={getUserName(userRole)}
+                  userName={actorName}
                   // A PO can only select catalogue products, so raising one cannot
                   // introduce a new product — it follows the same rule as adding a
                   // catalogue item to a shelf rather than the admin-only rule.
@@ -1452,10 +1472,10 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         isOpen={isScheduleAuditModalOpen}
         onClose={() => setIsScheduleAuditModalOpen(false)}
         language={language}
-        locations={isGlobalView ? availableLocations : [location!]}
+        locations={auditLocations}
         inventory={isGlobalView ? {} : { [locationId]: inventory }}
         onSchedule={(params) => onScheduleAudit?.(params)}
-        userName={getUserName(userRole)} 
+        userName={actorName} 
       />
 
       <PerformAuditModal 
@@ -1473,7 +1493,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         language={language}
         audit={selectedAudit}
         userRole={userRole as any}
-        onApplyAudit={(id) => onApplyAudit?.(id, getUserName(userRole))}
+        onApplyAudit={(id) => onApplyAudit?.(id, actorName)}
       />
 
       {/* PO Modals */}
@@ -1494,10 +1514,10 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           // there is no approval queue for them. Enforced again in useInventoryData.
           autoApprove={accessSubject?.role === 'branch_manager'}
           onUpdateStatus={(id, status) =>
-            onUpdatePOStatus?.(id, status as PurchaseOrderStatus, getUserName(userRole))
+            onUpdatePOStatus?.(id, status as PurchaseOrderStatus, actorName)
           }
           // `created_by` was '' for a purchase order raised by a branch.
-          userName={getUserName(userRole)}
+          userName={actorName}
           language={language}
         />
       )}
@@ -1516,7 +1536,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
             }
             onReceivePO(poId, items, performedBy);
           }}
-          userName={getUserName(userRole)}
+          userName={actorName}
           language={language}
         />
       )}

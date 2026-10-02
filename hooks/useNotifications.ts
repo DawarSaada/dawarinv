@@ -52,13 +52,16 @@ export const useNotifications = (
           // Save subscription to database
           const subJson = subscription.toJSON();
           if (subJson.endpoint && subJson.keys) {
-            await supabase.from('push_subscriptions').upsert({
+            // PostgREST resolves failures instead of throwing, so the error has to be
+            // read: an unchecked upsert here silently left the device unsubscribed.
+            const { error } = await supabase.from('push_subscriptions').upsert({
               user_id: currentUser.id,
               location_id: selectedLocation,
               endpoint: subJson.endpoint,
               p256dh: subJson.keys.p256dh,
               auth: subJson.keys.auth
             }, { onConflict: 'endpoint' });
+            if (error) console.error('Could not save the push subscription:', error.message);
           }
         } catch (error) {
           console.error('Error subscribing to web push:', error);

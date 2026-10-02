@@ -76,16 +76,22 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
 
             // Sync Suppliers
             if (productId && form.supplierIds) {
+                // Supabase resolves PostgREST failures instead of throwing, so each
+                // update's `error` has to be checked — the old code awaited a batch of
+                // these and ignored them, which silently left supplier links out of
+                // sync with the catalogue.
                 const supplierUpdates = suppliers.map(async (supplier) => {
                     const isSelected = form.supplierIds!.includes(supplier.id);
                     const hasItem = supplier.suppliedItems?.includes(productId!);
 
                     if (isSelected && !hasItem) {
                         const newItems = [...(supplier.suppliedItems || []), productId!];
-                        return supabase.from('suppliers').update({ supplied_items: newItems }).eq('id', supplier.id);
+                        const { error } = await supabase.from('suppliers').update({ supplied_items: newItems }).eq('id', supplier.id);
+                        if (error) throw error;
                     } else if (!isSelected && hasItem) {
                         const newItems = supplier.suppliedItems!.filter(id => id !== productId);
-                        return supabase.from('suppliers').update({ supplied_items: newItems }).eq('id', supplier.id);
+                        const { error } = await supabase.from('suppliers').update({ supplied_items: newItems }).eq('id', supplier.id);
+                        if (error) throw error;
                     }
                 });
                 await Promise.all(supplierUpdates);

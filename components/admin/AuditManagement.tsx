@@ -8,6 +8,15 @@ interface AuditManagementProps {
   audits: Audit[];
   locations: LocationData[];
   userRole: UserRole;
+  /**
+   * Whether this user may create a new audit.
+   *
+   * Required rather than derived here: the dashboard also knows whether the
+   * *location* is writable, and a schedule button that only produces a refusal
+   * toast is worse than no button. The guard that counts is in
+   * `useInventoryData.handleScheduleAudit`; this only keeps the UI honest.
+   */
+  canCreate: boolean;
   language: Language;
   onOpenScheduleModal: () => void;
   onOpenPerformModal: (audit: Audit) => void;
@@ -16,7 +25,7 @@ interface AuditManagementProps {
 }
 
 const AuditManagement: React.FC<AuditManagementProps> = ({
-  audits, locations, userRole, language, onOpenScheduleModal, onOpenPerformModal, onOpenReviewModal, onDeleteAudit
+  audits, locations, userRole, canCreate, language, onOpenScheduleModal, onOpenPerformModal, onOpenReviewModal, onDeleteAudit
 }) => {
   const t = TRANSLATIONS[language];
   type TabType = 'active' | 'completed' | 'pending';
@@ -115,13 +124,15 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
             {language === 'ar' ? 'جدولة ومراجعة جرد المخزون' : 'Schedule and review inventory audits'}
           </p>
         </div>
-        <button 
-          onClick={onOpenScheduleModal}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-800"
-        >
-          <Plus className="w-5 h-5" />
-          {language === 'ar' ? 'جدولة جرد' : 'Schedule Audit'}
-        </button>
+        {canCreate && (
+          <button 
+            onClick={onOpenScheduleModal}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-800"
+          >
+            <Plus className="w-5 h-5" />
+            {language === 'ar' ? 'جدولة جرد' : 'Schedule Audit'}
+          </button>
+        )}
       </div>
 
       <div className="flex space-x-1 mb-2 border-b border-gray-200 dark:border-gray-800 overflow-x-auto hide-scrollbar">

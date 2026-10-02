@@ -794,3 +794,94 @@ indexes matter: without them, a receipt can resurrect a deleted product.
 
 `catalog-doctor.mjs` resolves all of it — 12 duplicate rows merged, 3 field repairs, 0 residual
 collisions — and the run is reported above.
+
+## Audit creation is a management action (2026-10-02)
+
+Asked to make sure that **nobody except an administrator and a warehouse manager can create a new
+audit**, keeping that rule true everywhere rather than in one screen.
+
+Before this pass, scheduling an audit was gated only by write access to the target location, so a
+branch manager could schedule counts for their own branch, a mammal employee for mammal, and a
+warehouse manager for the two central sites. The decision now lives in one place —
+`canCreateAudit()` in `services/permissions.ts` — and is enforced twice:
+
+- `useInventoryData.handleScheduleAudit` refuses the call with a toast (English/Arabic). This is
+  the guard that cannot be routed around, because every scheduling path funnels through it.
+- `AuditManagement` hides the **Schedule Audit** button. Its `canCreate` prop is required, so both
+  dashboards have to decide it explicitly; they pass the role rule **and** the location's write
+  level, because the button must not offer an action the guard will refuse.
+
+**What this is, and is not.** It is an application-level rule: it governs the app. It is *not* a
+security boundary, for the same reason every other rule in `permissions.ts` is not one — the app
+has no Supabase Auth, `audits` still carries the legacy `FOR ALL USING (true)` policy, and anyone
+holding the anon key (which ships in the client bundle) can insert a row over REST. Closing that
+properly means Auth plus the RLS half of `phase5_rls_migration.sql`; see "The anon key is open for
+writing" above. Inside the product, though, there is exactly one scheduling path and it is
+guarded: `scheduleAuditMutation` is reached only from `handleScheduleAudit`.
+
+The location rule is kept on purpose. Scheduling an audit sets the audit lock for that location
+(`useAuditLock`), which stops its staff writing stock until the count is done — so it is a
+write-level act on that site, not a read. In practice: an administrator can schedule anywhere; a
+warehouse manager can schedule at the warehouse, mammal, and any branch explicitly granted to
+them. If the operation wants warehouse managers to schedule branch counts as well, that is a
+one-line change (drop the write check; `canCreateAudit` already returns true for the role) — it
+was not done silently here because it would let them lock a branch they can only read.
+
+The scheduling dialog also used to list *every* location for a warehouse manager, so choosing
+"All Locations (Branches & Warehouse)" produced one refusal toast per branch while quietly
+creating the central ones. It now lists only locations the signed-in user can write.
+
+### The audit trail recorded a role, not a person
+
+`audits.created_by`, the `performed_by` on applied variances and PO receipts, and the schedule
+dialog's `createdBy` were filled with `getUserName(currentUserRole)` — a translator that looks up
+a *user name*, called with a role string. It never matched, so the database recorded `"admin"` or
+`"branch_manager"` (confirmed in the live rows: every recent audit says `created_by = admin`).
+Those call sites now pass the signed-in user's canonical name, which is what makes "who created
+this audit" answerable at all.
+
+### Other defects found in the same pass
+
+- **A failed audit-count save could still be submitted.** `PerformAuditModal` awaited the save
+  without a catch (unhandled rejection) and went on to submit after a refusal. The save now
+  reports success, and submission stops when it fails.
+- **Supplier links were silently left unsynced** when editing a catalogue product:
+  `ProductCatalogManagement` awaited a batch of `suppliers.update()` calls without reading their
+  `error` — PostgREST resolves failures instead of throwing. Errors are checked now.
+- **Saving or deleting a user could fail invisibly.** The admin dialog closed before the write
+  resolved and ignored the rejection, so a duplicate username looked like a successful save. The
+  dialog now closes only after the write lands and reports a refusal.
+- **A corrupt saved session crashed the whole app.** `useAuth`'s state initialiser parsed
+  `localStorage.dawar_user` without a guard; one truncated value took the app to the error
+  boundary until browser storage was cleared by hand. It is parsed defensively now, like the
+  other four session readers.
+- **The camera could start after the scanner closed.** Both scanner dialogs scheduled their
+  `initScanner` on a 100 ms timer that was never cleared, so closing inside that window left the
+  camera running with no UI to stop it. The timer is cleared on unmount.
+- **A failed push subscription was silent.** The `push_subscriptions` upsert discarded its
+  `{ error }`, so a device that failed to register looked subscribed.
+
+### Verification
+
+- `npm run typecheck`, `npm run build` (client + service worker), `npm run smoke` — all clean.
+- `permissions-check.html`: **38/38** assertions pass, including six new ones for audit creation
+  (admin yes, warehouse manager yes, branch manager, read-only branch manager, mammal staff and
+  anonymous all no).
+- `npm run migrations`: every migration is applied, no negative stock, no duplicate or untrimmed
+  rows; `execute_add_item` / `execute_edit_item` reach the real logic (the phase11 defect is gone).
+- Live checks in the running app: an administrator sees **Schedule Audit** and can create one
+  (recorded as `created_by = "System Administrator"`, then deleted, leaving the table at its
+  original 34 rows); a branch manager's Audits tab shows no Schedule button at all; a warehouse
+  manager sees the button and the dialog offers only **Mammal** and **Warehouse**.
+
+### Still open after this pass
+
+- **3 inventory rows have no catalogue product** (`mammal`: `Astra Halloumi Cheese`,
+  `Brown Flour Mix`, `Flour Mix`), which is what `phase8_product_integrity.sql` exists to stop —
+  `receive_purchase_order` recreates a product it cannot find. Either re-create those products in
+  the catalogue or remove the rows; it is a business call, so it is left here.
+- **`min_threshold` is still 0 for more than half the catalogue**, so low-stock warnings only fire
+  at zero (Jawafa shows 224 items, 126 "below minimum"). Data entry, not a code defect.
+- Audits dated beyond the current week only appear under **All Pending**; the default tab is
+  "Active & Upcoming". Worth a look if users report a scheduled count "missing" right after they
+  create it — it is there, one tab over.

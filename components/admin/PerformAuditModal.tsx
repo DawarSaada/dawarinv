@@ -50,13 +50,26 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
     }));
   };
 
-  const handleSave = async () => {
+  /**
+   * Saves the draft and reports whether it landed.
+   *
+   * The save call rejects when the server refuses it (the handler surfaces the
+   * reason as a toast). It used to be awaited without a catch, so a failed save
+   * produced an unhandled rejection, and `handleSubmit` went on to submit a count
+   * the server had just rejected.
+   */
+  const handleSave = async (): Promise<boolean> => {
     const itemsToSave = Object.entries(counts).map(([id, data]) => ({
       id,
       counted_quantity: data.count === '' ? null : Number(data.count),
       notes: data.notes
     }));
-    await onSaveCounts(itemsToSave);
+    try {
+      await onSaveCounts(itemsToSave);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleSubmit = async () => {
@@ -68,7 +81,9 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
     }
 
     if (window.confirm(language === 'ar' ? 'هل أنت متأكد من إرسال هذا الجرد للمراجعة؟ لا يمكن تعديل الجرد بعد الإرسال.' : 'Are you sure you want to submit this audit for review? Counts cannot be changed after submission.')) {
-      await handleSave(); // Save final state just in case
+      const saved = await handleSave(); // Save final state just in case
+      // Never submit a count the server refused to store.
+      if (!saved) return;
       onSubmitAudit(audit.id);
       onClose();
     }

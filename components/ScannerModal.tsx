@@ -55,10 +55,13 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScan, la
       }
     };
 
-    // Small delay to ensure the DOM element "reader" is rendered
-    setTimeout(initScanner, 100);
+    // Small delay to ensure the DOM element "reader" is rendered. The timer is
+    // cleared on cleanup: closing the dialog inside that 100 ms window used to let
+    // the camera start after unmount, with no UI left to stop it.
+    const initTimer = setTimeout(initScanner, 100);
 
     return () => {
+      clearTimeout(initTimer);
       const active = scannerRef.current;
       scannerRef.current = null;
       if (active && active.isScanning) {

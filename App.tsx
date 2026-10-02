@@ -527,6 +527,8 @@ const App: React.FC = () => {
           onRecordUsage={(itemId, qty, notes) => handleDailyLog('usage', itemId, qty, notes)}
           onRecordReceive={(itemId, qty, notes) => handleDailyLog('receive', itemId, qty, notes)}
           userRole={currentUser.role}
+          // Canonical name: audits and ledger rows record a person, not a role.
+          userName={currentUser.name}
           userBranchCode={currentUser.branchCode}
           accessibleBranches={currentUser.accessibleBranches}
           readOnlyBranches={currentUser.readOnlyBranches}
