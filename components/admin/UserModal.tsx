@@ -87,7 +87,10 @@ const UserModal: React.FC<UserModalProps> = ({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.branchNameAr || 'Branch Name (Arabic)'}</label>
-                                    <input type="text" value={userForm.branchNameAr || ''} onChange={e => setUserForm({...userForm, nameAr: e.target.value})} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500 text-sm" dir="rtl" />
+                                    {/* This wrote to `nameAr`, so typing an Arabic branch name
+                                        silently overwrote the user's Arabic display name and
+                                        left the branch name empty. */}
+                                    <input type="text" value={userForm.branchNameAr || ''} onChange={e => setUserForm({...userForm, branchNameAr: e.target.value})} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-950 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500 text-sm" dir="rtl" />
                                 </div>
                             </div>
                             <div>

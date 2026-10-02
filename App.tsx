@@ -30,6 +30,7 @@ import { useLocationsQuery, useUsersQuery, useRealtimeSubscriptions, useTransact
 import { useNotifications } from './hooks/useNotifications';
 import { usePwaStatus } from './hooks/usePwaStatus';
 import { logger } from './utils/logger';
+import { locationLabel } from './utils/locations';
 
 
 const App: React.FC = () => {
@@ -299,11 +300,15 @@ const App: React.FC = () => {
     // Consolidate global view: group by nameEn + nameAr + category + unit
     const grouped: Record<string, InventoryItem & { locationNames: string[], allIds: string[] }> = {};
 
+    // Location names live in the database, so the language has to be applied here:
+    // the combined view used to list "Jawafa, Jamia" over an Arabic screen.
+    const locNameFor = (id?: string) => locationLabel(availableLocations, id, language);
+
     rawItems.forEach(item => {
       // Use a composite key for grouping
       const key = `${item.nameEn.toLowerCase()}|${item.nameAr}|${item.category}|${item.unit}`;
       if (!grouped[key]) {
-        const locName = availableLocations.find(l => l.id === item.locationId)?.name || item.locationId || '';
+        const locName = locNameFor(item.locationId);
         grouped[key] = {
           ...item,
           quantity: Number(item.quantity),
@@ -312,7 +317,7 @@ const App: React.FC = () => {
         };
       } else {
         grouped[key].quantity += Number(item.quantity);
-        const locName = availableLocations.find(l => l.id === item.locationId)?.name || item.locationId || '';
+        const locName = locNameFor(item.locationId);
         if (locName && !grouped[key].locationNames.includes(locName)) {
           grouped[key].locationNames.push(locName);
         }
@@ -325,7 +330,7 @@ const App: React.FC = () => {
       id: item.allIds.join(','), // Use joined IDs as the temporary ID for selection
       locationId: item.locationNames.join(', ') // Display joined location names in the locationId field for global view
     }));
-  }, [inventory, selectedLocation, availableLocations]);
+  }, [inventory, selectedLocation, availableLocations, language]);
 
   const isVerifyRoute = typeof window !== 'undefined' && (
     window.location.pathname.includes('/verify-po') ||

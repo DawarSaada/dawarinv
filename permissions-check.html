@@ -16,6 +16,7 @@
         canCreateProduct,
         canAddCatalogItem,
         canCreateAudit,
+        canScheduleAuditFor,
         canDeleteItem,
         canOpenTab,
       } from '/services/permissions.ts';
@@ -61,6 +62,19 @@
         ['read-only branch manager cannot create audits', canCreateAudit(readOnlyB01), false],
         ['mammal staff cannot create audits', canCreateAudit(mammalStaff), false],
         ['anonymous cannot create audits', canCreateAudit(null), false],
+
+        // Which location may be audited is a separate, much wider rule: a warehouse
+        // manager audits the branches they are read-only on — the picker used to
+        // filter by canWriteLocation, which hid every branch from them.
+        ['admin schedules an audit anywhere', canScheduleAuditFor(admin, 'b03'), true],
+        ['warehouse manager schedules the warehouse', canScheduleAuditFor(whMgr, 'warehouse'), true],
+        ['warehouse manager schedules a branch it can only read', canScheduleAuditFor(whMgr, 'b01'), true],
+        ['warehouse manager schedules a read-only branch', canScheduleAuditFor(whMgr, 'b03'), true],
+        ['scheduling needs no write access', canScheduleAuditFor(whMgr, 'b01') && !canWriteLocation(whMgr, 'b01'), true],
+        ['scheduling without a location is refused', canScheduleAuditFor(whMgr, ''), false],
+        ['branch manager cannot schedule audits at all', canScheduleAuditFor(jawafaMgr, 'b01'), false],
+        ['mammal staff cannot schedule audits', canScheduleAuditFor(mammalStaff, 'mammal'), false],
+        ['anonymous cannot schedule audits', canScheduleAuditFor(null, 'warehouse'), false],
 
         ['branch may delete on its own branch', canDeleteItem(jawafaMgr, 'b01'), true],
         ['branch may not delete on a read-only branch', canDeleteItem(jawafaMgr, 'b03'), false],

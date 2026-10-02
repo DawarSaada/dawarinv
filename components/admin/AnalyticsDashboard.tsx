@@ -37,7 +37,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       kpis: getKPIs(inventory, transactions, timeframe, availableLocations),
       consumption: getConsumptionTrend(transactions, timeframe),
       transfers: getTransferVolumes(transactions, timeframe, availableLocations, language),
-      categories: getCategoryDistribution(inventory),
+      categories: getCategoryDistribution(inventory, language),
       topItems: getTopDepletingItems(transactions, timeframe, language)
     };
   }, [transactions, inventory, timeframe, availableLocations, language]);

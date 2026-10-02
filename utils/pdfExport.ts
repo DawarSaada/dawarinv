@@ -1,8 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
-import { PurchaseOrder, Audit, Language, CatalogItem, Supplier } from '../types';
+import { PurchaseOrder, Audit, Language, CatalogItem, Supplier, LocationData } from '../types';
 import { formatDateDDMMYYYY } from './dateUtils';
+import { auditStatusLabel, localizeAuditTitle } from './auditText';
 
 let amiriBase64Cache: string | null = null;
 
@@ -391,7 +392,12 @@ export const exportPOToPDF = async (
 /**
  * Enhanced Audit Report PDF with modern corporate styling
  */
-export const exportAuditToPDF = async (audit: Audit, language: Language) => {
+export const exportAuditToPDF = async (
+  audit: Audit,
+  language: Language,
+  /** Supplied by the caller so the report can name the location in Arabic. */
+  locations: LocationData[] = []
+) => {
   const doc = new jsPDF();
   await initCustomFont(doc);
 
@@ -462,11 +468,18 @@ export const exportAuditToPDF = async (audit: Audit, language: Language) => {
 
   doc.setFont("Amiri", "bold");
   doc.setTextColor(15, 23, 42);
-  doc.text(formatText(doc, audit.title || '-'), col1ValX, 35, isAr ? alignRight : alignLeft);
+  // The report used to print the raw id ("WAREHOUSE") and the raw status
+  // ("PENDING_REVIEW"), in English, on an Arabic document.
+  const location = locations.find((l) => l.id === audit.locationId);
+  const locationName = location
+    ? (isAr ? location.nameAr || location.name : location.name)
+    : audit.locationId;
+
+  doc.text(formatText(doc, localizeAuditTitle(audit.title, language, locations) || '-'), col1ValX, 35, isAr ? alignRight : alignLeft);
   doc.text(formatDateDDMMYYYY(audit.createdAt), col1ValX, 42, isAr ? alignRight : alignLeft);
 
-  doc.text(formatText(doc, audit.locationId.toUpperCase()), col2ValX, 35, isAr ? alignRight : alignLeft);
-  doc.text(formatText(doc, audit.status.toUpperCase()), col2ValX, 42, isAr ? alignRight : alignLeft);
+  doc.text(formatText(doc, locationName), col2ValX, 35, isAr ? alignRight : alignLeft);
+  doc.text(formatText(doc, auditStatusLabel(audit.status, language)), col2ValX, 42, isAr ? alignRight : alignLeft);
 
   // Table
   let tableColumn = [

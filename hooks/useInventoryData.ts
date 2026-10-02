@@ -3,7 +3,7 @@ import { InventoryItem, Transaction, TransactionType, LocationId, User, Language
 import { useInventoryQuery, useTransactionsQuery, usePurchaseOrdersQuery } from './useQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInventoryMutations } from './useMutations';
-import { auditCreateMessage, canCreateAudit, canWriteLocation, isAdmin, readOnlyMessage, subjectFrom } from '../services/permissions';
+import { auditCreateMessage, canCreateAudit, canScheduleAuditFor, canWriteLocation, isAdmin, readOnlyMessage, subjectFrom } from '../services/permissions';
 
 interface UseInventoryDataProps {
   currentUser: User | null;
@@ -363,15 +363,27 @@ export const useInventoryData = ({ currentUser, selectedLocation, language, aler
     // audit list is filtered from.
     //
     // Scheduling is narrower still: only an administrator and a warehouse manager may
-    // create a new audit (canCreateAudit), and even they may only raise one for a
-    // location they can write — a scheduled audit locks that location's inventory.
+    // create a new audit (canCreateAudit).
+    //
+    // It is deliberately *not* a write to the location: the whole point of a count
+    // is to check stock at sites the manager cannot themselves change, so this used
+    // to refuse a warehouse manager the branches — the very audits they raise. The
+    // location only has to be visible to them (canScheduleAuditFor); the counting
+    // and applying steps are still guarded per location below, and a scheduled
+    // audit locks that location's inventory until it is finished (useAuditLock).
     handleScheduleAudit: (params: any) => {
-      if (!canCreateAudit(subjectFrom(currentUser))) {
+      const subject = subjectFrom(currentUser);
+      if (!canCreateAudit(subject)) {
         addToast('error', auditCreateMessage(language));
         return;
       }
       const target = params?.locationId || params?.location_id || selectedLocation || '';
-      if (!guardWrite(target)) return;
+      if (!canScheduleAuditFor(subject, target)) {
+        addToast('error', language === 'ar'
+          ? 'لا يمكن جدولة جرد لهذا الموقع.'
+          : 'You cannot schedule an audit for this location.');
+        return;
+      }
       scheduleAuditMutation.mutate(params);
     },
     handleSaveAuditCounts: (auditId: string, items: any[]) => {

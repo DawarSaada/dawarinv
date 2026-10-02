@@ -3,6 +3,7 @@ import { InventoryItem, Language, CatalogItem } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { Package, Plus, X, Save, AlignLeft, AlertCircle, Camera } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
+import { formatCategory } from '../utils/categories';
 
 interface AddItemModalProps {
     isOpen: boolean;
@@ -205,7 +206,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                                 <option value="">{language === 'ar' ? '-- اختر منتج --' : '-- Select Product --'}</option>
                                 {catalog.map(c => (
                                     <option key={c.id} value={c.id}>
-                                        {language === 'ar' ? c.nameAr : c.nameEn} ({c.category})
+                                        {language === 'ar' ? c.nameAr : c.nameEn} (
+                                        {formatCategory(c.category, language)})
                                     </option>
                                 ))}
                             </select>
@@ -280,8 +282,11 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSubmit, 
                             className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none ${(!isEditMode || newItem.catalogId) ? 'opacity-60 cursor-not-allowed' : ''}`}
                         />
                         <datalist id="category-suggestions">
+                            {/* `label` shows the translated category while `value` stays the
+                                English one, so picking from the list never writes Arabic
+                                into a column every other screen groups by. */}
                             {Array.from(new Set(existingItems.map(i => i.category))).sort().map(cat => (
-                                <option key={cat} value={cat} />
+                                <option key={cat} value={cat} label={formatCategory(cat, language)} />
                             ))}
                         </datalist>
                     </div>

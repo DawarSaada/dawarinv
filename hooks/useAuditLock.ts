@@ -1,5 +1,40 @@
 import { useMemo } from 'react';
+import { Audit } from '../types';
 import { useAuditsQuery } from './useQueries';
+
+/**
+ * An audit locks its location's inventory while it is being counted.
+ *
+ * The rule lives here rather than inside the hook because more than one screen
+ * needs it: the dashboard greys out its write actions (`useAuditLock`), and the
+ * schedule dialog warns which locations are already locked and what choosing a
+ * free one will do. Both reading the same predicate is what keeps the warning
+ * honest.
+ *
+ * `admin` is the one role the lock does not stop — see `useAuditLock` — but that
+ * bypass is a write permission, not a fact about the audit, so the list of
+ * *locked* locations below deliberately ignores it.
+ */
+export const auditHoldsLocation = (audit: Audit): boolean => {
+  if (audit.status === 'in_progress') return true;
+  if (audit.status !== 'scheduled') return false;
+
+  // Scheduled for today or earlier: the count is due, so the location is held.
+  const today = new Date().toISOString().split('T')[0];
+  if (!audit.scheduledDate) return true;
+  return audit.scheduledDate <= today;
+};
+
+export interface AuditLock {
+  locationId: string;
+  title: string;
+}
+
+/** Every location currently held by an audit, with the audit holding it. */
+export const auditLocks = (audits: Audit[] = []): AuditLock[] =>
+  audits
+    .filter(auditHoldsLocation)
+    .map((audit) => ({ locationId: audit.locationId, title: audit.title }));
 
 export const useAuditLock = (userRole?: string, locationId?: string) => {
   const { data: audits = [] } = useAuditsQuery();
@@ -10,27 +45,15 @@ export const useAuditLock = (userRole?: string, locationId?: string) => {
       return { isInventoryLocked: false };
     }
 
-    // Lock: Find an audit that is in_progress, OR scheduled for today (or earlier)
-    const today = new Date().toISOString().split('T')[0];
-    const activeAudit = audits.find(a => {
-      // ONLY check audits for the specific location if a locationId is provided
-      if (locationId && a.locationId !== locationId) return false;
-      
-      if (a.status === 'in_progress') return true;
-      if (a.status === 'scheduled') {
-        // Lock if it's scheduled for today or earlier
-        if (a.scheduledDate && a.scheduledDate <= today) return true;
-        // If it has no scheduled date, lock immediately just in case
-        if (!a.scheduledDate) return true;
-      }
-      return false;
-    });
+    const activeLock = auditLocks(audits).find(
+      (lock) => !locationId || lock.locationId === locationId
+    );
 
-    if (activeAudit) {
+    if (activeLock) {
       return {
         isInventoryLocked: true,
-        lockedByAuditTitle: activeAudit.title,
-        lockedLocationId: activeAudit.locationId
+        lockedByAuditTitle: activeLock.title,
+        lockedLocationId: activeLock.locationId,
       };
     }
 

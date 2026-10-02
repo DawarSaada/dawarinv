@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Audit, Language, LocationData, UserRole } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { formatDateDDMMYYYY } from '../../utils/dateUtils';
+import { auditStatusLabel, localizeAuditTitle } from '../../utils/auditText';
+import { locationLabel } from '../../utils/locations';
 import { Search, Plus, ClipboardCheck, Calendar, Play, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 
 interface AuditManagementProps {
@@ -61,8 +63,13 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
 
   const activeAuditsList = getActiveTabAudits();
 
+  // The app appends "(Week 2)" and the location name to a recurring audit title when
+  // it is created, in the language of whoever created it. Show (and search) the
+  // title in the current language, not the one it happened to be written in.
+  const titleOf = (audit: Audit) => localizeAuditTitle(audit.title, language, locations);
+
   const filteredAudits = audits.filter(audit => {
-    const matchesSearch = audit.title.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = titleOf(audit).toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
 
     if (activeTab === 'active') {
@@ -94,23 +101,13 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
     }
   };
 
-  const getStatusText = (status: string) => {
-    if (language === 'ar') {
-      switch(status) {
-        case 'scheduled': return 'مجدول';
-        case 'in_progress': return 'قيد الجرد';
-        case 'pending_review': return 'بانتظار المراجعة';
-        case 'completed': return 'مكتمل';
-        case 'cancelled': return 'ملغى';
-        default: return status;
-      }
-    }
-    return status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  };
+  // Shared with the audit PDF, which used to print the raw "PENDING_REVIEW".
+  const getStatusText = (status: string) => auditStatusLabel(status, language);
 
-  const getLocationName = (id: string) => {
-    return locations.find(l => l.id === id)?.name || id;
-  };
+  /** Location names come from the database, so they need translating here: this used
+   *  to read `loc.name` only, which is why every audit card showed "Habuna" and
+   *  "Warehouse" on an Arabic screen. */
+  const getLocationName = (id: string) => locationLabel(locations, id, language);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -184,7 +181,7 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    {audit.title}
+                    {titleOf(audit)}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1 font-medium">
                     📍 {getLocationName(audit.locationId)}

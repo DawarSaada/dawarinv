@@ -19,7 +19,20 @@ export const UNIT_TRANSLATIONS: Record<string, { en: string; ar: string }> = {
   bottles: { en: 'Bottles', ar: 'قوارير' },
   can: { en: 'Can', ar: 'علبة' },
   cans: { en: 'Cans', ar: 'علب' },
+  peace: { en: 'Piece', ar: 'قطعة' },
+  // Two rows store a pack size in the unit column instead of a plain "Pack".
+  // They are matched exactly, before the prefix loop below, so Arabic shows
+  // "باكيت (600 غ)" rather than the raw English string.
+  '1 pack (600g)': { en: '1 Pack (600g)', ar: 'باكيت (600 غ)' },
+  '1 pack (900g)': { en: '1 Pack (900g)', ar: 'باكيت (900 غ)' },
 };
+
+/** Space-insensitive view of the map, so "1 pack (600 g)" and "1Pack(600G)" both hit. */
+const normalizeUnit = (value: string): string => value.trim().toLowerCase().replace(/\s+/g, '');
+
+const FLAT_UNIT_TRANSLATIONS: Record<string, { en: string; ar: string }> = Object.fromEntries(
+  Object.entries(UNIT_TRANSLATIONS).map(([key, value]) => [normalizeUnit(key), value])
+);
 
 /**
  * Formats and translates a unit of measurement.
@@ -30,12 +43,12 @@ export const formatUnit = (unit: string | undefined | null, language: Language =
   if (!unit) return '';
   if (language !== 'ar') return unit;
 
-  const normalized = unit.trim().toLowerCase();
-  const match = UNIT_TRANSLATIONS[normalized];
+  const normalized = normalizeUnit(unit);
+  const match = FLAT_UNIT_TRANSLATIONS[normalized];
   if (match) return match.ar;
 
   // Handle plural / compound patterns if any
-  for (const [key, val] of Object.entries(UNIT_TRANSLATIONS)) {
+  for (const [key, val] of Object.entries(FLAT_UNIT_TRANSLATIONS)) {
     if (normalized.startsWith(key)) {
       return val.ar;
     }

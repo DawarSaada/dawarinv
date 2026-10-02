@@ -1,4 +1,5 @@
-import { Transaction, InventoryItem, LocationData } from '../types';
+import { Transaction, InventoryItem, LocationData, Language } from '../types';
+import { formatCategory } from './categories';
 
 export const filterTransactionsByDays = (transactions: Transaction[], days: number) => {
   if (days === 0) return transactions; // All time
@@ -101,7 +102,10 @@ export const getTransferVolumes = (transactions: Transaction[], days: number, lo
   }).sort((a, b) => b.quantity - a.quantity);
 };
 
-export const getCategoryDistribution = (inventoryMap: Record<string, InventoryItem[]>) => {
+export const getCategoryDistribution = (
+  inventoryMap: Record<string, InventoryItem[]>,
+  language: Language = 'en'
+) => {
   const allItems = Object.values(inventoryMap).flat();
   const distribution: Record<string, number> = {};
   
@@ -109,7 +113,12 @@ export const getCategoryDistribution = (inventoryMap: Record<string, InventoryIt
     distribution[item.category] = (distribution[item.category] || 0) + 1;
   });
 
-  return Object.entries(distribution).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  // Counted under the raw (English) key so two spellings of the same category
+  // still collapse into one slice, then labelled for the interface language —
+  // every chart label, legend and tooltip in this module already does this.
+  return Object.entries(distribution)
+    .map(([name, value]) => ({ name: formatCategory(name, language), value }))
+    .sort((a, b) => b.value - a.value);
 };
 
 export const getTopDepletingItems = (transactions: Transaction[], days: number, lang: 'en'|'ar') => {

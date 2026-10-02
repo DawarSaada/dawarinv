@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Audit, Language } from '../../types';
+import { Audit, Language, LocationData } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { formatUnit } from '../../utils/units';
+import { formatCategory } from '../../utils/categories';
+import { localizeAuditTitle } from '../../utils/auditText';
 import { X, Play, CheckCircle, Save } from 'lucide-react';
 
 interface PerformAuditModalProps {
@@ -9,12 +11,14 @@ interface PerformAuditModalProps {
   onClose: () => void;
   language: Language;
   audit: Audit | null;
+  /** Only used to show the title's location suffix in the interface language. */
+  locations?: LocationData[];
   onSaveCounts: (items: any[]) => Promise<void> | void;
   onSubmitAudit: (auditId: string) => void;
 }
 
 const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
-  isOpen, onClose, language, audit, onSaveCounts, onSubmitAudit
+  isOpen, onClose, language, audit, locations = [], onSaveCounts, onSubmitAudit
 }) => {
   const t = TRANSLATIONS[language];
   const [counts, setCounts] = useState<Record<string, { count: number | string, notes: string }>>({});
@@ -97,7 +101,7 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <Play className="w-6 h-6 text-brand-500" />
-              {language === 'ar' ? 'تنفيذ الجرد' : 'Perform Audit'} - {audit.title}
+              {language === 'ar' ? 'تنفيذ الجرد' : 'Perform Audit'} - {localizeAuditTitle(audit.title, language, locations)}
             </h2>
             <p className="text-sm text-gray-500 mt-1">{language === 'ar' ? 'أدخل الكمية الفعلية لكل عنصر' : 'Enter the actual physical count for each item'}</p>
           </div>
@@ -130,7 +134,9 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                         <div className="font-bold text-gray-900 dark:text-white">
                           {language === 'ar' ? item.itemNameAr : item.itemNameEn}
                         </div>
-                        <div className="text-xs text-gray-500">{item.category}</div>
+                        <div className="text-xs text-gray-500">
+                          {formatCategory(item.category, language)}
+                        </div>
                       </td>
                       <td className="p-4 text-gray-600 dark:text-gray-300">
                         {item.expectedQuantity} <span className="text-xs">{formatUnit(item.unit, language)}</span>
@@ -178,7 +184,9 @@ const PerformAuditModal: React.FC<PerformAuditModalProps> = ({
                         <div className="font-bold text-gray-900 dark:text-white">
                           {language === 'ar' ? item.itemNameAr : item.itemNameEn}
                         </div>
-                        <div className="text-xs text-gray-500">{item.category}</div>
+                        <div className="text-xs text-gray-500">
+                          {formatCategory(item.category, language)}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'المتوقع' : 'Expected'}</div>

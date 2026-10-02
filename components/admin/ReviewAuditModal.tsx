@@ -1,8 +1,9 @@
 import React from 'react';
-import { Audit, Language, UserRole } from '../../types';
+import { Audit, Language, UserRole, LocationData } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { X, AlertCircle, CheckCircle, ArrowRight, Download } from 'lucide-react';
 import { exportAuditToPDF } from '../../utils/pdfExport';
+import { localizeAuditTitle } from '../../utils/auditText';
 
 interface ReviewAuditModalProps {
   isOpen: boolean;
@@ -10,11 +11,13 @@ interface ReviewAuditModalProps {
   language: Language;
   audit: Audit | null;
   userRole: UserRole;
+  /** Only used to show the title's location suffix in the interface language. */
+  locations?: LocationData[];
   onApplyAudit: (auditId: string) => void;
 }
 
 const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
-  isOpen, onClose, language, audit, userRole, onApplyAudit
+  isOpen, onClose, language, audit, userRole, locations = [], onApplyAudit
 }) => {
   const t = TRANSLATIONS[language];
 
@@ -41,7 +44,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <AlertCircle className={`w-6 h-6 ${isPending ? 'text-yellow-500' : 'text-green-500'}`} />
-              {language === 'ar' ? 'نتائج الجرد' : 'Audit Results'} - {audit.title}
+              {language === 'ar' ? 'نتائج الجرد' : 'Audit Results'} - {localizeAuditTitle(audit.title, language, locations)}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
               {isPending 
@@ -51,7 +54,7 @@ const ReviewAuditModal: React.FC<ReviewAuditModalProps> = ({
           </div>
           <div className="flex gap-2">
             <button 
-              onClick={() => exportAuditToPDF(audit, language)}
+              onClick={() => exportAuditToPDF(audit, language, locations)}
               className="p-2 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg transition-colors"
               title={language === 'ar' ? 'تحميل PDF' : 'Download PDF'}
             >

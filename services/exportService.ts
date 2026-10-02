@@ -1,6 +1,8 @@
 import { Transaction, InventoryItem, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { formatDateDDMMYYYY } from '../utils/dateUtils';
+import { formatUnit } from '../utils/units';
+import { formatCategory } from '../utils/categories';
 
 export const exportTransferPDF = async (
   transactions: Transaction[],
@@ -45,7 +47,7 @@ export const exportTransferPDF = async (
   // Table
   const tableData = transactions.map(tx => [
     language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
-    `${tx.quantity} ${tx.unit}`
+    `${tx.quantity} ${formatUnit(tx.unit, language)}`
   ]);
 
   autoTable(doc, {
@@ -116,9 +118,9 @@ export const exportInventoryExcel = async (items: InventoryItem[], locationName:
   const data = items.map(item => ({
     [t.itemNameEn]: item.nameEn,
     [t.itemNameAr]: item.nameAr,
-    [t.category]: item.category,
+    [t.category]: formatCategory(item.category, language),
     [t.stockLevel]: item.quantity,
-    [t.unit]: item.unit,
+    [t.unit]: formatUnit(item.unit, language),
     [t.lastUpdated]: item.lastUpdated
   }));
 
@@ -181,7 +183,7 @@ export const exportDailyReportPDF = async (
     autoTable(doc, {
       startY: finalY + 5,
       head: [[t.itemName, t.quantity, t.from]],
-      body: received.map(tx => [language === 'ar' ? tx.itemNameAr : tx.itemNameEn, `${tx.quantity} ${tx.unit}`, getLocationName ? getLocationName(tx.fromLocation || '') : (tx.fromLocation || '-')]),
+      body: received.map(tx => [language === 'ar' ? tx.itemNameAr : tx.itemNameEn, `${tx.quantity} ${formatUnit(tx.unit, language)}`, getLocationName ? getLocationName(tx.fromLocation || '') : (tx.fromLocation || '-')]),
       theme: 'striped',
       headStyles: { fillColor: [34, 197, 94] },
       styles: { font: isRtl ? 'Cairo' : 'helvetica', halign: isRtl ? 'right' : 'left' }
@@ -197,7 +199,7 @@ export const exportDailyReportPDF = async (
     autoTable(doc, {
       startY: finalY + 5,
       head: [[t.itemName, t.quantity, t.notes]],
-      body: used.map(tx => [language === 'ar' ? tx.itemNameAr : tx.itemNameEn, `${tx.quantity} ${tx.unit}`, tx.notes || '-']),
+      body: used.map(tx => [language === 'ar' ? tx.itemNameAr : tx.itemNameEn, `${tx.quantity} ${formatUnit(tx.unit, language)}`, tx.notes || '-']),
       theme: 'striped',
       headStyles: { fillColor: [239, 68, 68] },
       styles: { font: isRtl ? 'Cairo' : 'helvetica', halign: isRtl ? 'right' : 'left' }
@@ -257,7 +259,7 @@ export const exportDailyReportExcel = async (
       [t.date]: formatDateDDMMYYYY(tx.date),
       [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
       [t.quantity]: tx.quantity,
-      [t.unit]: tx.unit,
+      [t.unit]: formatUnit(tx.unit, language),
       [t.from]: getLocationName ? getLocationName(tx.fromLocation || '') : (tx.fromLocation || '-'),
       [t.performedBy]: tx.performedBy
     }));
@@ -270,7 +272,7 @@ export const exportDailyReportExcel = async (
       [t.date]: formatDateDDMMYYYY(tx.date),
       [t.itemName]: language === 'ar' ? tx.itemNameAr : tx.itemNameEn,
       [t.quantity]: tx.quantity,
-      [t.unit]: tx.unit,
+      [t.unit]: formatUnit(tx.unit, language),
       [t.notes]: tx.notes,
       [t.performedBy]: tx.performedBy
     }));

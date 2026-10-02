@@ -8,7 +8,9 @@ import {
   History,
   XCircle
 } from 'lucide-react';
-import { Transaction, Language } from '../../types';
+import { Transaction, Language, LocationData } from '../../types';
+import { formatUnit } from '../../utils/units';
+import { locationLabel } from '../../utils/locations';
 import { formatDateDDMMYYYY } from '../../utils/dateUtils';
 import { Pagination } from '../Pagination';
 import {
@@ -36,6 +38,8 @@ interface AdminTransactionsLogProps {
   pageSize: number;
   setPageSize: (val: number) => void;
   getUserName: (name: string) => string;
+  /** Used to show the route as names ("Habuna → Warehouse") rather than ids. */
+  availableLocations?: LocationData[];
 }
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
@@ -56,7 +60,8 @@ const AdminTransactionsLog: React.FC<AdminTransactionsLogProps> = ({
   setPage,
   pageSize,
   setPageSize,
-  getUserName
+  getUserName,
+  availableLocations = []
 }) => {
   const isAr = language === 'ar';
   const locale = isAr ? 'ar-EG' : 'en-US';
@@ -69,6 +74,10 @@ const AdminTransactionsLog: React.FC<AdminTransactionsLogProps> = ({
       (tx.itemNameAr || '').toLowerCase().includes(term) ||
       (tx.fromLocation || '').toLowerCase().includes(term) ||
       (tx.toLocation || '').toLowerCase().includes(term) ||
+      // Location names are stored as ids, so searching "حبونا" has to look at the
+      // translated name as well as the id.
+      locationLabel(availableLocations, tx.fromLocation, language).toLowerCase().includes(term) ||
+      locationLabel(availableLocations, tx.toLocation, language).toLowerCase().includes(term) ||
       (tx.performedBy || '').toLowerCase().includes(term);
 
     return matchesSearch && (typeFilter === 'all' || tx.type === typeFilter);
@@ -144,7 +153,7 @@ const AdminTransactionsLog: React.FC<AdminTransactionsLogProps> = ({
       cell: (tx) => (
         <span className="tnum font-semibold text-gray-900 dark:text-white">
           {tx.quantity}
-          <span className="ms-1 text-2xs font-normal text-gray-400">{tx.unit}</span>
+          <span className="ms-1 text-2xs font-normal text-gray-400">{formatUnit(tx.unit, language)}</span>
         </span>
       )
     },
@@ -155,8 +164,8 @@ const AdminTransactionsLog: React.FC<AdminTransactionsLogProps> = ({
       cell: (tx) => (
         <span className="text-xs text-gray-500 dark:text-gray-400">
           {tx.type === 'transfer'
-            ? `${tx.fromLocation} → ${tx.toLocation}`
-            : tx.fromLocation || tx.toLocation}
+            ? `${locationLabel(availableLocations, tx.fromLocation, language)} → ${locationLabel(availableLocations, tx.toLocation, language)}`
+            : locationLabel(availableLocations, tx.fromLocation || tx.toLocation, language)}
         </span>
       )
     },
@@ -244,7 +253,7 @@ const AdminTransactionsLog: React.FC<AdminTransactionsLogProps> = ({
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                 {typeBadge(tx.type)}
                 <span className="tnum font-semibold text-gray-700 dark:text-gray-200">
-                  {tx.quantity} {tx.unit}
+                  {tx.quantity} {formatUnit(tx.unit, language)}
                 </span>
                 <span className="ms-auto">{formatDateDDMMYYYY(tx.date)}</span>
               </div>

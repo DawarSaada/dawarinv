@@ -23,6 +23,7 @@ import {
   Cell 
 } from 'recharts';
 import { Transaction, LocationData, Language } from '../../types';
+import { formatUnit } from '../../utils/units';
 
 interface AdminReportsProps {
   transactions: Transaction[];
@@ -150,9 +151,11 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                               cursor={{fill: '#f3f4f6'}}
                           />
                           <Legend iconType="circle" wrapperStyle={{paddingTop: '20px', fontSize: '12px'}} />
-                          <Bar dataKey="Transfers" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
-                          <Bar dataKey="Usage" fill="#f97316" radius={[4, 4, 0, 0]} barSize={20} />
-                          <Bar dataKey="Received" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                          {/* The series keys are the English words the data is built
+                              with; `name` is what the legend and tooltip show. */}
+                          <Bar dataKey="Transfers" name={t.transfer} fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                          <Bar dataKey="Usage" name={t.usage} fill="#f97316" radius={[4, 4, 0, 0]} barSize={20} />
+                          <Bar dataKey="Received" name={t.receive} fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
                       </BarChart>
                   </ResponsiveContainer>
               </div>
@@ -241,7 +244,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                                   </span>
                               </td>
                               <td className="px-6 py-4 font-medium">{language === 'ar' ? tx.itemNameAr : tx.itemNameEn}</td>
-                              <td className="px-6 py-4 font-bold">{tx.quantity} {tx.unit}</td>
+                              <td className="px-6 py-4 font-bold">{tx.quantity} {formatUnit(tx.unit, language)}</td>
                               <td className="px-6 py-4">
                                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${tx.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                       {t[tx.status]}
@@ -278,7 +281,7 @@ const AdminReports: React.FC<AdminReportsProps> = ({
                                 {t[tx.type]}
                             </span>
                             <span className="font-bold text-gray-700 dark:text-gray-300">
-                                {tx.quantity} <span className="text-xs font-normal">{tx.unit}</span>
+                                {tx.quantity} <span className="text-xs font-normal">{formatUnit(tx.unit, language)}</span>
                             </span>
                         </div>
                     </div>

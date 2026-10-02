@@ -1,20 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Language, LocationData, InventoryItem } from '../../types';
 import { TRANSLATIONS } from '../../constants';
-import { X, CalendarPlus } from 'lucide-react';
+import { X, CalendarPlus, Lock } from 'lucide-react';
+import { locationLabel } from '../../utils/locations';
+import { auditLockedNotice, auditLockNotice, auditLockedBadge } from '../../utils/auditText';
+
+interface ScheduledLock {
+  locationId: string;
+  title: string;
+}
 
 interface ScheduleAuditModalProps {
   isOpen: boolean;
   onClose: () => void;
   language: Language;
+  /** Every location this user may audit — not just the ones they can write. */
   locations: LocationData[];
+  /** Inventory keyed by location id; the counts snapshot is built from this. */
   inventory: Record<string, InventoryItem[]>;
   onSchedule: (params: any) => void;
   userName: string;
+  /** Pre-selects the location the user was looking at when opening the dialog. */
+  defaultLocationId?: string;
+  /** Locations an active audit is currently holding, so the picker can say so. */
+  lockedLocations?: ScheduledLock[];
 }
 
 const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
-  isOpen, onClose, language, locations, inventory, onSchedule, userName
+  isOpen, onClose, language, locations, inventory, onSchedule, userName,
+  defaultLocationId, lockedLocations = []
 }) => {
   const t = TRANSLATIONS[language];
   const [title, setTitle] = useState('');
@@ -22,7 +36,41 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
   const [scheduledDate, setScheduledDate] = useState('');
   const [recurrence, setRecurrence] = useState<'none'|'weekly'|'monthly'>('none');
 
+  // The dialog stays mounted while it is closed, so without this it reopened
+  // showing the previous entry — and the title it kept was already scheduled.
+  useEffect(() => {
+    if (!isOpen) return;
+    setTitle('');
+    setLocationId(defaultLocationId || '');
+    setScheduledDate(new Date().toISOString().split('T')[0]);
+    setRecurrence('none');
+  }, [isOpen, defaultLocationId]);
+
   if (!isOpen) return null;
+
+  const isAr = language === 'ar';
+
+  /**
+   * The generated parts of a title follow the interface language.
+   *
+   * They used to be hardcoded English ("Week 2") and to use the English location
+   * name, and because the title is stored in the row, an Arabic screen showed
+   * "جرد أسبوعي (Week 2) - Habuna". `localizeAuditTitle` still translates titles
+   * that already exist.
+   */
+  const recurrenceUnit = recurrence === 'weekly'
+    ? (isAr ? 'الأسبوع' : 'Week')
+    : (isAr ? 'الشهر' : 'Month');
+  const locationName = (loc: LocationData) => locationLabel(locations, loc.id, language);
+
+  /** The audit holding this location right now, if any. */
+  const lockOf = (id: string) => lockedLocations.find((lock) => lock.locationId === id);
+  const selectedLock = locationId && locationId !== 'all' ? lockOf(locationId) : undefined;
+  // "All locations" is worth flagging too when any of them is already locked.
+  const anyLocked = lockedLocations.length > 0;
+  const lockedSummary = lockedLocations
+    .map((lock) => `${locationLabel(locations, lock.locationId, language)} — ${lock.title}`)
+    .join(' · ');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,8 +111,8 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
           d.setMonth(d.getMonth() + i);
         }
 
-        const recurrenceTitle = i === 0 ? title : `${title} (${recurrence === 'weekly' ? 'Week' : 'Month'} ${i+1})`;
-        const finalTitle = locationId === 'all' ? `${recurrenceTitle} - ${loc.name}` : recurrenceTitle;
+        const recurrenceTitle = i === 0 ? title : `${title} (${recurrenceUnit} ${i+1})`;
+        const finalTitle = locationId === 'all' ? `${recurrenceTitle} - ${locationName(loc)}` : recurrenceTitle;
 
         onSchedule({
           title: finalTitle,
@@ -87,7 +135,7 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pb-4 pt-[max(env(safe-area-inset-top,1rem),1rem)] bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-full">
         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <CalendarPlus className="w-6 h-6 text-brand-500" />
@@ -98,7 +146,25 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+          {/* The consequence of this action, before it is taken rather than after
+              a branch complains that nothing can be received. */}
+          <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/20">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+              {auditLockNotice(language)}
+            </p>
+          </div>
+
+          {selectedLock && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-900/20">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+              <p className="text-xs leading-relaxed text-red-800 dark:text-red-200">
+                {auditLockedNotice(language, selectedLock.title)}
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {language === 'ar' ? 'عنوان الجرد' : 'Audit Title'} *
@@ -124,11 +190,28 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
               className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
             >
               <option value="">{language === 'ar' ? 'اختر الموقع...' : 'Select Location...'}</option>
-              <option value="all" className="font-bold">{language === 'ar' ? 'جميع المواقع (الفروع والمستودع)' : 'All Locations (Branches & Warehouse)'}</option>
-              {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
+              <option value="all" className="font-bold">
+                {language === 'ar'
+                  ? `جميع المواقع (${locations.length} مواقع)${anyLocked ? ' — بعضها مقفل حالياً' : ''}`
+                  : `All Locations (${locations.length})${anyLocked ? ' — some locked now' : ''}`}
+              </option>
+              {locations.map(loc => {
+                const lock = lockOf(loc.id);
+                return (
+                  <option key={loc.id} value={loc.id}>
+                    {locationName(loc)}
+                    {lock ? ` 🔒 (${auditLockedBadge(language)})` : ''}
+                  </option>
+                );
+              })}
             </select>
+            {/* A locked location is not a refusal: a future count is still a
+                normal thing to schedule, so the picker explains instead of hides. */}
+            {anyLocked && (
+              <p className="mt-1.5 text-2xs text-gray-500 dark:text-gray-400">
+                🔒 {lockedSummary}
+              </p>
+            )}
           </div>
 
           <div>
@@ -142,6 +225,11 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
               onChange={(e) => setScheduledDate(e.target.value)}
               className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:ring-2 focus:ring-brand-500 text-gray-900 dark:text-white"
             />
+            <p className="mt-1.5 text-2xs text-gray-500 dark:text-gray-400">
+              {language === 'ar'
+                ? 'القفل يبدأ في هذا التاريخ. الجرد المجدول لمستقبل بعيد لا يعطّل العمل اليوم.'
+                : 'The lock starts on this date — a count scheduled for next month does not stop today’s work.'}
+            </p>
           </div>
 
           <div>
@@ -157,6 +245,13 @@ const ScheduleAuditModal: React.FC<ScheduleAuditModalProps> = ({
               <option value="weekly">{language === 'ar' ? 'أسبوعياً (ينشئ 4 أسابيع قادمة)' : 'Weekly (generates next 4 weeks)'}</option>
               <option value="monthly">{language === 'ar' ? 'شهرياً (ينشئ 6 أشهر قادمة)' : 'Monthly (generates next 6 months)'}</option>
             </select>
+            {recurrence !== 'none' && (
+              <p className="mt-1.5 text-2xs text-gray-500 dark:text-gray-400">
+                {language === 'ar'
+                  ? `سيتم إنشاء ${recurrence === 'weekly' ? '4' : '6'} جرد، ويُقفل الموقع في كل موعد حتى إتمام ذلك الجرد.`
+                  : `Creates ${recurrence === 'weekly' ? '4' : '6'} audits; the location locks on each date until that count is finished.`}
+              </p>
+            )}
           </div>
 
           <div className="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">

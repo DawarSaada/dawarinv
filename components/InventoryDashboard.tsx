@@ -18,10 +18,12 @@ import ReviewAuditModal from './admin/ReviewAuditModal';
 import { extractTextFromPDF, parseTransferDocument } from '../services/pdfService';
 import { AiUnavailableError, describeAiError } from '../services/aiClient';
 import { exportTransferPDF, exportInventoryExcel } from '../services/exportService';
-import { useAuditLock } from '../hooks/useAuditLock';
-import { accessFor, canCreateAudit, canCreateProduct, canWriteLocation, readOnlyMessage } from '../services/permissions';
+import { auditLocks, useAuditLock } from '../hooks/useAuditLock';
+import { accessFor, canCreateAudit, canCreateProduct, canReadLocation, canWriteLocation, readOnlyMessage } from '../services/permissions';
 import { UserRole } from '../types';
 import { logger } from '../utils/logger';
+import { formatUnit } from '../utils/units';
+import { formatCategory } from '../utils/categories';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -312,15 +314,19 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const canBulkEdit = locationAccess === 'write' && userRole !== 'mammal_employee';
   const canRecordUsage = locationAccess === 'write';
 
-  // Creating a new audit belongs to an administrator or a warehouse manager
-  // (services/permissions.ts), and only where they can write: scheduling a count
-  // locks that location's inventory, so a read-only branch is not scheduled from
-  // here. `handleScheduleAudit` refuses the same two cases server-side-by-convention.
-  const canScheduleAudit =
-    canCreateAudit(accessSubject) && (isGlobalView || locationAccess === 'write');
-  const auditLocations = (isGlobalView ? availableLocations : [location!]).filter((l) =>
-    canWriteLocation(accessSubject, l.id)
-  );
+  // Creating an audit belongs to an administrator or a warehouse manager
+  // (services/permissions.ts). It is deliberately *not* limited to locations they
+  // can write: checking a branch's stock is the warehouse manager's job even
+  // though they are read-only there. Filtering this list by `canWriteLocation`
+  // hid the branches, leaving a warehouse manager able to audit only the
+  // warehouse and the production unit. The location still has to be visible to
+  // them, which is the guard `handleScheduleAudit` applies.
+  const canScheduleAudit = canCreateAudit(accessSubject);
+  const auditLocations = availableLocations.filter((l) => canReadLocation(accessSubject, l.id));
+
+  // Locations an audit is holding right now, so the schedule dialog can explain
+  // what it is about to lock instead of leaving the branch to discover it.
+  const auditLockedLocations = useMemo(() => auditLocks(audits), [audits]);
 
   // The ledger and audit trail record *who*, so they store the signed-in user's
   // name. These call sites passed the role through the name translator, which
@@ -338,6 +344,22 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
     const cats = new Set(inventory.map(item => item.category));
     return Array.from(cats).sort();
   }, [inventory]);
+
+  /**
+   * The schedule dialog builds one count sheet per location from `inventory[loc.id]`.
+   * In the combined view `inventory` is a flat list whose rows carry their own
+   * `locationId`, and it used to be handed over as an empty map — so scheduling
+   * "all locations" reported every site as having nothing to count.
+   */
+  const inventoryByLocation = useMemo(() => {
+    const map: Record<string, InventoryItem[]> = {};
+    inventory.forEach((item) => {
+      const loc = (item as InventoryItem & { locationId?: string }).locationId || locationId;
+      if (!loc) return;
+      (map[loc] ||= []).push(item);
+    });
+    return map;
+  }, [inventory, locationId]);
 
   const filteredItems = useMemo(() => {
     const filtered = inventory.filter(item => {
@@ -598,7 +620,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       ? [
           {
             id: 'category',
-            label: `${isAr ? 'الفئة' : 'Category'}: ${selectedCategory}`,
+            label: `${isAr ? 'الفئة' : 'Category'}: ${formatCategory(selectedCategory, language)}`,
             onRemove: () => setSelectedCategory('all')
           }
         ]
@@ -717,7 +739,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       label: isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr,
       group: isAr ? 'الأصناف' : 'Items',
       icon: <Package />,
-      keywords: [item.category, item.barcode || '', String(item.quantity)],
+      keywords: [item.category, formatCategory(item.category, 'ar'), item.barcode || '', String(item.quantity)],
       onSelect: () => {
         setSearch(isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr);
         setViewMode('list');
@@ -1012,7 +1034,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                         <option value="all">{isAr ? 'كل الفئات' : 'All categories'}</option>
                         {categories.map((category) => (
                           <option key={category} value={category}>
-                            {category}
+                            {formatCategory(category, language)}
                           </option>
                         ))}
                       </Select>
@@ -1430,7 +1452,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                   {isAr ? tx.itemNameAr || tx.itemNameEn : tx.itemNameEn || tx.itemNameAr}
                 </span>
                 <span className="tnum flex-shrink-0 text-sm font-semibold text-brand-700 dark:text-brand-400">
-                  {tx.quantity} {tx.unit}
+                  {tx.quantity} {formatUnit(tx.unit, language)}
                 </span>
               </div>
             ));
@@ -1473,9 +1495,11 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         onClose={() => setIsScheduleAuditModalOpen(false)}
         language={language}
         locations={auditLocations}
-        inventory={isGlobalView ? {} : { [locationId]: inventory }}
+        inventory={inventoryByLocation}
         onSchedule={(params) => onScheduleAudit?.(params)}
         userName={actorName} 
+        defaultLocationId={isGlobalView ? undefined : locationId || undefined}
+        lockedLocations={auditLockedLocations}
       />
 
       <PerformAuditModal 
@@ -1483,6 +1507,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         onClose={() => { setIsPerformAuditModalOpen(false); setSelectedAudit(null); }}
         language={language}
         audit={selectedAudit}
+        locations={availableLocations}
         onSaveCounts={(items) => onSaveAuditCounts?.(selectedAudit!.id, items)}
         onSubmitAudit={(id) => onSubmitAudit?.(id)}
       />
@@ -1493,6 +1518,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         language={language}
         audit={selectedAudit}
         userRole={userRole as any}
+        locations={availableLocations}
         onApplyAudit={(id) => onApplyAudit?.(id, actorName)}
       />
 

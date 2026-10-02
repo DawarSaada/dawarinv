@@ -125,6 +125,26 @@ export const auditCreateMessage = (language: 'en' | 'ar'): string =>
     : 'Only an administrator or a warehouse manager can schedule an audit.';
 
 /**
+ * Whether this user may schedule an audit **of this location**.
+ *
+ * Note the asymmetry with every other write rule in this file: scheduling is a
+ * management action, so it does *not* require write access to the location being
+ * counted. A warehouse manager is read-only on the branches, yet auditing them is
+ * precisely their job — a count is how a branch's stock gets checked. The old
+ * rule filtered the picker by `canWriteLocation`, so a warehouse manager could
+ * only ever schedule the warehouse and the production unit.
+ *
+ * What the user *does* need is the ability to see the location at all, so an
+ * unknown or unreadable id is still refused. Branch staff cannot schedule
+ * anything (`canCreateAudit`), and the location guards elsewhere
+ * (`useAuditLock`, `guardWrite`) still protect the counting and applying steps.
+ */
+export const canScheduleAuditFor = (
+  subject: AccessSubject | null | undefined,
+  locationId: string | null | undefined
+): boolean => canCreateAudit(subject) && canReadLocation(subject, locationId || '');
+
+/**
  * Creating a *new product* is central: only an administrator may do it.
  *
  * Branches therefore cannot introduce products, which keeps the catalogue the

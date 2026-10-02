@@ -33,7 +33,10 @@ import ScheduleAuditModal from './admin/ScheduleAuditModal';
 import PerformAuditModal from './admin/PerformAuditModal';
 import ReviewAuditModal from './admin/ReviewAuditModal';
 import { Supplier, PurchaseOrder, PurchaseOrderItem, Audit, Theme } from '../types';
-import { canCreateAudit, canOpenTab, canWriteLocation, subjectFrom } from '../services/permissions';
+import { canCreateAudit, canOpenTab, canReadLocation, canWriteLocation, subjectFrom } from '../services/permissions';
+import { auditLocks } from '../hooks/useAuditLock';
+import { formatUnit } from '../utils/units';
+import { formatCategory } from '../utils/categories';
 import type { AccessSubject } from '../services/permissions';
 
 const UserManagement = React.lazy(() => import('./admin/UserManagement'));
@@ -393,9 +396,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const data = currentInventory.map(item => ({
             [t.itemNameEn]: item.nameEn,
             [t.itemNameAr]: item.nameAr,
-            [t.category]: item.category,
+            [t.category]: formatCategory(item.category, language),
             [t.quantity]: item.quantity,
-            [t.unit]: item.unit,
+            [t.unit]: formatUnit(item.unit, language),
             [t.lastUpdated]: item.lastUpdated
         }));
         const ws = XLSX.utils.json_to_sheet(data);
@@ -415,7 +418,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         autoTable(doc, {
             startY: 20,
             head: [[t.itemNameEn, t.itemNameAr, t.category, t.quantity, t.unit, t.lastUpdated]],
-            body: currentInventory.map(item => [item.nameEn, item.nameAr, item.category, item.quantity, item.unit, item.lastUpdated]),
+            body: currentInventory.map(item => [item.nameEn, item.nameAr, formatCategory(item.category, language), item.quantity, formatUnit(item.unit, language), item.lastUpdated]),
         });
         doc.save(`Inventory_${locName}.pdf`);
     };
@@ -471,11 +474,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const isAr = language === 'ar';
 
-    // Only an administrator or a warehouse manager may create a new audit, and only
-    // for a location they can write: scheduling locks that location's inventory.
+    // Only an administrator or a warehouse manager may create a new audit, but they
+    // may raise one for any location they can see — auditing a branch is the point,
+    // and a warehouse manager is read-only on the branches. Restricting this list
+    // to `canWriteLocation` is what left them able to audit only the warehouse and
+    // the production unit.
     const auditSubject: AccessSubject = subjectFrom(currentUser) ?? { role: currentUserRole };
     const mayScheduleAudit = canCreateAudit(auditSubject);
-    const auditLocations = availableLocations.filter((l) => canWriteLocation(auditSubject, l.id));
+    const auditLocations = availableLocations.filter((l) => canReadLocation(auditSubject, l.id));
+    const auditLockedLocations = useMemo(() => auditLocks(audits), [audits]);
 
     // The ledger records *who* did something, so it stores the signed-in user's name.
     // These call sites used to pass `getUserName(currentUserRole)`, which resolved to
@@ -691,6 +698,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         pageSize={txPageSize}
                         setPageSize={setTxPageSize}
                         getUserName={getUserName}
+                        availableLocations={availableLocations}
                     />
                 )}
 
@@ -824,12 +832,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 isOpen={isScheduleAuditModalOpen}
                 onClose={() => setIsScheduleAuditModalOpen(false)}
                 language={language}
-                // Only locations this user may write: scheduling a count locks the
-                // location's inventory, and handleScheduleAudit refuses the rest.
+                // Every location this user may audit, not only the writable ones,
+                // plus the locations an audit is holding so the dialog can say so.
                 locations={auditLocations}
                 inventory={inventory}
                 onSchedule={onScheduleAudit}
                 userName={actorName}
+                lockedLocations={auditLockedLocations}
             />
 
             <PerformAuditModal 
@@ -837,6 +846,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClose={() => { setIsPerformAuditModalOpen(false); setSelectedAudit(null); }}
                 language={language}
                 audit={selectedAudit}
+                locations={availableLocations}
                 onSaveCounts={(items) => onSaveAuditCounts(selectedAudit!.id, items)}
                 onSubmitAudit={onSubmitAudit}
             />
@@ -847,6 +857,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 language={language}
                 audit={selectedAudit}
                 userRole={currentUserRole}
+                locations={availableLocations}
                 onApplyAudit={(id) => onApplyAudit(id, actorName)}
             />
 

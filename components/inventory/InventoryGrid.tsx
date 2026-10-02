@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, Language } from '../../types';
 import { formatUnit } from '../../utils/units';
+import { formatCategory } from '../../utils/categories';
 import { Badge, Button, Checkbox, DataTable, Menu, cn, type Column, type MenuItem } from '../ui';
 
 interface InventoryGridProps {
@@ -221,7 +222,7 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
                     <span className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
-                      {item.category}
+                      {formatCategory(item.category, language)}
                     </span>
                     {isGlobalView && item.locationId && (
                       <span className="inline-flex items-center gap-1">
@@ -301,7 +302,7 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
                 </p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
                   <span className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
-                    {item.category}
+                    {formatCategory(item.category, language)}
                   </span>
                   {isGlobalView && item.locationId && (
                     <span className="inline-flex items-center gap-1">
@@ -437,7 +438,7 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium text-gray-900 dark:text-white">{itemName(item)}</p>
             <p className="mt-0.5 truncate text-2xs text-gray-500 dark:text-gray-400">
-              {item.category}
+              {formatCategory(item.category, language)}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">

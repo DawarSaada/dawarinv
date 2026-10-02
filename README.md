@@ -291,9 +291,17 @@ On top of that:
   admin-only and happens on the Catalog screen; the add-item dialog is catalogue-only
   for everyone, and the name fields are read-only in create mode.
 - **Creating an audit is a management action** (`canCreateAudit()`): an administrator
-  or a warehouse manager raises a count, and only for a location they can write — a
-  scheduled audit locks that location's inventory. Branch staff perform the counts
-  and review the results, but they do not decide that a count happens.
+  or a warehouse manager raises a count, but — unlike every other write rule —
+  **not only where they can write**. `canScheduleAuditFor()` asks only that the
+  location is visible to them, because auditing a branch is the warehouse manager's
+  job even though they are read-only there. Branch staff perform the counts and
+  review the results, but they do not decide that a count happens.
+- **Scheduling an audit locks the location it covers.** While an audit is
+  `in_progress`, or `scheduled` for today or earlier, `useAuditLock` refuses every
+  write to that location — receives, usages, item edits, bulk edits and transfers —
+  and the schedule dialog says so before the button is pressed (`auditLockNotice()`),
+  flagging any location an audit is already holding. The lock lifts when the audit is
+  completed and its variances applied, or when the audit is deleted.
 - **Branches may delete items on their own branch** (`canDeleteItem()`), which is how
   a branch stops carrying something.
 - Every inventory row must reference a `product_catalog` product. Coverage is

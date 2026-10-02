@@ -741,6 +741,11 @@ is the evidence, and a missing function answers `PGRST202`.
 
 ### Still outstanding
 
+> **Superseded (2026-10-02).** Every row in this table has since been applied — `npm run
+> migrations` now reports all of them APPLIED, `phase11`'s add/edit RPCs reach the real logic, and
+> `catalog-doctor.mjs` plans 0 changes. The only item from this cross-check still open is the RLS
+> half of `phase5_rls_migration.sql`; see the end of this file for what is left to do about it.
+
 | # | File | Evidence it has not run |
 | --- | --- | --- |
 | 1 | `phase11_item_date_fix.sql` **(new)** | `execute_add_item` / `execute_edit_item` fail with `42804` for every payload |
@@ -819,17 +824,15 @@ properly means Auth plus the RLS half of `phase5_rls_migration.sql`; see "The an
 writing" above. Inside the product, though, there is exactly one scheduling path and it is
 guarded: `scheduleAuditMutation` is reached only from `handleScheduleAudit`.
 
-The location rule is kept on purpose. Scheduling an audit sets the audit lock for that location
-(`useAuditLock`), which stops its staff writing stock until the count is done — so it is a
-write-level act on that site, not a read. In practice: an administrator can schedule anywhere; a
-warehouse manager can schedule at the warehouse, mammal, and any branch explicitly granted to
-them. If the operation wants warehouse managers to schedule branch counts as well, that is a
-one-line change (drop the write check; `canCreateAudit` already returns true for the role) — it
-was not done silently here because it would let them lock a branch they can only read.
+The location rule was kept on purpose in this pass — scheduling an audit sets the audit lock for
+that location (`useAuditLock`), so it is a write-level act on that site, not a read — and a
+warehouse manager was left able to schedule only at the warehouse, mammal, and any branch
+explicitly granted to them.
 
-The scheduling dialog also used to list *every* location for a warehouse manager, so choosing
-"All Locations (Branches & Warehouse)" produced one refusal toast per branch while quietly
-creating the central ones. It now lists only locations the signed-in user can write.
+**Superseded the same day.** The operation then asked for precisely that widening — *"let
+warehouse managers schedule audit counts for any location, not just warehouse and mammal"* — so
+the rule is now `canScheduleAuditFor()`, described in "Audit scheduling is not a location write"
+below.
 
 ### The audit trail recorded a role, not a person
 
@@ -872,7 +875,8 @@ this audit" answerable at all.
 - Live checks in the running app: an administrator sees **Schedule Audit** and can create one
   (recorded as `created_by = "System Administrator"`, then deleted, leaving the table at its
   original 34 rows); a branch manager's Audits tab shows no Schedule button at all; a warehouse
-  manager sees the button and the dialog offers only **Mammal** and **Warehouse**.
+  manager sees the button and the dialog offers only **Mammal** and **Warehouse**. (The last
+  clause is superseded below: the dialog now offers every location.)
 
 ### Still open after this pass
 
@@ -885,3 +889,112 @@ this audit" answerable at all.
 - Audits dated beyond the current week only appear under **All Pending**; the default tab is
   "Active & Upcoming". Worth a look if users report a scheduled count "missing" right after they
   create it — it is there, one tab over.
+
+## Audit scheduling is not a location write (2026-10-02)
+
+Asked, in one message, for three things: let warehouse managers **schedule an audit for any
+location**, explain **what scheduling does to that location's inventory** in the UI, and check for
+**schemas that are not applied** before pushing.
+
+### The rule
+
+`canWriteLocation` was the wrong question to ask about a count. Auditing a branch is how the
+warehouse manager's job gets checked, and they are read-only on the branches by design — filtering
+the picker by write access meant a warehouse manager could schedule only two of the five sites.
+The new rule is one function, `canScheduleAuditFor(subject, locationId)`:
+
+```
+canCreateAudit(subject) && canReadLocation(subject, locationId)
+```
+
+It is deliberately asymmetric with every other rule in `permissions.ts`, and the comment there
+says so. Visibility is still required (a stale or unreadable id is refused), and everything
+downstream of the schedule is unchanged: `useAuditLock` still stops the branch writing stock
+during the count, and performing, submitting and applying variances still go through `guardWrite`
+per location. So a warehouse manager schedules the count and the branch manager (or an admin)
+performs and applies it — which is the workflow the lock was designed around.
+
+Three call sites changed to match: `useInventoryData.handleScheduleAudit` (the guard — now
+`canScheduleAuditFor` instead of `guardWrite`), `InventoryDashboard` (`canScheduleAudit` no longer
+requires write access; the picker is filtered by `canReadLocation`), and `AdminDashboard` (same
+filter). The dialog is pre-selected to the location being viewed, and `defaultLocationId` is now
+honoured.
+
+### Saying what the lock does, before it happens
+
+`useAuditLock` held the consequence entirely in code: the first anyone heard of it was a branch
+manager being unable to receive stock. The schedule dialog now carries it as copy
+(`auditLockNotice()`, `auditLockedNotice()` and `auditLockedBadge()` in `utils/auditText.ts`, next
+to the title localisation so the words and the rule stay together): an amber notice naming every
+write it blocks and the two ways out (apply the variances, or delete the audit); a 🔒 tag and a
+red notice on any location an audit is **already** holding; a line stating that the lock starts on
+the scheduled date, so a count booked for next month does not stop today's work; and, for a
+recurring schedule, how many audits will be created and that each one locks on its own date. A
+locked location is flagged, not hidden — a future count there is a normal thing to schedule.
+
+`auditHoldsLocation()` / `auditLocks()` now live in `hooks/useAuditLock.ts` and are the single
+predicate behind both the greyed-out write actions and the dialog's warnings, so the warning
+cannot drift from what the app actually does.
+
+### Two bugs found while wiring the dialog
+
+- **The dialog never reset.** It stays mounted while closed, so reopening it showed the previous
+title, location and recurrence — and the title it kept had already been scheduled. It now resets
+on open and defaults the date to today.
+- **"All Locations" could not actually be scheduled from the combined view.** `InventoryDashboard`
+passed `inventory={isGlobalView ? {} : {...}}`, so every site looked empty and the action ended in
+"Selected locations have no items to audit". The combined view's flat inventory (whose rows carry
+`locationId`) is now grouped into a per-location map, which is what the dialog expects.
+
+### The Arabic left-overs
+
+The previous pass translated the app-generated parts of an audit title and the location names,
+but the audit list still showed both in English because the *data* was English: seven stored
+titles read `Weekly Audits 1 (Week 2) - Jamia`, and `transactions.from_location` holds the
+sentinels `External Supplier` and `Consumed` alongside the real location ids.
+
+- `utils/locations.ts` now translates those two sentinels (and `unknown`) instead of echoing the
+  raw id, which is why an Arabic transaction log read "External Supplier".
+- `phase14_arabic_audit_titles.sql` rewrites the eleven rows (seven distinct titles) that were
+  seeded through the UI in English, matching on the exact stored strings so it is idempotent and
+  cannot catch anything a user types later; the originals are kept in the file as the rollback.
+  Titles are free text, which is why this is a data fix and not a code change — `localizeAuditTitle`
+  can only translate the two parts the app appends, and still can.
+- `phase12_arabic_locations.sql` and `phase13_arabic_user_names.sql` (added in that pass) were read
+  back from the live database and are in force: `locations.name_ar` for all five sites,
+  `app_users.name_ar` for all six accounts, and `branch_name_ar` for the three branch managers.
+
+### Verification
+
+- `npm run typecheck`, `npm run build` (client + service worker), `npm run smoke` — all clean.
+- `permissions-check.html`: **47/47** assertions pass. Nine are new and pin the widened rule,
+  including the one that matters — `canScheduleAuditFor(whMgr, 'b01')` is true while
+  `canWriteLocation(whMgr, 'b01')` is false — plus a refusal when no location is given.
+- Live, as a warehouse manager (the role that could not do this before): the Audits tab shows
+  **Schedule Audit**, and the dialog offers all five locations. An audit was scheduled for
+  **حبونا** (b03) — a branch this user may only read — and the row landed with
+  `location_id = b03`, `status = scheduled`, `created_by = "Main Supervisor"` and an intact Arabic
+  title. It was then deleted, returning `audits` to 34 rows.
+- The Arabic scans now come back with one Latin string on those screens: the `EN` language toggle.
+  The audit list reads `جرد أسبوعي 1 (الأسبوع 2) - الجامعة` with `📍 الجامعة`, and the dialog shows
+  the lock notice, the 🔒 tags and `جميع المواقع (5 مواقع)`.
+
+### Schema check
+
+`npm run migrations` still reports every table, column, function and data fingerprint as APPLIED,
+and `node scripts/catalog-doctor.mjs` is a no-op (0 field updates, 0 merges, 3 known catalogue
+gaps). Two migrations the doctor does not cover were probed directly, both applied:
+`apply_audit_variances` answers `Audit not found` for an unknown id (the `20260926` fix, not the
+old body) and `execute_oms_dispatch` refuses a missing item with `STOCK_SHORTAGE:` (the `20260927`
+two-pass rewrite, not the old check-constraint crash). `audits.recurrence` exists, so
+`add_recurrence.sql` is in force too.
+
+**One thing is not applied, and it cannot be applied from here.** The RLS half of
+`phase5_rls_migration.sql` is still not in force — a `PATCH` to `inventory_items` with nothing but
+the anon key returns 204 — exactly as "The anon key is open for writing" describes. This is DDL,
+so it needs the Supabase SQL editor or a service-role key; the project's `.env` ships only the
+anon key. It is worth doing, and it is now safe to do: grepping the app shows `inventory_items`
+and `transactions` are never written directly, only read, with every mutation going through a
+`SECURITY DEFINER` RPC — which is the precondition that migration assumed. It is left unapplied
+rather than done silently because it is a production permission change, and it belongs with the
+Supabase Auth work that makes the boundary real.

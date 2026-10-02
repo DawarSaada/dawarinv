@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CatalogItem, Language, Supplier } from '../../types';
 import { TRANSLATIONS } from '../../constants';
 import { formatUnit } from '../../utils/units';
+import { formatCategory, categoryMatches } from '../../utils/categories';
 import { Plus, Edit2, Trash2, Search, X, Check } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useCurrency } from '../AppSettingsProvider';
@@ -27,7 +28,12 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
 
     const filteredCatalog = catalog.filter(c => {
         const query = search.toLowerCase();
-        return c.nameEn.toLowerCase().includes(query) || c.nameAr.includes(query) || (c.barcode && c.barcode.toLowerCase().includes(query));
+        return (
+            c.nameEn.toLowerCase().includes(query) ||
+            c.nameAr.includes(query) ||
+            categoryMatches(c.category, search) ||
+            (c.barcode && c.barcode.toLowerCase().includes(query))
+        );
     });
 
     const handleOpenModal = (item?: CatalogItem) => {
@@ -164,7 +170,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                             <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                 <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{item.nameEn}</td>
                                 <td className="py-3 px-4 font-medium text-gray-900 dark:text-white font-arabic">{item.nameAr}</td>
-                                <td className="py-3 px-4 text-sm text-gray-500">{item.category}</td>
+                                <td className="py-3 px-4 text-sm text-gray-500">{formatCategory(item.category, language)}</td>
                                 <td className="py-3 px-4 text-sm text-gray-500">{formatUnit(item.unit, language)}</td>
                                 <td className="py-3 px-4">
                                     <div className="flex items-center justify-center gap-2">
@@ -208,7 +214,7 @@ const ProductCatalogManagement: React.FC<ProductCatalogManagementProps> = ({ cat
                         <div className="flex gap-4 border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
                             <div>
                                 <div className="text-xs text-gray-500">{t.category}</div>
-                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.category}</div>
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{formatCategory(item.category, language)}</div>
                             </div>
                             <div>
                                 <div className="text-xs text-gray-500">{t.unit}</div>

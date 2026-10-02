@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, LocationData, Language, LocationId, User } from '../../types';
 import { formatUnit } from '../../utils/units';
+import { formatCategory, categoryMatches } from '../../utils/categories';
 import { canWriteLocation, subjectFrom } from '../../services/permissions';
 import {
   Badge,
@@ -98,7 +99,7 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
         !term ||
         (item.nameEn || '').toLowerCase().includes(term) ||
         (item.nameAr || '').toLowerCase().includes(term) ||
-        (item.category || '').toLowerCase().includes(term) ||
+        categoryMatches(item.category, term) ||
         (item.barcode || '').toLowerCase().includes(term);
       const matchesCategory = category === 'all' || item.category === category;
       const isLow = item.quantity <= item.minThreshold;
@@ -138,7 +139,7 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
             {isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr}
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
-            <span className="sm:hidden">{item.category}</span>
+            <span className="sm:hidden">{formatCategory(item.category, language)}</span>
             {item.barcode && (
               <span className="hidden font-mono sm:inline">{item.barcode}</span>
             )}
@@ -151,7 +152,11 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
       header: t.category,
       sortable: true,
       hideBelow: 'sm',
-      cell: (item) => <span className="text-gray-500 dark:text-gray-400">{item.category}</span>
+      cell: (item) => (
+        <span className="text-gray-500 dark:text-gray-400">
+          {formatCategory(item.category, language)}
+        </span>
+      )
     },
     {
       key: 'quantity',
@@ -326,7 +331,7 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                     <option value="all">{isAr ? 'كل الفئات' : 'All categories'}</option>
                     {categories.map((name) => (
                       <option key={name} value={name}>
-                        {name}
+                        {formatCategory(name, language)}
                       </option>
                     ))}
                   </select>
@@ -365,7 +370,7 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
                       {isAr ? item.nameAr : item.nameEn}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {item.category}
+                      {formatCategory(item.category, language)}
                     </p>
                   </div>
                   <div className="text-right">
