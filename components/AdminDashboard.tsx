@@ -765,6 +765,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
                         onDeleteAudit={onDeleteAudit}
                         canCreate={mayScheduleAudit}
+                        // An administrator writes every location, so this only ever
+                        // hides the button from a warehouse manager looking at a branch.
+                        canPerformAudit={(audit) => canWriteLocation(auditSubject, audit.locationId)}
                     />
                 )}
                   </React.Suspense>

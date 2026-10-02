@@ -3,6 +3,8 @@ import { supabase } from '../services/supabase';
 import { InventoryItem, Transaction, TransactionType, LocationId, Language, Supplier, PurchaseOrder, PurchaseOrderItem, Audit, AuditItem } from '../types';
 import { generateId } from '../constants';
 import { logger } from '../utils/logger';
+import { databaseErrorMessage } from '../utils/dbErrors';
+import { alignAuditSheetWithStock } from '../services/auditSheetSync';
 
 interface MutationProps {
   language: Language;
@@ -36,7 +38,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error("Error adding item:", error);
-      addToast('error', language === 'ar' ? 'فشل إضافة العنصر' : `Failed to add item: ${error.message || 'Unknown error'}`);
+      addToast('error', (language === 'ar' ? 'فشل إضافة الصنف: ' : 'Failed to add item: ') + databaseErrorMessage(error, language));
     }
   });
 
@@ -62,7 +64,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error("Error editing item:", error);
-      addToast('error', language === 'ar' ? 'فشل تعديل العنصر' : `Failed to update item: ${error.message || 'Unknown error'}`);
+      addToast('error', (language === 'ar' ? 'فشل تعديل الصنف: ' : 'Failed to update item: ') + databaseErrorMessage(error, language));
     }
   });
 
@@ -105,7 +107,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error("Error in bulk edit:", error);
-      addToast('error', language === 'ar' ? `فشل التعديل الجماعي: ${error.message}` : `Bulk update failed: ${error.message}`);
+      addToast('error', (language === 'ar' ? 'فشل التعديل الجماعي: ' : 'Bulk update failed: ') + databaseErrorMessage(error, language));
     }
   });
 
@@ -178,7 +180,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error("Receive transfer failed", error);
-      addToast('error', language === 'ar' ? 'حدث خطأ أثناء استلام المخزون' : 'An error occurred while receiving inventory');
+      addToast('error', (language === 'ar' ? 'تعذّر استلام المخزون: ' : 'Could not receive the stock: ') + databaseErrorMessage(error, language));
     }
   });
 
@@ -290,7 +292,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error("Receive transfer group failed", error);
-      addToast('error', language === 'ar' ? 'فشل استلام التحويل' : `Failed to receive transfer: ${error.message}`);
+      addToast('error', (language === 'ar' ? 'فشل استلام التحويل: ' : 'Failed to receive transfer: ') + databaseErrorMessage(error, language));
     }
   });
 
@@ -638,7 +640,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
     },
     onError: (error: any) => {
       console.error('Receive purchase order failed', error);
-      addToast('error', error?.message || (language === 'ar' ? 'فشل استلام أمر الشراء' : 'Failed to receive the purchase order'));
+      addToast('error', (language === 'ar' ? 'فشل استلام أمر الشراء: ' : 'Failed to receive the purchase order: ') + databaseErrorMessage(error, language));
     }
   });
 
@@ -711,7 +713,7 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       addToast('success', language === 'ar' ? 'تم حفظ العد' : 'Audit counts saved');
     },
     onError: (error: any) => {
-      addToast('error', error.message);
+      addToast('error', databaseErrorMessage(error, language));
     }
   });
 
@@ -728,26 +730,38 @@ export const useInventoryMutations = ({ language, addToast }: MutationProps) => 
       addToast('success', language === 'ar' ? 'تم إرسال الجرد للمراجعة' : 'Audit submitted for review');
     },
     onError: (error: any) => {
-      addToast('error', error.message);
+      addToast('error', databaseErrorMessage(error, language));
     }
   });
 
   const applyAuditMutation = useMutation({
     mutationFn: async ({ auditId, performedBy }: { auditId: string, performedBy: string }) => {
+      // The RPC posts each variance by product name, so first bring the sheet back in
+      // step with the stock rows it points at. Without this a rename since the count
+      // was taken makes the RPC insert a row that already exists, and the unique index
+      // aborts the whole apply. See services/auditSheetSync.ts.
+      const alignment = await alignAuditSheetWithStock(auditId);
+
       const { error } = await supabase.rpc('apply_audit_variances', {
         p_audit_id: auditId,
         p_performed_by: performedBy
       });
       if (error) throw error;
+      return alignment;
     },
-    onSuccess: () => {
+    onSuccess: (alignment) => {
       queryClient.invalidateQueries({ queryKey: ['audits'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       addToast('success', language === 'ar' ? 'تم تطبيق التسويات بنجاح' : 'Variances applied successfully');
+      if (alignment?.aligned) {
+        addToast('info', language === 'ar'
+          ? `تمت مزامنة ${alignment.aligned} صنف مع المخزون قبل التطبيق`
+          : `${alignment.aligned} item(s) were re-matched with stock before applying`);
+      }
     },
     onError: (error: any) => {
-      addToast('error', error.message);
+      addToast('error', databaseErrorMessage(error, language));
     }
   });
 

@@ -998,3 +998,166 @@ and `transactions` are never written directly, only read, with every mutation go
 `SECURITY DEFINER` RPC — which is the precondition that migration assumed. It is left unapplied
 rather than done silently because it is a production permission change, and it belongs with the
 Supabase Auth work that makes the boundary real.
+
+## Applying an audit failed on a duplicate product name (2026-10-02)
+
+**Symptom.** Applying a completed count died with vendor text on the screen and nothing posted:
+
+```
+duplicate key value violates unique constraint "inventory_items_location_name_en_ci"
+```
+
+**Cause.** `apply_audit_variances` looked its stock row up by **exact** `name_en`/`name_ar` and
+INSERTed a new one whenever that missed — but `phase8_product_integrity.sql` had since made a
+product name unique per location *case- and whitespace-insensitively*. The live audit
+`جرد أسبوعي 1 (الأسبوع 2) - الجوافة` (b01, `pending_review`) carried a line snapshotted as
+`Astra Halloumi Cheese 8kg` against stock `Astra Halloumi Cheese 8KG`, so the RPC missed the row it
+clearly meant and tried to create a second one. The whole apply is a single transaction, so the
+audit stayed in `pending_review`, no variance was posted, and no ledger row was written.
+
+**Why it was reachable at all.** The count sheet is a snapshot taken when the audit is created; any
+tidying-up of stock names afterwards (merging duplicates, fixing case) leaves it one keystroke out
+of phase. A sweep of all 3,372 lines in the 22 non-completed audits found exactly one such line,
+which is also the one that failed: the same trap exists in `receive_purchase_order` and
+`receive_transfer_group` (both still find-or-create by exact name) and neither has a live collision
+today.
+
+**What was changed.**
+
+1. **The data (applied live).** Two count-sheet lines whose snapshot differed from the row they
+   point at only by case were re-spelled to match it. This is a correction of a copy, not of a
+   count: both rows already carried the `item_id` of the stock row, so what was counted is
+   unchanged. It is what makes the pending b01 audit appliable today.
+2. **`services/auditSheetSync.ts`** — before the RPC runs, the apply re-matches each variance line
+   to its stock row by `audit_items.item_id` and rewrites the snapshot when the two names differ
+   only by case/whitespace, so a re-migrated database heals itself. It never blocks the apply, and
+   it reports how many lines it re-matched.
+3. **`utils/dbErrors.ts`** — a unique-violation on those indexes now reads, in the user's language,
+   "that product is already on this location's shelf … update the existing product", instead of a
+   constraint name. Wired into add/edit/bulk-edit item, receive PO, receive transfer, and audit
+   save/submit/apply. Anything unrecognised still falls through to the original message rather than
+   being hidden behind a friendly sentence.
+4. **`phase15_item_name_matching.sql`** (needs the SQL editor — see below) — adds
+   `resolve_inventory_item_id(location, name_en, name_ar, item_id?)`, which resolves **by id first**
+   (immune to a rename between count and apply), then by name the way the index compares it, and
+   rewrites `apply_audit_variances` and `receive_purchase_order` to use it, deferring to a row that
+   appears concurrently instead of raising. Everything else in both functions is verbatim.
+
+**Verified by execution, not by reading.** `phase15` was run against a throwaway PostgreSQL 15
+cluster carrying the real ci-unique indexes, alongside the *old* function under a second name:
+
+| Case | Old function | New function |
+| --- | --- | --- |
+| The live b01 audit (`8kg` vs `8KG`) | `duplicate key … location_name_en_ci`; audit still `pending_review`, 0 ledger rows, stock untouched | audit `completed`, stock set to the counted 37.136, 1 ledger row, **still 1 row at b01** |
+| Line whose `item_id` no longer exists | — | row created (`Flour Mix`, qty 5) |
+| No `item_id`, name differs in case | — | existing row updated, no second row |
+| PO line `astra halloumi cheese 8kg`, qty 4 | — | existing row 30 → **34** (never 38), new line exactly 7 |
+| Genuine duplicate name | — | still refused by the index |
+
+The client-side paths were checked live as well: `npm run typecheck`, `npm run build` and
+`npm run smoke` are clean, and `permissions-check.html` is still **47/47**.
+
+**To do:** run `phase15_item_name_matching.sql` in the SQL editor. Like the RLS half of
+`phase5_rls_migration.sql`, it is DDL and the project ships only the anon key, so it cannot be
+applied from the codebase. `receive_transfer_group` is deliberately left alone: it has the same
+exact-name-then-create shape, but its installed version cannot be told apart from the older copy in
+`combined_migrations.sql` without the SQL editor, and rewriting the wrong one would be worse than
+leaving a trap that has no live collision.
+
+## The audit lock, walked end to end (2026-10-02)
+
+A full cycle was run against a real branch, one role per step, on a test audit created and deleted
+for the purpose (`audits` and `audit_items` were returned to 34 and 5,192 rows; stock and the
+ledger were untouched — 0 variances by construction).
+
+| Step | Role | Result |
+| --- | --- | --- |
+| Schedule a count for a branch it may only read | warehouse manager | Allowed (`canScheduleAuditFor`). Audit created at b03 for today, `created_by: "Main Supervisor"`, 188 snapshot lines. |
+| See the lock | branch manager (b03) | Badge `مقفل بسبب جرد` and banner `المخزون مقفل … اختبار قفل الجرد — حبونا`; barcode scan, "add item" and the per-item edit controls are gone. |
+| Count (the audit itself) | branch manager | **Not blocked.** All 376 sheet inputs enabled; a draft save landed (`expected 3, counted 3, variance 0`) — the lock is `guardWrite`'s job, not the count's. |
+| Submit | branch manager | Allowed; status → `pending_review`. |
+| Review and apply | admin | `Apply Adjustments` offered and enabled; status → `completed`, `completed_date` stamped. |
+
+### The lock blocked a step the workflow needed (fixed)
+
+Starting a count is refused while the location has unresolved transfers (`onOpenPerformModal`
+tells the user to receive, refuse or confirm them first) — and the lock was also disabling exactly
+those actions: the transfer-detail callbacks were passed as `undefined` when `isInventoryLocked`,
+and the notifications panel's Receive/Confirm were never lock-gated. A location that was due for a
+count *and* had an in-flight transfer could therefore neither clear the transfer nor begin the
+count. Only an admin could break it, because `useAuditLock` exempts them.
+
+Reproduced live: with b03 locked, the detail modal opened with **`قبول الكل` and `رفض الكل`
+enabled**, the incoming transfer from المستودع listed as `في انتظار مراجعتك`, and the count sheet
+still refusing to be started. Clearing an in-flight transfer is not a new movement, so the three
+callbacks are no longer lock-gated (they are still `guardWrite`-checked per location, and the lock
+still stops *new* transfers, item writes, usages and imports). The lock notice in the schedule
+dialog now says so.
+
+### Read-only viewers were clicking a button that threw (fixed)
+
+`TransferDetailModal` declared its action handlers as required and called them directly, so a
+viewer with read-only access to the location got visible buttons whose `onClick` died with
+`onAcceptGroup is not a function`. The handlers are optional now and the footer renders
+`readOnlyMessage(language)` instead of a dead control.
+
+### A warehouse manager was offered a count it could never save (fixed)
+
+Scheduling for a branch is allowed, but counting it is a write to that location, so
+`handleSaveAuditCounts` refused — after the user had filled in a full sheet. `AuditManagement` now
+takes `canPerformAudit` and shows `ينفّذ هذا الجرد فريق الموقع نفسه` in place of the Perform button
+for a location the user cannot write. Verified live: the warehouse manager sees the Arabic note and
+no button; the branch manager sees the button and no note.
+
+### Open: the lock lifts when the count is *submitted*, not when it is applied
+
+`auditHoldsLocation` holds a location for `in_progress` or a `scheduled` audit that is due — not
+for `pending_review`. Verified live: immediately after submitting, the badge and banner cleared and
+barcode scanning and "add item" came back, while the audit was still awaiting review. Two
+consequences, both in the code as it stands:
+
+- The schedule dialog's promise ("until the audit is completed and its variances are applied") is
+  stronger than the implementation.
+- `apply_audit_variances` posts `quantity = counted_quantity` — an **absolute** write — so anything
+  received, used or edited between submit and apply is silently overwritten when the variances
+  finally land.
+
+The fix is to include `pending_review` in `auditHoldsLocation`, which makes the copy true and keeps
+the shelf frozen until it is reconciled. It is **not** applied here on purpose: 22 audits are
+non-completed and several are already due, so shipping it would freeze branches the moment it
+deploys, and a count left waiting for review by an absent admin would hold its branch until someone
+acts. That is an operational decision, not a bug fix.
+
+### Also worth knowing
+
+- **`admin` bypasses the lock entirely**, so the freeze does not apply to the one role that applies
+  the variances — an admin can edit stock while a count of the same shelf is open.
+- `handleApplyAudit` only requires write access to the location, while the button is admin-only in
+  `ReviewAuditModal`. The two rules disagree; today the narrower one wins because it is the only
+  reachable path.
+- **Deleting an audit is admin-only**, so the warehouse manager who schedules a mistaken count for a
+  branch cannot unlock that branch — they have to find an administrator.
+- `in_progress` is never written by the app: the lifecycle in practice is `scheduled` →
+  `pending_review` → `completed`, and the lock is driven entirely by `scheduled` + due date.
+- The lock is UI-only. The RPCs themselves accept writes while an audit is open; a client that
+  bypasses the dashboard also bypasses the freeze.
+
+## Item names and quantities on a narrow screen (2026-10-02)
+
+**Symptom.** On a phone-width panel the product name in the inventory list read as cropped, broken
+mid-phrase, and hard against the card's edge, with the quantity floating at the far side.
+
+**Cause.** `AdminInventoryView`'s phone card laid the name and the figure out with
+`flex items-start justify-between` and nothing more. A flex item defaults to `min-width: auto`, so
+the name refused to shrink below its content width: it was handed a 215px column inside a 491px row
+and wrapped after "…الفرن 10", orphaning "كيلو" on the next line, while the row had no horizontal
+padding of its own, so the text sat flush against the container edge.
+
+**Fix.** The name takes the room the quantity is not using (`min-w-0 flex-1`, `break-words`,
+`leading-6`) and the figure can never be squeezed or wrapped away (`shrink-0 whitespace-nowrap`,
+tabular digits); the card carries `px-3`. The desktop table keeps its ellipsis — a dense table needs
+one — but the name cell now sets `title`, so a clipped name is readable on hover instead of being
+gone for good.
+
+**Verified** at 280px (wraps inside the full row width), 560px (one line, 443px of a 491px row, no
+clipping, no row overflow) and 1360px (39 rows, 0 truncated names).

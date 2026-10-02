@@ -8,6 +8,7 @@ import {
   Download, Camera, Pen, Trash2, Plus, Minus, ChevronDown, ChevronUp,
   Clock, Truck, MapPin, User, FileText, Image as ImageIcon
 } from 'lucide-react';
+import { readOnlyMessage } from '../services/permissions';
 
 interface TransferItemState {
   transactionId: string;
@@ -30,9 +31,15 @@ interface TransferDetailModalProps {
   language: Language;
   availableLocations: LocationData[];
   settings: TransferSettings;
-  onAcceptGroup: (groupId: string, items: TransferItemState[], signatureDataUrl?: string) => void;
-  onRejectGroup: (groupId: string, reason: string) => void;
-  onConfirmGroup: (groupId: string) => void;
+  /**
+   * Action handlers are absent for a viewer with read-only access to the location.
+   * They used to be called regardless, so the buttons stayed visible and a click
+   * died with "onAcceptGroup is not a function" instead of saying why — see the
+   * footer, which now renders the reason instead of a dead control.
+   */
+  onAcceptGroup?: (groupId: string, items: TransferItemState[], signatureDataUrl?: string) => void;
+  onRejectGroup?: (groupId: string, reason: string) => void;
+  onConfirmGroup?: (groupId: string) => void;
   onDownload: (groupId: string, type: 'incoming' | 'outgoing') => void;
   getUserName?: (name: string) => string;
 }
@@ -53,6 +60,8 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
   getUserName
 }) => {
   const t = TRANSLATIONS[language];
+  const canReceive = !!onAcceptGroup && !!onRejectGroup;
+  const canConfirm = !!onConfirmGroup;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -219,7 +228,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
       const sigUrl = settings.enableSignatureCapture && hasSignature 
         ? canvasRef.current?.toDataURL('image/png') 
         : undefined;
-      await onAcceptGroup(transferGroupId, allReceived, sigUrl);
+      await onAcceptGroup?.(transferGroupId, allReceived, sigUrl);
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -233,7 +242,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
       const sigUrl = settings.enableSignatureCapture && hasSignature
         ? canvasRef.current?.toDataURL('image/png')
         : undefined;
-      await onAcceptGroup(transferGroupId, itemStates, sigUrl);
+      await onAcceptGroup?.(transferGroupId, itemStates, sigUrl);
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -248,7 +257,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
     if (!rejectionReason.trim()) return;
     setIsSubmitting(true);
     try {
-      await onRejectGroup(transferGroupId, rejectionReason);
+      await onRejectGroup?.(transferGroupId, rejectionReason);
       setShowRejectModal(false);
       onClose();
     } finally {
@@ -259,7 +268,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
   const handleConfirmOutbound = async () => {
     setIsSubmitting(true);
     try {
-      await onConfirmGroup(transferGroupId);
+      await onConfirmGroup?.(transferGroupId);
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -498,7 +507,7 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
         </div>
 
         {/* Signature Pad (for incoming only) */}
-        {transferType === 'incoming' && settings.enableSignatureCapture && (
+        {transferType === 'incoming' && canReceive && settings.enableSignatureCapture && (
           <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-gray-500 flex items-center gap-1"><Pen className="w-3 h-3" /> {t.signatureCapture}</p>
@@ -525,7 +534,13 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
 
         {/* Footer Actions */}
         <div className="p-4 sm:p-5 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-800">
-          {transferType === 'incoming' && (
+          {transferType === 'incoming' && !canReceive && (
+            <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+              {readOnlyMessage(language)}
+            </p>
+          )}
+
+          {transferType === 'incoming' && canReceive && (
             <div className="space-y-2">
               {/* Adjustment indicator */}
               {hasAdjustments && (
@@ -564,7 +579,13 @@ const TransferDetailModal: React.FC<TransferDetailModalProps> = ({
             </div>
           )}
 
-          {transferType === 'approval' && (
+          {transferType === 'approval' && !canConfirm && (
+            <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+              {readOnlyMessage(language)}
+            </p>
+          )}
+
+          {transferType === 'approval' && canConfirm && (
             <div className="flex gap-3">
               <button 
                 onClick={onClose} 

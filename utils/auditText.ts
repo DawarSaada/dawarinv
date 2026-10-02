@@ -76,15 +76,21 @@ export const auditStatusLabel = (status: string, language: Language): string => 
  *
  * The consequence is not obvious from the button, and it is not reversible from
  * the schedule screen: a scheduled audit for today (or an in-progress one) makes
- * `useAuditLock` refuse every write to that location — receives, usages, item
- * edits, bulk edits and transfers — until the audit is completed and its
+ * `useAuditLock` refuse every write to that location — usages, item edits, bulk
+ * edits, imports and *new* transfers — until the audit is completed and its
  * variances applied, or until the audit is deleted. The copy mirrors that rule,
  * so keep the two together when either changes.
+ *
+ * The last sentence is not a nicety: starting a count is refused while the
+ * location has unresolved transfers, so if the lock also froze the buttons that
+ * clear them, a location could neither finish its transfers nor begin its count.
+ * An in-flight transfer is therefore still receivable or refusable — see the
+ * callbacks in InventoryDashboard and useAuditLock's header.
  */
 export const auditLockNotice = (language: Language): string =>
   language === 'ar'
-    ? 'جدولة الجرد تقفل مخزون الموقع المستهدف: لن يُقبل أي استلام أو استهلاك أو تعديل للأصناف أو نقل في ذلك الموقع حتى يُكتمل الجرد وتُعتمد فروقاته، أو يُحذف الجرد.'
-    : "Scheduling an audit locks the selected location's inventory: receives, usages, item edits and transfers are all refused there until the audit is completed and its variances are applied — or the audit is deleted.";
+    ? 'جدولة الجرد تقفل مخزون الموقع المستهدف: لن يُقبل أي استهلاك أو تعديل للأصناف أو استيراد أو طلب نقل جديد في ذلك الموقع حتى يُكتمل الجرد وتُعتمد فروقاته، أو يُحذف الجرد. النقل الجاري بالفعل يمكن استلامه أو رفضه حتى يبدأ الجرد.'
+    : "Scheduling an audit locks the selected location's inventory: usages, item edits, imports and new transfer requests are refused there until the audit is completed and its variances are applied — or the audit is deleted. Transfers already in flight can still be received or refused so the count can begin.";
 
 /** Shown next to a location that an existing audit is holding right now. */
 export const auditLockedNotice = (language: Language, title: string): string =>

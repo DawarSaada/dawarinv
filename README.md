@@ -298,10 +298,22 @@ On top of that:
   review the results, but they do not decide that a count happens.
 - **Scheduling an audit locks the location it covers.** While an audit is
   `in_progress`, or `scheduled` for today or earlier, `useAuditLock` refuses every
-  write to that location — receives, usages, item edits, bulk edits and transfers —
-  and the schedule dialog says so before the button is pressed (`auditLockNotice()`),
-  flagging any location an audit is already holding. The lock lifts when the audit is
-  completed and its variances applied, or when the audit is deleted.
+  write to that location — usages, item edits, bulk edits, imports and *new*
+  transfers — and the schedule dialog says so before the button is pressed
+  (`auditLockNotice()`), flagging any location an audit is already holding. A transfer
+  already in flight can still be received or refused: starting a count is itself
+  refused while transfers are pending, so freezing them would have left a locked
+  location unable to do either. The lock lifts when the count is *submitted* (or the
+  audit is deleted) — earlier than the dialog's wording implies, which is recorded in
+  [PRODUCTION_AUDIT.md](./PRODUCTION_AUDIT.md) rather than changed silently.
+- **Find-or-create resolves a stock row the way the unique index does.**
+  `apply_audit_variances` and `receive_purchase_order` match on the row's id first and
+  then on a case- and whitespace-insensitive name, because a count sheet is a snapshot
+  and stock names get tidied up afterwards; an exact-text match would try to INSERT a
+  product that already exists and the ci-unique index would abort the whole operation.
+  `services/auditSheetSync.ts` re-aligns a sheet before the apply runs, and
+  `phase15_item_name_matching.sql` fixes the database side (it needs the Supabase SQL
+  editor — see the migration notes in PRODUCTION_AUDIT.md).
 - **Branches may delete items on their own branch** (`canDeleteItem()`), which is how
   a branch stops carrying something.
 - Every inventory row must reference a `product_catalog` product. Coverage is

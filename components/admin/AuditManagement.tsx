@@ -19,6 +19,17 @@ interface AuditManagementProps {
    * `useInventoryData.handleScheduleAudit`; this only keeps the UI honest.
    */
   canCreate: boolean;
+  /**
+   * Whether this user may actually run the count for an audit.
+   *
+   * A warehouse manager may schedule a count at any location they can see, but the
+   * counting itself is a write to that location and is guarded per location
+   * (`guardWrite` in useInventoryData), so for them the buttons used to open a full
+   * sheet that refused to save. Optional: omit it and every audit is offered, which
+   * is what a caller that has not been given a subject yet should do rather than
+   * hide work.
+   */
+  canPerformAudit?: (audit: Audit) => boolean;
   language: Language;
   onOpenScheduleModal: () => void;
   onOpenPerformModal: (audit: Audit) => void;
@@ -27,7 +38,7 @@ interface AuditManagementProps {
 }
 
 const AuditManagement: React.FC<AuditManagementProps> = ({
-  audits, locations, userRole, canCreate, language, onOpenScheduleModal, onOpenPerformModal, onOpenReviewModal, onDeleteAudit
+  audits, locations, userRole, canCreate, canPerformAudit, language, onOpenScheduleModal, onOpenPerformModal, onOpenReviewModal, onDeleteAudit
 }) => {
   const t = TRANSLATIONS[language];
   type TabType = 'active' | 'completed' | 'pending';
@@ -211,7 +222,15 @@ const AuditManagement: React.FC<AuditManagementProps> = ({
             </div>
             
             <div className="bg-gray-50 dark:bg-gray-900/50 px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-end items-center gap-3">
-              {(audit.status === 'scheduled' || audit.status === 'in_progress') && (
+              {(audit.status === 'scheduled' || audit.status === 'in_progress') && canPerformAudit && !canPerformAudit(audit) && (
+                <p className="w-full text-center text-sm text-gray-500 dark:text-gray-400">
+                  {language === 'ar'
+                    ? 'ينفّذ هذا الجرد فريق الموقع نفسه.'
+                    : "This count is run by the location's own team."}
+                </p>
+              )}
+
+              {(audit.status === 'scheduled' || audit.status === 'in_progress') && (!canPerformAudit || canPerformAudit(audit)) && (
                 <button 
                   onClick={() => onOpenPerformModal(audit)}
                   disabled={isFuture}

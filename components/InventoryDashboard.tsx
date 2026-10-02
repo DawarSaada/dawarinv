@@ -1203,6 +1203,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
               }}
               onOpenReviewModal={(audit) => { setSelectedAudit(audit); setIsReviewAuditModalOpen(true); }}
               canCreate={canScheduleAudit}
+              canPerformAudit={(audit) => canWriteLocation(accessSubject, audit.locationId)}
             />
           )}
 
@@ -1402,21 +1403,31 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
         language={language}
         availableLocations={availableLocations}
         settings={transferSettings}
-        onAcceptGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId, items, sigUrl) => {
+        /*
+         * Clearing an in-flight transfer is not a new movement, and the audit flow
+         * depends on it: `onOpenPerformModal` refuses to start a count while the
+         * location has pending transfers, so holding the lock over these three left a
+         * location unable to either finish its transfers or begin its count. The lock
+         * still stops *new* transfers, item writes, usages and imports, and each of
+         * these callbacks is still permission-checked by `guardWrite` against the
+         * location the stock moves in. The notifications panel already offered
+         * Receive/Confirm unconditionally, so this also makes the two agree.
+         */
+        onAcceptGroup={isReadOnly ? undefined : ((groupId, items, sigUrl) => {
           if (onReceiveTransferGroup) {
             const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === groupId);
             const targetLoc = group?.[1]?.[0]?.toLocation || locationId;
             onReceiveTransferGroup(groupId, items, sigUrl, targetLoc);
           }
         })}
-        onRejectGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId, reason) => {
+        onRejectGroup={isReadOnly ? undefined : ((groupId, reason) => {
           if (onRejectTransferGroup) {
             const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === groupId);
             const targetLoc = group?.[1]?.[0]?.toLocation || locationId;
             onRejectTransferGroup(groupId, reason, targetLoc);
           }
         })}
-        onConfirmGroup={(isReadOnly || isInventoryLocked) ? undefined : ((groupId) => {
+        onConfirmGroup={isReadOnly ? undefined : ((groupId) => {
           if (onConfirmTransferGroup) {
             const group = [...groupedIncoming, ...groupedApprovals, ...groupedOutgoing].find(g => g[0] === groupId);
             const fromLoc = group?.[1]?.[0]?.fromLocation || locationId;

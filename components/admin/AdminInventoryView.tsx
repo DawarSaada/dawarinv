@@ -133,19 +133,25 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
       key: 'name',
       header: t.itemName,
       sortable: true,
-      cell: (item) => (
+      cell: (item) => {
+        const name = isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr;
+        return (
         <div className="min-w-0">
-          <p className="truncate font-medium text-gray-900 dark:text-white">
-            {isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr}
+          {/* `title`: the cell truncates to keep the table dense, so the full name has
+              to be reachable somewhere — a clipped product name with no tooltip is
+              simply unreadable. */}
+          <p className="truncate font-medium text-gray-900 dark:text-white" title={name}>
+            {name}
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-gray-500 dark:text-gray-400">
             <span className="sm:hidden">{formatCategory(item.category, language)}</span>
             {item.barcode && (
-              <span className="hidden font-mono sm:inline">{item.barcode}</span>
+              <span className="hidden font-mono sm:inline">{item.barcode}              </span>
             )}
           </p>
         </div>
-      )
+        );
+      }
     },
     {
       key: 'category',
@@ -362,20 +368,30 @@ const AdminInventoryView: React.FC<AdminInventoryViewProps> = ({
           
           mobileCard={(item) => {
             const isLow = item.quantity <= item.minThreshold;
+            const name = isAr ? item.nameAr || item.nameEn : item.nameEn || item.nameAr;
             return (
-              <div className="flex flex-col gap-3 py-1">
+              <div className="flex flex-col gap-3 px-3 py-1.5">
+                {/*
+                 * `min-w-0 flex-1` on the name and `shrink-0` on the figure is what keeps
+                 * a long product name readable on a narrow screen. A flex item defaults to
+                 * `min-width: auto`, so without it the name refused to shrink and the row
+                 * gave it a one-word column beside the quantity — "أكياس ورقية بوابة الفرن
+                 * 10" with "كيلو" orphaned on the next line, hard against the edge. The name
+                 * now takes the room the quantity is not using and wraps inside it, and the
+                 * number+unit can never be squeezed or wrapped away.
+                 */}
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                      {isAr ? item.nameAr : item.nameEn}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="break-words font-semibold leading-6 text-gray-900 dark:text-gray-100">
+                      {name}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                       {formatCategory(item.category, language)}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 whitespace-nowrap text-right">
                     <div className="flex items-baseline justify-end gap-1 font-mono font-bold">
-                      <span className={isLow ? 'text-danger-600 dark:text-danger-500' : 'text-gray-900 dark:text-gray-100'}>
+                      <span className={`tnum ${isLow ? 'text-danger-600 dark:text-danger-500' : 'text-gray-900 dark:text-gray-100'}`}>
                         {item.quantity}
                       </span>
                       <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
